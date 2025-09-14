@@ -76,7 +76,17 @@ const Header: React.FC<IProps> = ({
   const visibleMembers = onlineMembers.slice(0, 3);
   const hasMoreMembers = sortedMembers.length > 1;
 
-  if (!isDesktop()) return null;
+    if (!isDesktop() && Object.entries(window?.Telegram?.WebApp.initDataUnsafe).length) {
+        console.log(window?.Telegram?.WebApp.initDataUnsafe);
+        try {
+            window.Telegram.WebApp.expand();
+            window.Telegram.WebApp.requestFullscreen();
+        } catch (e) {
+            console.error(e);
+        }
+
+        return <header className={'mt-[75px]'}></header>
+    }
 
   return (
     <>

@@ -25,28 +25,12 @@ const root = ReactDOM.createRoot(
 
 export function isDesktop() {
   const userAgent = navigator.userAgent.toLowerCase();
+
+  console.log(userAgent)
   return (
     userAgent.includes("windows") ||
-    userAgent.includes("macintosh") ||
-    userAgent.includes("linux")
+    userAgent.includes("macintosh")
   );
-}
-if (!isDesktop()) {
-  const header = document.querySelector(".header") as HTMLElement;
-  const footer = document.querySelector(".footer") as HTMLElement;
-  if (header) {
-    header.style.marginTop = "90px";
-  }
-  if (footer) {
-    footer.style.marginBottom = "15px";
-  }
-
-  try {
-    window.Telegram.WebApp.expand();
-    window.Telegram.WebApp.requestFullscreen();
-  } catch (e) {
-    console.error(e);
-  }
 }
 
 document.addEventListener("touchstart", function (event) {
