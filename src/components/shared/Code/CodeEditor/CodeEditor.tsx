@@ -481,11 +481,14 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 if (trimmedBefore.endsWith("{")) {
                   newIndent = currentIndent + "  ";
                   insertClosingBrace = true;
+                } else if (trimmedBefore.endsWith(":") && afterCursor.trim().length === 0) {
+                  // Для Python и других языков: после : добавляем отступ
+                  newIndent = currentIndent + "  ";
                 }
                 
                 const newline = "\n" + newIndent;
                 const insertText = insertClosingBrace 
-                  ? newline + "\n" + currentIndent
+                  ? newline + "\n" + currentIndent + "}"
                   : newline;
                 
                 const insertPos = state.selection.main.head;
@@ -521,6 +524,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
                   "{": "}",
                   "[": "]",
                   "(": ")",
+                  "<": ">",
+                  '"': '"',
+                  "'": "'",
+                  "`": "`",
                 };
 
                 for (const tr of update.transactions) {
