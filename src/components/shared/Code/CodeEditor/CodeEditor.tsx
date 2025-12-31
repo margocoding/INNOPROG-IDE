@@ -86,6 +86,101 @@ const selectionHighlightField = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 });
 
+
+const indentGuidesField = StateField.define<DecorationSet>({
+  create(state) {
+    return createIndentGuides(state);
+  },
+  update(decorations, tr) {
+    if (tr.docChanged) {
+      return createIndentGuides(tr.state);
+    }
+    return decorations.map(tr.changes);
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+class IndentGuideWidget extends WidgetType {
+  constructor(private levels: number[], private tabSize: number) {
+    super();
+  }
+
+  toDOM() {
+    const container = document.createElement("span");
+    container.className = "cm-indent-guide-container";
+    container.style.display = "inline-block";
+    container.style.position = "relative";
+    container.style.height = "1.6em";
+    container.style.width = "0";
+    container.style.verticalAlign = "top";
+    container.style.pointerEvents = "none";
+    container.style.zIndex = "0";
+    container.style.marginRight = "0";
+    
+    this.levels.forEach((level) => {
+      const line = document.createElement("span");
+      line.className = "cm-indent-guide";
+      line.style.position = "absolute";
+      line.style.left = `${level * this.tabSize * 8.4}px`;
+      line.style.top = "0";
+      line.style.height = "1.6em";
+      line.style.width = "1px";
+      line.style.backgroundColor = "rgba(255, 255, 255, 0.06)";
+      container.appendChild(line);
+    });
+    
+    return container;
+  }
+
+  ignoreEvent() {
+    return true;
+  }
+}
+
+function createIndentGuides(state: EditorState): DecorationSet {
+  const decorations: any[] = [];
+  const doc = state.doc;
+  const tabSize = state.tabSize;
+  const maxIndentLevel = 30;
+
+  for (let i = 1; i <= doc.lines; i++) {
+    const line = doc.line(i);
+    const lineText = line.text;
+    
+    let indentCount = 0;
+    for (let j = 0; j < lineText.length; j++) {
+      if (lineText[j] === " ") {
+        indentCount++;
+      } else if (lineText[j] === "\t") {
+        indentCount += tabSize;
+      } else {
+        break;
+      }
+    }
+
+    const indentLevel = Math.floor(indentCount / tabSize);
+    
+    if (indentLevel > 1) {
+      const levels: number[] = [];
+      for (let level = 1; level < Math.min(indentLevel, maxIndentLevel + 1); level++) {
+        levels.push(level);
+      }
+      
+      if (levels.length > 0) {
+        const guideDecoration = Decoration.widget({
+          widget: new IndentGuideWidget(levels, tabSize),
+          side: -1,
+          block: false,
+        });
+
+        decorations.push(guideDecoration.range(line.from));
+      }
+    }
+  }
+
+  return Decoration.set(decorations);
+}
+
 const CodeEditor: React.FC<IProps> = React.memo(
   ({
     value,
@@ -352,6 +447,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
           languageSupport,
           oneDark,
           closeBrackets(),
+          indentGuidesField,
           keymap.of([
             ...defaultKeymap.filter((binding) => {
               if (typeof binding === "object" && "key" in binding) {

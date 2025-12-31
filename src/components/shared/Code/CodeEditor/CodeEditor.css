@@ -57,4 +57,26 @@ textarea::selection {
   background-color: white;
   animation: blink 1s step-end infinite;
   margin-left: -1px;
-} 
+}
+
+.cm-indent-guide-container {
+  display: inline-block;
+  position: relative;
+  height: 1.6em;
+  width: 0;
+  vertical-align: top;
+  pointer-events: none;
+  z-index: 0;
+  margin-right: 0;
+  overflow: visible;
+}
+
+.cm-indent-guide {
+  position: absolute;
+  top: 0;
+  height: 1.6em;
+  width: 1px;
+  pointer-events: none;
+  z-index: 0;
+  background-color: rgba(255, 255, 255, 0.06);
+}
