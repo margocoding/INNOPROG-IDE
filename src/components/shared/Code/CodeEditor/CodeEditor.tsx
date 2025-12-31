@@ -1,4 +1,5 @@
-import { defaultKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, indentWithTab, insertNewlineAndIndent } from "@codemirror/commands";
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { cpp } from "@codemirror/lang-cpp";
 import { java } from "@codemirror/lang-java";
 import { javascript } from "@codemirror/lang-javascript";
@@ -350,9 +351,62 @@ const CodeEditor: React.FC<IProps> = React.memo(
           yCollab(ydoc.getText("codemirror"), new Y.Map()),
           languageSupport,
           oneDark,
-          keymap.of([...defaultKeymap, indentWithTab]),
+          closeBrackets(),
+          keymap.of([
+            ...defaultKeymap.filter((binding) => {
+              if (typeof binding === "object" && "key" in binding) {
+                return binding.key !== "Enter";
+              }
+              return true;
+            }),
+            {
+              key: "Enter",
+              run: (view) => {
+                const { state, dispatch } = view;
+                const line = state.doc.lineAt(state.selection.main.head);
+                const lineText = line.text;
+                const cursorPos = state.selection.main.head - line.from;
+                
+                const beforeCursor = lineText.slice(0, cursorPos);
+                const afterCursor = lineText.slice(cursorPos);
+                
+                const indentMatch = beforeCursor.match(/^(\s*)/);
+                const currentIndent = indentMatch ? indentMatch[1] : "";
+                
+                const trimmedBefore = beforeCursor.trim();
+                let newIndent = currentIndent;
+                let insertClosingBrace = false;
+                
+                if (trimmedBefore.endsWith("{")) {
+                  newIndent = currentIndent + "  ";
+                  insertClosingBrace = true;
+                }
+                
+                const newline = "\n" + newIndent;
+                const insertText = insertClosingBrace 
+                  ? newline + "\n" + currentIndent
+                  : newline;
+                
+                const insertPos = state.selection.main.head;
+                const newCursorPos = insertPos + newline.length;
+                
+                dispatch({
+                  changes: {
+                    from: insertPos,
+                    insert: insertText,
+                  },
+                  selection: { anchor: newCursorPos, head: newCursorPos },
+                });
+                
+                return true;
+              },
+            },
+            ...closeBracketsKeymap,
+            indentWithTab,
+          ]),
           selectionHighlightField,
           lineNumbers(),
+          EditorState.tabSize.of(2),
           EditorView.updateListener.of((update) => {
             if (update.focusChanged && !update.view.hasFocus) {
               sendSelectionRef.current?.({ clearSelection: true });
