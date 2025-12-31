@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { isDesktop } from "../../../../index";
 import { Task } from "../../../../types/task";
+import "./TaskDescription.css";
 
 interface TaskDescriptionProps {
 	task: Task | null;
@@ -76,6 +77,50 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({ task }) => {
 
 	if (!task) return null;
 
+	const processDescription = (html: string): string => {
+		if (!html) return "";
+		
+		let processed = html;
+		
+		processed = processed.replace(/\r\n/g, "\n");
+		processed = processed.replace(/\r/g, "\n");
+		
+		const tagRegex = /<[^>]+>/g;
+		const parts: Array<{ type: "text" | "tag"; content: string }> = [];
+		let lastIndex = 0;
+		let match;
+		
+		while ((match = tagRegex.exec(processed)) !== null) {
+			if (match.index > lastIndex) {
+				parts.push({
+					type: "text",
+					content: processed.substring(lastIndex, match.index),
+				});
+			}
+			parts.push({
+				type: "tag",
+				content: match[0],
+			});
+			lastIndex = tagRegex.lastIndex;
+		}
+		
+		if (lastIndex < processed.length) {
+			parts.push({
+				type: "text",
+				content: processed.substring(lastIndex),
+			});
+		}
+		
+		return parts
+			.map((part) => {
+				if (part.type === "text") {
+					return part.content.replace(/\n/g, "<br>");
+				}
+				return part.content;
+			})
+			.join("");
+	};
+
 	return (
 		<div className={`${!isDesktop() ? "mt-[110px]" : ""}`}>
 			<div
@@ -94,7 +139,10 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({ task }) => {
 				>
 					<div className="container mx-auto">
 						<div className="prose prose-invert max-w-none">
-							<div dangerouslySetInnerHTML={{ __html: task.description }} />
+							<div 
+								className="task-description-content"
+								dangerouslySetInnerHTML={{ __html: processDescription(task.description) }} 
+							/>
 							{task.answers && task.answers.length > 1 && (
 								<>
 									{task.answers[0].input && (
