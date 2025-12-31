@@ -147,6 +147,11 @@ function createIndentGuides(state: EditorState): DecorationSet {
     const line = doc.line(i);
     const lineText = line.text;
     
+    // Пропускаем пустые строки (даже если есть табуляции/пробелы)
+    if (lineText.trim().length === 0) {
+      continue;
+    }
+    
     let indentCount = 0;
     for (let j = 0; j < lineText.length; j++) {
       if (lineText[j] === " ") {
