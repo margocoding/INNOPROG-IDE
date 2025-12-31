@@ -5,7 +5,7 @@ import { java } from "@codemirror/lang-java";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { sql } from "@codemirror/lang-sql";
-import { StreamLanguage } from "@codemirror/language";
+import { StreamLanguage, foldGutter, foldKeymap } from "@codemirror/language";
 import { dart } from "@codemirror/legacy-modes/mode/clike";
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -502,11 +502,13 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 return true;
               },
             },
-            ...closeBracketsKeymap,
-            indentWithTab,
-          ]),
+                  ...closeBracketsKeymap,
+                  ...foldKeymap,
+                  indentWithTab,
+                ]),
           selectionHighlightField,
           lineNumbers(),
+          foldGutter(),
           EditorState.tabSize.of(2),
           EditorView.updateListener.of((update) => {
             if (update.focusChanged && !update.view.hasFocus) {
