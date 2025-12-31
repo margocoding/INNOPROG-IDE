@@ -106,6 +106,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
     const editor = useRef<EditorView>();
     const editorContainer = useRef<HTMLDivElement>(null);
     const prevValue = useRef(value);
+    const lastLanguageRef = useRef<string>(language);
 
     const lastLocalEditTime = useRef<number>(0);
     const hadTextSelection = useRef<boolean>(false);
@@ -221,47 +222,59 @@ const CodeEditor: React.FC<IProps> = React.memo(
               selectionData.line &&
               typeof selectionData.column === "number"
             ) {
-              if (selectionData.line <= doc.lines) {
-                const lineInfo = doc.line(selectionData.line);
-                const position = lineInfo.from + selectionData.column;
+              if (selectionData.line > 0 && selectionData.line <= doc.lines) {
+                try {
+                  const lineInfo = doc.line(selectionData.line);
+                  const maxColumn = lineInfo.length;
+                  const validColumn = Math.max(0, Math.min(selectionData.column, maxColumn));
+                  const position = lineInfo.from + validColumn;
 
-                const cursorDecoration = Decoration.widget({
-                  widget: new (class extends WidgetType {
-                    toDOM() {
-                      const wrapper = document.createElement("span");
-                      wrapper.style.position = "relative";
+                  if (position >= 0 && position <= doc.length) {
+                    const cursorDecoration = Decoration.widget({
+                      widget: new (class extends WidgetType {
+                        toDOM() {
+                          const wrapper = document.createElement("span");
+                          wrapper.style.position = "relative";
 
-                      const cursor = document.createElement("span");
-                      cursor.style.borderLeft = `2px solid ${selectionData.userColor}`;
-                      cursor.style.marginLeft = "-1px";
-                      cursor.style.marginBottom = "-5px";
-                      cursor.style.height = "1.2em";
-                      cursor.style.display = "inline-block";
-                      cursor.style.animation = "blink 1s step-end infinite";
+                          const cursor = document.createElement("span");
+                          cursor.style.borderLeft = `2px solid ${selectionData.userColor}`;
+                          cursor.style.marginLeft = "-1px";
+                          cursor.style.marginBottom = "-5px";
+                          cursor.style.height = "1.2em";
+                          cursor.style.display = "inline-block";
+                          cursor.style.animation = "blink 1s step-end infinite";
 
-                      const label = document.createElement("span");
-                      label.textContent = selectionData.username || telegramId;
-                      label.style.position = "absolute";
-                      label.style.top = "2em";
-                      label.style.left = "2px";
-                      label.style.background = selectionData.userColor;
-                      label.style.color = "white";
-                      label.style.fontSize = "0.7em";
-                      label.style.padding = "0 2px";
-                      label.style.borderRadius = "3px";
-                      label.style.whiteSpace = "nowrap";
+                          const label = document.createElement("span");
+                          label.textContent = selectionData.username || telegramId;
+                          label.style.position = "absolute";
+                          label.style.top = "-1.5em";
+                          label.style.left = "0";
+                          label.style.background = selectionData.userColor;
+                          label.style.color = "white";
+                          label.style.fontSize = "0.7em";
+                          label.style.padding = "2px 4px";
+                          label.style.borderRadius = "3px";
+                          label.style.whiteSpace = "nowrap";
+                          label.style.zIndex = "1000";
+                          label.style.pointerEvents = "none";
+                          label.style.userSelect = "none";
+                          label.style.setProperty("-webkit-user-select", "none");
+                          label.style.setProperty("-moz-user-select", "none");
+                          label.style.setProperty("-ms-user-select", "none");
 
-                      wrapper.appendChild(cursor);
-                      wrapper.appendChild(label);
+                          wrapper.appendChild(cursor);
+                          wrapper.appendChild(label);
 
-                      return wrapper;
-                    }
-                  })(),
-                  side: -1,
-                }).range(position);
+                          return wrapper;
+                        }
+                      })(),
+                      side: -1,
+                    }).range(position);
 
-                if (position >= 0 && position <= doc.length) {
-                  decorations.push(cursorDecoration);
+                    decorations.push(cursorDecoration);
+                  }
+                } catch (error) {
+                  console.error("Error creating cursor decoration:", error);
                 }
               }
             }
@@ -300,8 +313,39 @@ const CodeEditor: React.FC<IProps> = React.memo(
         }
       })();
 
+      const isLanguageChange = lastLanguageRef.current !== language;
+      lastLanguageRef.current = language;
+
+      let initialDoc = `${codeBefore}${value}${codeAfter}`;
+      
+      if (isLanguageChange && editor.current) {
+        const currentDoc = editor.current.state.doc.toString();
+        if (currentDoc && currentDoc.trim()) {
+          initialDoc = currentDoc;
+          if (initialDoc.startsWith(codeBefore) && initialDoc.endsWith(codeAfter)) {
+            const userCode = initialDoc.slice(
+              codeBefore.length,
+              initialDoc.length - codeAfter.length
+            );
+            prevValue.current = userCode;
+          }
+        } else if (ydoc) {
+          const ytext = ydoc.getText("codemirror");
+          if (ytext && ytext.toString().trim()) {
+            initialDoc = ytext.toString();
+            if (initialDoc.startsWith(codeBefore) && initialDoc.endsWith(codeAfter)) {
+              const userCode = initialDoc.slice(
+                codeBefore.length,
+                initialDoc.length - codeAfter.length
+              );
+              prevValue.current = userCode;
+            }
+          }
+        }
+      }
+
       const state = EditorState.create({
-        doc: `${codeBefore}${value}${codeAfter}`,
+        doc: initialDoc,
         extensions: [
           yCollab(ydoc.getText("codemirror"), new Y.Map()),
           languageSupport,
