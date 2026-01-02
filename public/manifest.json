@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "INNOPROG IDE",
+  "name": "INNOPROG IDE - Онлайн редактор кода",
   "icons": [
     {
       "src": "favicon.ico",

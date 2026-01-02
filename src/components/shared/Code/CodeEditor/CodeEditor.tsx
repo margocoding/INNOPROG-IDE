@@ -1,10 +1,11 @@
-import { defaultKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, indentWithTab, insertNewlineAndIndent } from "@codemirror/commands";
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { cpp } from "@codemirror/lang-cpp";
 import { java } from "@codemirror/lang-java";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { sql } from "@codemirror/lang-sql";
-import { StreamLanguage } from "@codemirror/language";
+import { StreamLanguage, foldGutter, foldKeymap } from "@codemirror/language";
 import { dart } from "@codemirror/legacy-modes/mode/clike";
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -85,6 +86,106 @@ const selectionHighlightField = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 });
 
+
+const indentGuidesField = StateField.define<DecorationSet>({
+  create(state) {
+    return createIndentGuides(state);
+  },
+  update(decorations, tr) {
+    if (tr.docChanged) {
+      return createIndentGuides(tr.state);
+    }
+    return decorations.map(tr.changes);
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+class IndentGuideWidget extends WidgetType {
+  constructor(private levels: number[], private tabSize: number) {
+    super();
+  }
+
+  toDOM() {
+    const container = document.createElement("span");
+    container.className = "cm-indent-guide-container";
+    container.style.display = "inline-block";
+    container.style.position = "relative";
+    container.style.height = "1.6em";
+    container.style.width = "0";
+    container.style.verticalAlign = "top";
+    container.style.pointerEvents = "none";
+    container.style.zIndex = "0";
+    container.style.marginRight = "0";
+    
+    this.levels.forEach((level) => {
+      const line = document.createElement("span");
+      line.className = "cm-indent-guide";
+      line.style.position = "absolute";
+      line.style.left = `${level * this.tabSize * 8.4}px`;
+      line.style.top = "0";
+      line.style.height = "1.6em";
+      line.style.width = "1px";
+      line.style.backgroundColor = "rgba(255, 255, 255, 0.06)";
+      container.appendChild(line);
+    });
+    
+    return container;
+  }
+
+  ignoreEvent() {
+    return true;
+  }
+}
+
+function createIndentGuides(state: EditorState): DecorationSet {
+  const decorations: any[] = [];
+  const doc = state.doc;
+  const tabSize = state.tabSize;
+  const maxIndentLevel = 30;
+
+  for (let i = 1; i <= doc.lines; i++) {
+    const line = doc.line(i);
+    const lineText = line.text;
+    
+    // Пропускаем пустые строки (даже если есть табуляции/пробелы)
+    if (lineText.trim().length === 0) {
+      continue;
+    }
+    
+    let indentCount = 0;
+    for (let j = 0; j < lineText.length; j++) {
+      if (lineText[j] === " ") {
+        indentCount++;
+      } else if (lineText[j] === "\t") {
+        indentCount += tabSize;
+      } else {
+        break;
+      }
+    }
+
+    const indentLevel = Math.floor(indentCount / tabSize);
+    
+    if (indentLevel > 1) {
+      const levels: number[] = [];
+      for (let level = 1; level < Math.min(indentLevel, maxIndentLevel + 1); level++) {
+        levels.push(level);
+      }
+      
+      if (levels.length > 0) {
+        const guideDecoration = Decoration.widget({
+          widget: new IndentGuideWidget(levels, tabSize),
+          side: -1,
+          block: false,
+        });
+
+        decorations.push(guideDecoration.range(line.from));
+      }
+    }
+  }
+
+  return Decoration.set(decorations);
+}
+
 const CodeEditor: React.FC<IProps> = React.memo(
   ({
     value,
@@ -106,6 +207,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
     const editor = useRef<EditorView>();
     const editorContainer = useRef<HTMLDivElement>(null);
     const prevValue = useRef(value);
+    const lastLanguageRef = useRef<string>(language);
 
     const lastLocalEditTime = useRef<number>(0);
     const hadTextSelection = useRef<boolean>(false);
@@ -221,47 +323,59 @@ const CodeEditor: React.FC<IProps> = React.memo(
               selectionData.line &&
               typeof selectionData.column === "number"
             ) {
-              if (selectionData.line <= doc.lines) {
-                const lineInfo = doc.line(selectionData.line);
-                const position = lineInfo.from + selectionData.column;
+              if (selectionData.line > 0 && selectionData.line <= doc.lines) {
+                try {
+                  const lineInfo = doc.line(selectionData.line);
+                  const maxColumn = lineInfo.length;
+                  const validColumn = Math.max(0, Math.min(selectionData.column, maxColumn));
+                  const position = lineInfo.from + validColumn;
 
-                const cursorDecoration = Decoration.widget({
-                  widget: new (class extends WidgetType {
-                    toDOM() {
-                      const wrapper = document.createElement("span");
-                      wrapper.style.position = "relative";
+                  if (position >= 0 && position <= doc.length) {
+                    const cursorDecoration = Decoration.widget({
+                      widget: new (class extends WidgetType {
+                        toDOM() {
+                          const wrapper = document.createElement("span");
+                          wrapper.style.position = "relative";
 
-                      const cursor = document.createElement("span");
-                      cursor.style.borderLeft = `2px solid ${selectionData.userColor}`;
-                      cursor.style.marginLeft = "-1px";
-                      cursor.style.marginBottom = "-5px";
-                      cursor.style.height = "1.2em";
-                      cursor.style.display = "inline-block";
-                      cursor.style.animation = "blink 1s step-end infinite";
+                          const cursor = document.createElement("span");
+                          cursor.style.borderLeft = `2px solid ${selectionData.userColor}`;
+                          cursor.style.marginLeft = "-1px";
+                          cursor.style.marginBottom = "-5px";
+                          cursor.style.height = "1.2em";
+                          cursor.style.display = "inline-block";
+                          cursor.style.animation = "blink 1s step-end infinite";
 
-                      const label = document.createElement("span");
-                      label.textContent = selectionData.username || telegramId;
-                      label.style.position = "absolute";
-                      label.style.top = "2em";
-                      label.style.left = "2px";
-                      label.style.background = selectionData.userColor;
-                      label.style.color = "white";
-                      label.style.fontSize = "0.7em";
-                      label.style.padding = "0 2px";
-                      label.style.borderRadius = "3px";
-                      label.style.whiteSpace = "nowrap";
+                          const label = document.createElement("span");
+                          label.textContent = selectionData.username || telegramId;
+                          label.style.position = "absolute";
+                          label.style.top = "-1.5em";
+                          label.style.left = "0";
+                          label.style.background = selectionData.userColor;
+                          label.style.color = "white";
+                          label.style.fontSize = "0.7em";
+                          label.style.padding = "2px 4px";
+                          label.style.borderRadius = "3px";
+                          label.style.whiteSpace = "nowrap";
+                          label.style.zIndex = "1000";
+                          label.style.pointerEvents = "none";
+                          label.style.userSelect = "none";
+                          label.style.setProperty("-webkit-user-select", "none");
+                          label.style.setProperty("-moz-user-select", "none");
+                          label.style.setProperty("-ms-user-select", "none");
 
-                      wrapper.appendChild(cursor);
-                      wrapper.appendChild(label);
+                          wrapper.appendChild(cursor);
+                          wrapper.appendChild(label);
 
-                      return wrapper;
-                    }
-                  })(),
-                  side: -1,
-                }).range(position);
+                          return wrapper;
+                        }
+                      })(),
+                      side: -1,
+                    }).range(position);
 
-                if (position >= 0 && position <= doc.length) {
-                  decorations.push(cursorDecoration);
+                    decorations.push(cursorDecoration);
+                  }
+                } catch (error) {
+                  console.error("Error creating cursor decoration:", error);
                 }
               }
             }
@@ -300,15 +414,105 @@ const CodeEditor: React.FC<IProps> = React.memo(
         }
       })();
 
+      const isLanguageChange = lastLanguageRef.current !== language;
+      lastLanguageRef.current = language;
+
+      let initialDoc = `${codeBefore}${value}${codeAfter}`;
+      
+      if (isLanguageChange && editor.current) {
+        const currentDoc = editor.current.state.doc.toString();
+        if (currentDoc && currentDoc.trim()) {
+          initialDoc = currentDoc;
+          if (initialDoc.startsWith(codeBefore) && initialDoc.endsWith(codeAfter)) {
+            const userCode = initialDoc.slice(
+              codeBefore.length,
+              initialDoc.length - codeAfter.length
+            );
+            prevValue.current = userCode;
+          }
+        } else if (ydoc) {
+          const ytext = ydoc.getText("codemirror");
+          if (ytext && ytext.toString().trim()) {
+            initialDoc = ytext.toString();
+            if (initialDoc.startsWith(codeBefore) && initialDoc.endsWith(codeAfter)) {
+              const userCode = initialDoc.slice(
+                codeBefore.length,
+                initialDoc.length - codeAfter.length
+              );
+              prevValue.current = userCode;
+            }
+          }
+        }
+      }
+
       const state = EditorState.create({
-        doc: `${codeBefore}${value}${codeAfter}`,
+        doc: initialDoc,
         extensions: [
           yCollab(ydoc.getText("codemirror"), new Y.Map()),
           languageSupport,
           oneDark,
-          keymap.of([...defaultKeymap, indentWithTab]),
+          closeBrackets(),
+          indentGuidesField,
+          keymap.of([
+            ...defaultKeymap.filter((binding) => {
+              if (typeof binding === "object" && "key" in binding) {
+                return binding.key !== "Enter";
+              }
+              return true;
+            }),
+            {
+              key: "Enter",
+              run: (view) => {
+                const { state, dispatch } = view;
+                const line = state.doc.lineAt(state.selection.main.head);
+                const lineText = line.text;
+                const cursorPos = state.selection.main.head - line.from;
+                
+                const beforeCursor = lineText.slice(0, cursorPos);
+                const afterCursor = lineText.slice(cursorPos);
+                
+                const indentMatch = beforeCursor.match(/^(\s*)/);
+                const currentIndent = indentMatch ? indentMatch[1] : "";
+                
+                const trimmedBefore = beforeCursor.trim();
+                let newIndent = currentIndent;
+                let insertClosingBrace = false;
+                
+                if (trimmedBefore.endsWith("{")) {
+                  newIndent = currentIndent + "  ";
+                  insertClosingBrace = true;
+                } else if (trimmedBefore.endsWith(":") && afterCursor.trim().length === 0) {
+                  // Для Python и других языков: после : добавляем отступ
+                  newIndent = currentIndent + "  ";
+                }
+                
+                const newline = "\n" + newIndent;
+                const insertText = insertClosingBrace 
+                  ? newline + "\n" + currentIndent + "}"
+                  : newline;
+                
+                const insertPos = state.selection.main.head;
+                const newCursorPos = insertPos + newline.length;
+                
+                dispatch({
+                  changes: {
+                    from: insertPos,
+                    insert: insertText,
+                  },
+                  selection: { anchor: newCursorPos, head: newCursorPos },
+                });
+                
+                return true;
+              },
+            },
+                  ...closeBracketsKeymap,
+                  ...foldKeymap,
+                  indentWithTab,
+                ]),
           selectionHighlightField,
           lineNumbers(),
+          foldGutter(),
+          EditorState.tabSize.of(2),
           EditorView.updateListener.of((update) => {
             if (update.focusChanged && !update.view.hasFocus) {
               sendSelectionRef.current?.({ clearSelection: true });
@@ -316,7 +520,64 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
             if (update.docChanged) {
               try {
-                const newValue = update.state.doc.toString();
+                const bracketPairs: { [key: string]: string } = {
+                  "{": "}",
+                  "[": "]",
+                  "(": ")",
+                  "<": ">",
+                  '"': '"',
+                  "'": "'",
+                  "`": "`",
+                };
+
+                for (const tr of update.transactions) {
+                  if (tr.isUserEvent("delete.backward") || tr.isUserEvent("delete.forward")) {
+                    tr.changes.iterChanges((fromA, toA, fromB, toB) => {
+                      if (toA - fromA === 1 && fromB === toB) {
+                        const deletedChar = update.startState.doc.sliceString(fromA, toA);
+                        
+                        if (bracketPairs[deletedChar]) {
+                          const closingBracket = bracketPairs[deletedChar];
+                          const oldDoc = update.startState.doc;
+                          const newDoc = update.state.doc;
+                          
+                          if (fromA + 1 < oldDoc.length) {
+                            const afterDeleted = oldDoc.sliceString(fromA + 1);
+                            const closingPos = afterDeleted.indexOf(closingBracket);
+                            
+                            if (closingPos >= 0) {
+                              const betweenText = afterDeleted.slice(0, closingPos);
+                              
+                              if (betweenText.trim().length === 0) {
+                                const actualClosingPos = fromA + 1 + closingPos;
+                                const mappedPos = tr.changes.mapPos(actualClosingPos, -1);
+                                
+                                if (mappedPos >= 0 && mappedPos < newDoc.length) {
+                                  const nextChar = newDoc.sliceString(mappedPos, mappedPos + 1);
+                                  if (nextChar === closingBracket) {
+                                    setTimeout(() => {
+                                      if (editor.current) {
+                                        editor.current.dispatch({
+                                          changes: {
+                                            from: mappedPos,
+                                            to: mappedPos + 1,
+                                            insert: "",
+                                          },
+                                        });
+                                      }
+                                    }, 0);
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    });
+                  }
+                }
+
+                 const newValue = update.state.doc.toString();
 
                 if (isWebSocket) {
                   setCurrentCode(newValue);

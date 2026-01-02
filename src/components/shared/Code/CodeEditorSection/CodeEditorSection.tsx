@@ -10,6 +10,7 @@ interface CodeEditorSectionProps {
   task: Task | null;
   activeTab: string;
   setCurrentCode: Dispatch<SetStateAction<string>>;
+  width?: number;
   webSocketData?: {
     isTeacher?: boolean;
     isConnected?: boolean;
@@ -53,14 +54,20 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     webSocketData,
     handleLanguageChange,
     setCurrentCode,
+    width = 50,
   }) => {
     console.log(webSocketData?.isConnected);
 
     return (
       <div
-        className={`h-full md:w-1/2 p-4 ${
+        className={`h-full p-4 ${
           activeTab === "editor" ? "block" : "hidden md:block"
         }`}
+        style={
+          activeTab === "editor"
+            ? { width: "100%" }
+            : { flex: `0 0 ${width}%`, minWidth: 0 }
+        }
       >
         <CodeEditor
           value={code}

@@ -74,7 +74,7 @@ const Header: React.FC<IProps> = ({
 
   const onlineMembers = sortedMembers.filter((member) => member.online);
   const visibleMembers = onlineMembers.slice(0, 3);
-  const hasMoreMembers = sortedMembers.length > 1;
+  const hasMoreMembers = sortedMembers.length > 3;
 
     if (!isDesktop() && Object.entries(window?.Telegram?.WebApp.initDataUnsafe).length) {
         console.log(window?.Telegram?.WebApp.initDataUnsafe);
@@ -88,30 +88,36 @@ const Header: React.FC<IProps> = ({
         return <header className={'mt-[75px]'}></header>
     }
 
+  const mobileVisibleMembers = isDesktop() ? visibleMembers : onlineMembers.slice(0, 2);
+  // Показываем кнопку "ещё" всегда, если есть участники (для просмотра полной информации)
+  const mobileHasMoreMembers = sortedMembers.length > 0;
+
   return (
     <>
-      <header className="bg-ide-secondary border-b border-ide-border flex items-center justify-between relative px-4 md:px-6">
+      <header className="bg-ide-secondary border-b border-ide-border flex items-center justify-between relative px-2 md:px-6 gap-2 md:gap-4">
         {/* Логотип с отступами */}
         <div className="flex-shrink-0 py-3 md:py-4">
-          <img src="/logo.svg" alt="INNOPROG" className="h-10" />
+          <img src="/logo.svg" alt="INNOPROG" className="h-8 md:h-10" />
         </div>
 
         {roomId && roomPermissions && (
-          <Settings
-            isTeacher={isTeacher}
-            onCompleteSession={onCompleteSession!}
-            onPermissionsChange={onPermissionsChange!}
-            roomPermissions={roomPermissions}
-            completedSession={Boolean(completedSession)}
-          />
+          <div className="flex-shrink-0">
+            <Settings
+              isTeacher={isTeacher}
+              onCompleteSession={onCompleteSession!}
+              onPermissionsChange={onPermissionsChange!}
+              roomPermissions={roomPermissions}
+              completedSession={Boolean(completedSession)}
+            />
+          </div>
         )}
 
         {roomId && members && members.length > 0 && (
-          <div className="flex gap-4 items-center relative">
-            {visibleMembers.map((member) => (
+          <div className="flex gap-1 md:gap-4 items-center relative flex-shrink-0 min-w-0">
+            {mobileVisibleMembers.map((member) => (
               <div
                 key={member.telegramId}
-                className={`border-2 p-[3px] rounded-full cursor-pointer transition-all duration-200 hover:scale-105 ${
+                className={`border-2 p-[2px] md:p-[3px] rounded-full cursor-pointer transition-all duration-200 hover:scale-105 flex-shrink-0 ${
                   member?.userColor && `border-[${member?.userColor}]`
                 }`}
                 style={{
@@ -127,18 +133,18 @@ const Header: React.FC<IProps> = ({
                 }
               >
                 <span
-                  className={`bg-[#444] h-12 w-12 flex items-center justify-center rounded-full text-white text-sm font-medium transition-opacity duration-200 ${
+                  className={`bg-[#444] h-8 w-8 md:h-12 md:w-12 flex items-center justify-center rounded-full text-white text-xs md:text-sm font-medium transition-opacity duration-200 ${
                     !member.online && "opacity-50"
                   }`}
                 >
                   {member.username
                     ? member.username.slice(0, 2).toUpperCase()
-                    : member.telegramId.slice(0, 3)}
+                    : member.telegramId.slice(0, 2)}
                 </span>
               </div>
             ))}
 
-            {hasMoreMembers && (
+            {mobileHasMoreMembers && (
               <Popover
                 isOpen={showMembersCard}
                 onOpenChange={setShowMembersCard}
@@ -146,14 +152,18 @@ const Header: React.FC<IProps> = ({
                 <PopoverTrigger>
                   <button
                     onClick={() => setShowMembersCard(!showMembersCard)}
-                    className="border-2 border-dashed border-gray-500 p-[3px] rounded-full cursor-pointer transition-all duration-200 hover:scale-105 hover:border-gray-400"
-                    title={`Ещё ${sortedMembers.length - 3} участников`}
+                    className="border-2 border-dashed border-gray-500 p-[2px] md:p-[3px] rounded-full cursor-pointer transition-all duration-200 hover:scale-105 hover:border-gray-400 flex-shrink-0"
+                    title={
+                      sortedMembers.length > (isDesktop() ? 3 : 2)
+                        ? `Ещё ${sortedMembers.length - (isDesktop() ? 3 : 2)} участников`
+                        : `Все участники (${sortedMembers.length})`
+                    }
                   >
-                    <span className="bg-gray-600 h-12 w-12 flex items-center justify-center rounded-full text-white text-sm font-medium hover:bg-gray-500 transition-colors duration-200">
+                    <span className="bg-gray-600 h-8 w-8 md:h-12 md:w-12 flex items-center justify-center rounded-full text-white text-xs md:text-sm font-medium hover:bg-gray-500 transition-colors duration-200">
                       <img
                         src="/icons/members.svg"
                         alt="members list"
-                        className="w-5 h-5"
+                        className="w-4 h-4 md:w-5 md:h-5"
                       />
                     </span>
                   </button>

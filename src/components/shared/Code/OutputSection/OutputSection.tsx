@@ -4,12 +4,14 @@ interface OutputSectionProps {
 	output: string;
 	status: "idle" | "success" | "error";
 	activeTab: "editor" | "output";
+	width?: number;
 }
 
 const OutputSection: React.FC<OutputSectionProps> = ({
 	output,
 	status,
 	activeTab,
+	width = 50,
 }) => {
 	const outputRef = useRef<HTMLPreElement>(null);
 
@@ -54,9 +56,14 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 
 	return (
 		<div
-			className={`h-full md:w-1/2 ${
+			className={`h-full ${
 				activeTab === "output" ? "block" : "hidden md:block"
 			}`}
+			style={
+				activeTab === "output"
+					? { width: "100%" }
+					: { flex: `0 0 ${width}%`, minWidth: 0 }
+			}
 		>
 			<div className="h-full p-4">
 				<div className="flex flex-col h-full bg-ide-editor rounded-lg overflow-hidden">

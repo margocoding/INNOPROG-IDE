@@ -14,6 +14,7 @@ import SubmitModal from "../SubmitModal/SubmitModal";
 import TaskDescription from "../TaskDescription/TaskDescription";
 import Header from "../../Header/Header";
 import Footer from "../../Footer/Footer";
+import Resizer from "../Resizer/Resizer";
 import { CursorData, RoomMember } from "../../../../hooks/useWebSocket";
 
 interface RoomPermissions {
@@ -83,6 +84,10 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [isOutputData, setIsOutputData] = useState<boolean>(false);
   const [isInputData, setIsInputData] = useState<boolean>(true);
   const [showStartModal, setShowStartModal] = useState<boolean>(false);
+  const [editorWidth, setEditorWidth] = useState<number>(() => {
+    const saved = localStorage.getItem("innoprog-editor-width");
+    return saved ? parseFloat(saved) : 50;
+  });
 
   const { onOpen, onOpenChange, isOpen, onClose } = useDisclosure();
 
@@ -327,6 +332,11 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
   }, [startFormOnOpen]);
 
+  const handleResize = (newWidth: number) => {
+    setEditorWidth(newWidth);
+    localStorage.setItem("innoprog-editor-width", newWidth.toString());
+  };
+
   return (
     <div className="min-h-screen h-screen flex flex-col bg-ide-background text-ide-text-primary">
       {roomId &&
@@ -400,12 +410,20 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
             activeTab={activeTab}
             webSocketData={memoizedWebSocketData}
             handleLanguageChange={handleLanguageChange}
+            width={editorWidth}
+          />
+
+          <Resizer
+            onResize={handleResize}
+            minSize={20}
+            maxSize={80}
           />
 
           <OutputSection
             output={output}
             status={status}
             activeTab={activeTab}
+            width={100 - editorWidth}
           />
         </div>
       </main>
