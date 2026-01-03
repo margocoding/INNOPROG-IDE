@@ -203,6 +203,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
     isTeacher,
     setCurrentCode,
     isWebSocket,
+    myTelegramId,
   }) => {
     const editor = useRef<EditorView>();
     const editorContainer = useRef<HTMLDivElement>(null);
@@ -285,6 +286,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
       if (selections && selections.size > 0) {
         selections.forEach((selectionData, telegramId) => {
+          // Не показываем курсор для самого себя
+          if (telegramId === myTelegramId) {
+            return;
+          }
           try {
             if (
               selectionData.selectionStart &&
@@ -333,9 +338,12 @@ const CodeEditor: React.FC<IProps> = React.memo(
                   if (position >= 0 && position <= doc.length) {
                     const cursorDecoration = Decoration.widget({
                       widget: new (class extends WidgetType {
+                        private hideTimer: number | null = null;
+
                         toDOM() {
                           const wrapper = document.createElement("span");
                           wrapper.style.position = "relative";
+                          wrapper.style.cursor = "pointer";
 
                           const cursor = document.createElement("span");
                           cursor.style.borderLeft = `2px solid ${selectionData.userColor}`;
@@ -362,11 +370,43 @@ const CodeEditor: React.FC<IProps> = React.memo(
                           label.style.setProperty("-webkit-user-select", "none");
                           label.style.setProperty("-moz-user-select", "none");
                           label.style.setProperty("-ms-user-select", "none");
+                          label.style.opacity = "0";
+                          label.style.transition = "opacity 0.2s ease-in-out";
+                          label.style.pointerEvents = "none";
+
+                          const showLabel = () => {
+                            if (this.hideTimer) {
+                              clearTimeout(this.hideTimer);
+                              this.hideTimer = null;
+                            }
+                            label.style.opacity = "1";
+                          };
+
+                          const hideLabel = () => {
+                            if (this.hideTimer) {
+                              clearTimeout(this.hideTimer);
+                            }
+                            this.hideTimer = window.setTimeout(() => {
+                              label.style.opacity = "0";
+                              this.hideTimer = null;
+                            }, 3000);
+                          };
+
+                          wrapper.addEventListener("mouseenter", showLabel);
+                          wrapper.addEventListener("mouseleave", hideLabel);
 
                           wrapper.appendChild(cursor);
                           wrapper.appendChild(label);
 
                           return wrapper;
+                        }
+
+                        destroy(dom: HTMLElement) {
+                          if (this.hideTimer) {
+                            clearTimeout(this.hideTimer);
+                            this.hideTimer = null;
+                          }
+                          super.destroy(dom);
                         }
                       })(),
                       side: -1,
@@ -390,7 +430,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
       editor.current.dispatch({
         effects: replaceSelectionsEffect.of(decoSet),
       });
-    }, [editor, selections]);
+    }, [editor, selections, myTelegramId]);
 
     useEffect(() => {
       if (!editorContainer.current) return;
