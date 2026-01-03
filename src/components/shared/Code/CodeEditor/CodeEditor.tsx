@@ -475,32 +475,64 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 const currentIndent = indentMatch ? indentMatch[1] : "";
                 
                 const trimmedBefore = beforeCursor.trim();
+                const trimmedAfter = afterCursor.trim();
                 let newIndent = currentIndent;
                 let insertClosingBrace = false;
+                let moveClosingBrace = false;
+                let closingBracePos = -1;
                 
                 if (trimmedBefore.endsWith("{")) {
                   newIndent = currentIndent + "  ";
-                  insertClosingBrace = true;
-                } else if (trimmedBefore.endsWith(":") && afterCursor.trim().length === 0) {
+                  if (trimmedAfter.startsWith("}")) {
+                    // Найти позицию закрывающей скобки
+                    const braceIndex = afterCursor.indexOf("}");
+                    if (braceIndex >= 0) {
+                      closingBracePos = state.selection.main.head + braceIndex;
+                      moveClosingBrace = true;
+                    }
+                  } else {
+                    insertClosingBrace = true;
+                  }
+                } else if (trimmedBefore.endsWith(":") && trimmedAfter.length === 0) {
                   // Для Python и других языков: после : добавляем отступ
                   newIndent = currentIndent + "  ";
                 }
                 
-                const newline = "\n" + newIndent;
-                const insertText = insertClosingBrace 
-                  ? newline + "\n" + currentIndent + "}"
-                  : newline;
-                
                 const insertPos = state.selection.main.head;
-                const newCursorPos = insertPos + newline.length;
+                const newline = "\n" + newIndent;
+                let insertText = newline;
+                let newCursorPos = insertPos + newline.length;
                 
-                dispatch({
-                  changes: {
-                    from: insertPos,
-                    insert: insertText,
-                  },
-                  selection: { anchor: newCursorPos, head: newCursorPos },
-                });
+                if (moveClosingBrace && closingBracePos >= 0) {
+                  // Сначала удаляем закрывающую скобку, потом вставляем новую строку с ней
+                  insertText = newline + "\n" + currentIndent + "}";
+                  dispatch({
+                    changes: [
+                      {
+                        from: closingBracePos,
+                        to: closingBracePos + 1,
+                        insert: "",
+                      },
+                      {
+                        from: insertPos,
+                        insert: insertText,
+                      },
+                    ],
+                    selection: { anchor: newCursorPos, head: newCursorPos },
+                  });
+                } else {
+                  if (insertClosingBrace) {
+                    insertText = newline + "\n" + currentIndent + "}";
+                  }
+                  
+                  dispatch({
+                    changes: {
+                      from: insertPos,
+                      insert: insertText,
+                    },
+                    selection: { anchor: newCursorPos, head: newCursorPos },
+                  });
+                }
                 
                 return true;
               },
