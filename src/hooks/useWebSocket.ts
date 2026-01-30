@@ -221,16 +221,21 @@ export const useWebSocket = ({
             setJoinedCode(eventData.joinedCode);
             if (eventData.telegramId) {
                 localStorage.setItem('telegramId', eventData.telegramId);
-                hasServerTelegramIdRef.current = true;
                 selfIdsRef.current.add(eventData.telegramId);
-                myTelegramIdRef.current = eventData.telegramId;
+                if (eventData.telegramId.startsWith('i')) {
+                    hasServerTelegramIdRef.current = true;
+                    myTelegramIdRef.current = eventData.telegramId;
+                }
             }
 
             if (eventData.roomPermissions) {
                 setRoomPermissions(eventData.roomPermissions);
             }
 
-            if (eventData.currentCursors) {
+            const cursorsEnabled =
+                eventData.roomPermissions?.studentCursorEnabled !== false;
+
+            if (eventData.currentCursors && cursorsEnabled) {
                 setCursors(
                     new Map(
                         eventData.currentCursors
@@ -238,6 +243,8 @@ export const useWebSocket = ({
                             .map((cursor: CursorData) => [cursor.telegramId, cursor])
                     )
                 );
+            } else if (!cursorsEnabled) {
+                setCursors(new Map());
             }
 
             if (eventData.currentSelections) {
@@ -523,14 +530,14 @@ export const useWebSocket = ({
         (position: [number, number]) => {
             if (socketRef.current?.connected && roomIdRef.current && !completed && roomPermissions.studentCursorEnabled) {
                 socketRef.current.emit("cursor", {
-                    telegramId: myTelegramIdRef.current,
+                    telegramId: myTelegramId || myTelegramIdRef.current,
                     roomId: roomIdRef.current,
                     position,
                     logs: [],
                 });
             }
         },
-        [completed, roomPermissions.studentCursorEnabled]
+        [completed, roomPermissions.studentCursorEnabled, myTelegramId]
     );
 
     const sendSelection = useCallback(
@@ -544,7 +551,7 @@ export const useWebSocket = ({
         }) => {
             if (socketRef.current?.connected && roomIdRef.current && ((!completed && roomPermissions.studentSelectionEnabled) || isTeacher)) {
                 socketRef.current.emit("selection", {
-                    telegramId: myTelegramId,
+                    telegramId: myTelegramId || myTelegramIdRef.current,
                     roomId: roomIdRef.current,
                     ...selectionData,
                 });
@@ -585,7 +592,7 @@ export const useWebSocket = ({
     const sendChangeLanguage = useCallback((language: Language) => {
         if (socketRef.current?.connected && roomIdRef.current && !completed) {
             socketRef.current.emit('edit-room', {
-                telegramId: myTelegramId,
+                telegramId: myTelegramId || myTelegramIdRef.current,
                 roomId: roomIdRef.current,
                 language
             })
@@ -596,7 +603,7 @@ export const useWebSocket = ({
         (permissions: RoomPermissions) => {
             if (socketRef.current?.connected && roomIdRef.current && !completed) {
                 socketRef.current.emit("edit-room", {
-                    telegramId: myTelegramId,
+                    telegramId: myTelegramId || myTelegramIdRef.current,
                     roomId: roomIdRef.current,
                     ...permissions
                 });

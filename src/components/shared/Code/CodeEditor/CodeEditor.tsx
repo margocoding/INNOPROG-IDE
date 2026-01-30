@@ -1,4 +1,4 @@
-import { defaultKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, indentWithTab, insertNewlineAndIndent } from "@codemirror/commands";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { cpp } from "@codemirror/lang-cpp";
 import { java } from "@codemirror/lang-java";
@@ -486,6 +486,86 @@ const CodeEditor: React.FC<IProps> = React.memo(
         }
       }
 
+      const ua = navigator.userAgent.toLowerCase();
+      const isIOS =
+        /iphone|ipad|ipod/.test(ua) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+      const handleEnterBetweenBraces = (view: EditorView) => {
+        const { state, dispatch } = view;
+        const selection = state.selection.main;
+
+        if (!selection.empty) {
+          return false;
+        }
+
+        const line = state.doc.lineAt(selection.head);
+        const cursorPos = selection.head - line.from;
+        const beforeCursor = line.text.slice(0, cursorPos);
+        const afterCursor = line.text.slice(cursorPos);
+        const trimmedBefore = beforeCursor.trim();
+        const trimmedAfter = afterCursor.trim();
+
+        if (!trimmedBefore.endsWith("{") || !trimmedAfter.startsWith("}")) {
+          return false;
+        }
+
+        const braceIndex = afterCursor.indexOf("}");
+        if (braceIndex < 0) {
+          return false;
+        }
+
+        const indentMatch = beforeCursor.match(/^(\s*)/);
+        const currentIndent = indentMatch ? indentMatch[1] : "";
+        const innerIndent = currentIndent + "  ";
+        const insertPos = selection.head;
+        const newline = "\n" + innerIndent;
+        const newCursorPos = insertPos + newline.length;
+        const insertText = newline + "\n" + currentIndent + "}";
+
+        dispatch({
+          changes: [
+            {
+              from: insertPos + braceIndex,
+              to: insertPos + braceIndex + 1,
+              insert: "",
+            },
+            {
+              from: insertPos,
+              insert: insertText,
+            },
+          ],
+          selection: { anchor: newCursorPos, head: newCursorPos },
+        });
+
+        return true;
+      };
+
+      const iosEnterHandler = isIOS
+        ? EditorView.domEventHandlers({
+            beforeinput: (event, view) => {
+              const inputEvent = event as InputEvent;
+              if (
+                inputEvent.inputType !== "insertParagraph" &&
+                inputEvent.inputType !== "insertLineBreak"
+              ) {
+                return false;
+              }
+
+              if (handleEnterBetweenBraces(view)) {
+                event.preventDefault();
+                return true;
+              }
+
+              const handled = insertNewlineAndIndent(view);
+              if (handled) {
+                event.preventDefault();
+              }
+              return handled;
+            },
+          })
+        : [];
+
       const state = EditorState.create({
         doc: initialDoc,
         extensions: [
@@ -497,61 +577,14 @@ const CodeEditor: React.FC<IProps> = React.memo(
           keymap.of([
             {
               key: "Enter",
-              run: (view) => {
-                const { state, dispatch } = view;
-                const selection = state.selection.main;
-
-                if (!selection.empty) {
-                  return false;
-                }
-
-                const line = state.doc.lineAt(selection.head);
-                const cursorPos = selection.head - line.from;
-                const beforeCursor = line.text.slice(0, cursorPos);
-                const afterCursor = line.text.slice(cursorPos);
-                const trimmedBefore = beforeCursor.trim();
-                const trimmedAfter = afterCursor.trim();
-
-                if (!trimmedBefore.endsWith("{") || !trimmedAfter.startsWith("}")) {
-                  return false;
-                }
-
-                const braceIndex = afterCursor.indexOf("}");
-                if (braceIndex < 0) {
-                  return false;
-                }
-
-                const indentMatch = beforeCursor.match(/^(\s*)/);
-                const currentIndent = indentMatch ? indentMatch[1] : "";
-                const innerIndent = currentIndent + "  ";
-                const insertPos = selection.head;
-                const newline = "\n" + innerIndent;
-                const newCursorPos = insertPos + newline.length;
-                const insertText = newline + "\n" + currentIndent + "}";
-
-                dispatch({
-                  changes: [
-                    {
-                      from: insertPos + braceIndex,
-                      to: insertPos + braceIndex + 1,
-                      insert: "",
-                    },
-                    {
-                      from: insertPos,
-                      insert: insertText,
-                    },
-                  ],
-                  selection: { anchor: newCursorPos, head: newCursorPos },
-                });
-
-                return true;
-              },
+              run: (view) => handleEnterBetweenBraces(view),
             },
             ...defaultKeymap,
             ...closeBracketsKeymap,
             ...foldKeymap,
             indentWithTab,
           ]),
+          iosEnterHandler,
           selectionHighlightField,
           lineNumbers(),
           foldGutter(),

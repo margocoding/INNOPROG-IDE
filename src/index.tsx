@@ -14,6 +14,7 @@ declare global {
         initDataUnsafe: any;
         close: () => void;
         expand: () => void;
+        disableVerticalSwipes: () => void;
       };
     };
   }

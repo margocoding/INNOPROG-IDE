@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Socket } from "socket.io-client";
+import { RoomPermissions } from "../../../../types/room";
 import "./Cursor.css";
 
 interface RoomMember {
@@ -36,6 +37,7 @@ interface WebSocketData {
     }
   >;
   myUserColor: string;
+  roomPermissions: RoomPermissions;
   sendCursorPosition: (position: [number, number]) => void;
   sendSelection: (selectionData: {
     line?: number;
@@ -160,7 +162,7 @@ const Cursor: React.FC<LiveCursorsProps> = ({
   roomId,
   webSocketData,
 }) => {
-  const { cursors, sendCursorPosition, isConnected, myUserColor } =
+  const { cursors, sendCursorPosition, isConnected, myUserColor, roomPermissions } =
     webSocketData;
 
   const lastSentTime = useRef(0);
@@ -202,14 +204,18 @@ const Cursor: React.FC<LiveCursorsProps> = ({
   }, [roomId, isConnected, throttledSendCursor]);
 
   const cursorElements = useMemo(() => {
+    if (!roomPermissions.studentCursorEnabled) {
+      return [];
+    }
+
     return Array.from(cursors.entries())
       .map(([id, cursorData]) => {
-        if (cursorData.isYourself) return null;
+        if (id === myTelegramId) return null;
 
         return <SingleCursor key={id} cursorData={cursorData} />;
       })
       .filter(Boolean);
-  }, [cursors, myTelegramId]);
+  }, [cursors, myTelegramId, roomPermissions.studentCursorEnabled]);
 
   if (!roomId) return null;
 
