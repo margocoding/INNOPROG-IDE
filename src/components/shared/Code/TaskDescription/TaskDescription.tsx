@@ -122,7 +122,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({ task }) => {
 	};
 
 	return (
-		<div className={`${!isDesktop() ? "mt-[110px]" : ""}`}>
+		<div className={`${!isDesktop() ? "mt-[25px]" : ""}`}>
 			<div
 				ref={containerRef}
 				style={{

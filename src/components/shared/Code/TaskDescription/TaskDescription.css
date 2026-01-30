@@ -6,13 +6,8 @@
 
 .task-description-content p {
   white-space: pre-wrap;
-  margin-top: 0;
   margin-bottom: 1em;
   line-height: 1.6;
-}
-
-.task-description-content > :first-child {
-  margin-top: 0 !important;
 }
 
 .task-description-content * {

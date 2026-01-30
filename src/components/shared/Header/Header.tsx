@@ -79,9 +79,9 @@ const Header: React.FC<IProps> = ({
     if (!isDesktop() && Object.entries(window?.Telegram?.WebApp.initDataUnsafe).length) {
         console.log(window?.Telegram?.WebApp.initDataUnsafe);
         try {
-            window.Telegram?.WebApp?.disableVerticalSwipes();
             window.Telegram.WebApp.expand();
             window.Telegram.WebApp.requestFullscreen();
+            window.Telegram.WebApp.disableVerticalSwipes();
         } catch (e) {
             console.error(e);
         }
