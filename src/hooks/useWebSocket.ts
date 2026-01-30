@@ -352,21 +352,30 @@ export const useWebSocket = ({
         });
 
         socket.on("room-edited", (eventData) => {
-            if (
-                eventData.studentCursorEnabled !== undefined &&
-                eventData.studentSelectionEnabled !== undefined &&
-                eventData.studentEditCodeEnabled !== undefined
-            ) {
-                if (!eventData.studentCursorEnabled) {
+            const hasPermissionsUpdate =
+                eventData.studentCursorEnabled !== undefined ||
+                eventData.studentSelectionEnabled !== undefined ||
+                eventData.studentEditCodeEnabled !== undefined;
+
+            if (hasPermissionsUpdate) {
+                if (eventData.studentCursorEnabled === false) {
                     setCursors(new Map());
-                } else if (!eventData.studentSelectionEnabled) {
+                }
+                if (eventData.studentSelectionEnabled === false) {
                     setSelections(new Map());
                 }
-                setRoomPermissions({
-                    studentCursorEnabled: eventData.studentCursorEnabled,
-                    studentSelectionEnabled: eventData.studentSelectionEnabled,
-                    studentEditCodeEnabled: eventData.studentEditCodeEnabled,
-                });
+
+                setRoomPermissions((prev) => ({
+                    studentCursorEnabled:
+                        eventData.studentCursorEnabled ?? prev.studentCursorEnabled,
+                    studentSelectionEnabled:
+                        eventData.studentSelectionEnabled ?? prev.studentSelectionEnabled,
+                    studentEditCodeEnabled:
+                        eventData.studentEditCodeEnabled ?? prev.studentEditCodeEnabled,
+                }));
+            }
+
+            if (eventData.language) {
                 setLanguage(eventData.language);
             }
         });

@@ -1,4 +1,12 @@
-import { defaultKeymap, indentWithTab, insertNewlineAndIndent } from "@codemirror/commands";
+import {
+  cursorCharLeft,
+  cursorCharRight,
+  cursorLineDown,
+  cursorLineUp,
+  defaultKeymap,
+  indentWithTab,
+  insertNewlineAndIndent,
+} from "@codemirror/commands";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { cpp } from "@codemirror/lang-cpp";
 import { java } from "@codemirror/lang-java";
@@ -565,6 +573,53 @@ const CodeEditor: React.FC<IProps> = React.memo(
             },
           })
         : [];
+      const iosKeydownHandler = isIOS
+        ? EditorView.domEventHandlers({
+            keydown: (event, view) => {
+              if (event.key === "Enter") {
+                if (handleEnterBetweenBraces(view) || insertNewlineAndIndent(view)) {
+                  event.preventDefault();
+                  return true;
+                }
+                return false;
+              }
+
+              if (event.key === "ArrowLeft") {
+                const handled = cursorCharLeft(view);
+                if (handled) {
+                  event.preventDefault();
+                }
+                return handled;
+              }
+
+              if (event.key === "ArrowRight") {
+                const handled = cursorCharRight(view);
+                if (handled) {
+                  event.preventDefault();
+                }
+                return handled;
+              }
+
+              if (event.key === "ArrowUp") {
+                const handled = cursorLineUp(view);
+                if (handled) {
+                  event.preventDefault();
+                }
+                return handled;
+              }
+
+              if (event.key === "ArrowDown") {
+                const handled = cursorLineDown(view);
+                if (handled) {
+                  event.preventDefault();
+                }
+                return handled;
+              }
+
+              return false;
+            },
+          })
+        : [];
 
       const state = EditorState.create({
         doc: initialDoc,
@@ -585,6 +640,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
             indentWithTab,
           ]),
           iosEnterHandler,
+          iosKeydownHandler,
           selectionHighlightField,
           lineNumbers(),
           foldGutter(),
@@ -801,8 +857,53 @@ const CodeEditor: React.FC<IProps> = React.memo(
       });
 
       editor.current = view;
+      const handleGlobalKeydown = (event: KeyboardEvent) => {
+        if (!isIOS) return;
+        if (!editor.current || !editor.current.hasFocus) return;
+        if (event.defaultPrevented) return;
+
+        if (event.key === "Enter") {
+          if (
+            handleEnterBetweenBraces(editor.current) ||
+            insertNewlineAndIndent(editor.current)
+          ) {
+            event.preventDefault();
+          }
+          return;
+        }
+
+        if (event.key === "ArrowLeft") {
+          if (cursorCharLeft(editor.current)) {
+            event.preventDefault();
+          }
+          return;
+        }
+
+        if (event.key === "ArrowRight") {
+          if (cursorCharRight(editor.current)) {
+            event.preventDefault();
+          }
+          return;
+        }
+
+        if (event.key === "ArrowUp") {
+          if (cursorLineUp(editor.current)) {
+            event.preventDefault();
+          }
+          return;
+        }
+
+        if (event.key === "ArrowDown") {
+          if (cursorLineDown(editor.current)) {
+            event.preventDefault();
+          }
+        }
+      };
+
+      window.addEventListener("keydown", handleGlobalKeydown);
 
       return () => {
+        window.removeEventListener("keydown", handleGlobalKeydown);
         view.destroy();
       };
     }, [language, effectiveReadOnly, codeBefore, codeAfter, ydoc, isWebSocket]);
