@@ -517,7 +517,6 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 const trimmedBefore = beforeCursor.trim();
                 const trimmedAfter = afterCursor.trim();
                 let newIndent = currentIndent;
-                let insertClosingBrace = false;
                 let moveClosingBrace = false;
                 let closingBracePos = -1;
                 
@@ -530,8 +529,6 @@ const CodeEditor: React.FC<IProps> = React.memo(
                       closingBracePos = state.selection.main.head + braceIndex;
                       moveClosingBrace = true;
                     }
-                  } else {
-                    insertClosingBrace = true;
                   }
                 } else if (trimmedBefore.endsWith(":") && trimmedAfter.length === 0) {
                   // Для Python и других языков: после : добавляем отступ
@@ -561,10 +558,6 @@ const CodeEditor: React.FC<IProps> = React.memo(
                     selection: { anchor: newCursorPos, head: newCursorPos },
                   });
                 } else {
-                  if (insertClosingBrace) {
-                    insertText = newline + "\n" + currentIndent + "}";
-                  }
-                  
                   dispatch({
                     changes: {
                       from: insertPos,
