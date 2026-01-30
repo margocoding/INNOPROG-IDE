@@ -33,9 +33,9 @@ const Footer: React.FC<FooterProps> = ({
 
   return (
     <footer
-      className={`bg-ide-secondary  ${
-        !isDesktop() ? "mb-[15px]" : ""
-      } border-t border-ide-border flex-none`}
+      className={`bg-ide-secondary border-t border-ide-border flex-none ${
+        !isDesktop() ? "pb-[env(safe-area-inset-bottom)]" : ""
+      }`}
     >
       <div className="container mx-auto px-4 py-3 md:py-4 flex items-center lg:flex-row flex-col gap-3 ">
         <Button

@@ -338,7 +338,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   };
 
   return (
-    <div className="min-h-screen h-screen flex flex-col bg-ide-background text-ide-text-primary">
+    <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden">
       {roomId &&
         (!webSocketData?.isConnected || !webSocketData?.isJoinedRoom) && (
           <Loader

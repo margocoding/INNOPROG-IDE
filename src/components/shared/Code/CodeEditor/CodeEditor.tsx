@@ -1,4 +1,4 @@
-import { defaultKeymap, indentWithTab, insertNewlineAndIndent } from "@codemirror/commands";
+import { defaultKeymap, indentWithTab } from "@codemirror/commands";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { cpp } from "@codemirror/lang-cpp";
 import { java } from "@codemirror/lang-java";
@@ -495,86 +495,63 @@ const CodeEditor: React.FC<IProps> = React.memo(
           closeBrackets(),
           indentGuidesField,
           keymap.of([
-            ...defaultKeymap.filter((binding) => {
-              if (typeof binding === "object" && "key" in binding) {
-                return binding.key !== "Enter";
-              }
-              return true;
-            }),
             {
               key: "Enter",
               run: (view) => {
                 const { state, dispatch } = view;
-                const line = state.doc.lineAt(state.selection.main.head);
-                const lineText = line.text;
-                const cursorPos = state.selection.main.head - line.from;
-                
-                const beforeCursor = lineText.slice(0, cursorPos);
-                const afterCursor = lineText.slice(cursorPos);
-                
-                const indentMatch = beforeCursor.match(/^(\s*)/);
-                const currentIndent = indentMatch ? indentMatch[1] : "";
-                
+                const selection = state.selection.main;
+
+                if (!selection.empty) {
+                  return false;
+                }
+
+                const line = state.doc.lineAt(selection.head);
+                const cursorPos = selection.head - line.from;
+                const beforeCursor = line.text.slice(0, cursorPos);
+                const afterCursor = line.text.slice(cursorPos);
                 const trimmedBefore = beforeCursor.trim();
                 const trimmedAfter = afterCursor.trim();
-                let newIndent = currentIndent;
-                let moveClosingBrace = false;
-                let closingBracePos = -1;
-                
-                if (trimmedBefore.endsWith("{")) {
-                  newIndent = currentIndent + "  ";
-                  if (trimmedAfter.startsWith("}")) {
-                    // Найти позицию закрывающей скобки
-                    const braceIndex = afterCursor.indexOf("}");
-                    if (braceIndex >= 0) {
-                      closingBracePos = state.selection.main.head + braceIndex;
-                      moveClosingBrace = true;
-                    }
-                  }
-                } else if (trimmedBefore.endsWith(":") && trimmedAfter.length === 0) {
-                  // Для Python и других языков: после : добавляем отступ
-                  newIndent = currentIndent + "  ";
+
+                if (!trimmedBefore.endsWith("{") || !trimmedAfter.startsWith("}")) {
+                  return false;
                 }
-                
-                const insertPos = state.selection.main.head;
-                const newline = "\n" + newIndent;
-                let insertText = newline;
-                let newCursorPos = insertPos + newline.length;
-                
-                if (moveClosingBrace && closingBracePos >= 0) {
-                  // Сначала удаляем закрывающую скобку, потом вставляем новую строку с ней
-                  insertText = newline + "\n" + currentIndent + "}";
-                  dispatch({
-                    changes: [
-                      {
-                        from: closingBracePos,
-                        to: closingBracePos + 1,
-                        insert: "",
-                      },
-                      {
-                        from: insertPos,
-                        insert: insertText,
-                      },
-                    ],
-                    selection: { anchor: newCursorPos, head: newCursorPos },
-                  });
-                } else {
-                  dispatch({
-                    changes: {
+
+                const braceIndex = afterCursor.indexOf("}");
+                if (braceIndex < 0) {
+                  return false;
+                }
+
+                const indentMatch = beforeCursor.match(/^(\s*)/);
+                const currentIndent = indentMatch ? indentMatch[1] : "";
+                const innerIndent = currentIndent + "  ";
+                const insertPos = selection.head;
+                const newline = "\n" + innerIndent;
+                const newCursorPos = insertPos + newline.length;
+                const insertText = newline + "\n" + currentIndent + "}";
+
+                dispatch({
+                  changes: [
+                    {
+                      from: insertPos + braceIndex,
+                      to: insertPos + braceIndex + 1,
+                      insert: "",
+                    },
+                    {
                       from: insertPos,
                       insert: insertText,
                     },
-                    selection: { anchor: newCursorPos, head: newCursorPos },
-                  });
-                }
-                
+                  ],
+                  selection: { anchor: newCursorPos, head: newCursorPos },
+                });
+
                 return true;
               },
             },
-                  ...closeBracketsKeymap,
-                  ...foldKeymap,
-                  indentWithTab,
-                ]),
+            ...defaultKeymap,
+            ...closeBracketsKeymap,
+            ...foldKeymap,
+            indentWithTab,
+          ]),
           selectionHighlightField,
           lineNumbers(),
           foldGutter(),
