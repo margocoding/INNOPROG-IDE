@@ -224,6 +224,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
       updates: updatesFromProps,
       isRemoteUpdate,
     });
+    const awareness = useMemo(() => new Awareness(ydoc), [ydoc]);
 
     useEffect(() => {
       const handleRoomStateLoaded = (event: CustomEvent) => {
@@ -488,7 +489,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
       const state = EditorState.create({
         doc: initialDoc,
         extensions: [
-          yCollab(ydoc.getText("codemirror"), new Y.Map()),
+          yCollab(ydoc.getText("codemirror"), awareness),
           languageSupport,
           oneDark,
           closeBrackets(),

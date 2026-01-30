@@ -544,13 +544,13 @@ export const useWebSocket = ({
         }) => {
             if (socketRef.current?.connected && roomIdRef.current && ((!completed && roomPermissions.studentSelectionEnabled) || isTeacher)) {
                 socketRef.current.emit("selection", {
-                    telegramId: myTelegramIdRef.current,
+                    telegramId: myTelegramId,
                     roomId: roomIdRef.current,
                     ...selectionData,
                 });
             }
         },
-        [completed, roomPermissions.studentSelectionEnabled, isTeacher]
+        [completed, roomPermissions.studentSelectionEnabled, isTeacher, myTelegramId]
     );
 
     const sendCodeEdit = useCallback(
@@ -585,24 +585,24 @@ export const useWebSocket = ({
     const sendChangeLanguage = useCallback((language: Language) => {
         if (socketRef.current?.connected && roomIdRef.current && !completed) {
             socketRef.current.emit('edit-room', {
-                telegramId: myTelegramIdRef.current,
+                telegramId: myTelegramId,
                 roomId: roomIdRef.current,
                 language
             })
         }
-    }, [completed]);
+    }, [completed, myTelegramId]);
 
     const sendRoomPermissions = useCallback(
         (permissions: RoomPermissions) => {
             if (socketRef.current?.connected && roomIdRef.current && !completed) {
                 socketRef.current.emit("edit-room", {
-                    telegramId: myTelegramIdRef.current,
+                    telegramId: myTelegramId,
                     roomId: roomIdRef.current,
                     ...permissions
                 });
             }
         },
-        [completed]
+        [completed, myTelegramId]
     );
 
     return {
