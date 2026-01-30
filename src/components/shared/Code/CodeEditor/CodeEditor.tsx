@@ -467,8 +467,19 @@ const CodeEditor: React.FC<IProps> = React.memo(
       lastLanguageRef.current = language;
 
       let initialDoc = `${codeBefore}${value}${codeAfter}`;
-      
-      if (isLanguageChange && editor.current) {
+      const ytext = ydoc?.getText("codemirror");
+      const ydocContent = ytext ? ytext.toString() : "";
+
+      if (ydocContent.trim()) {
+        initialDoc = ydocContent;
+        if (initialDoc.startsWith(codeBefore) && initialDoc.endsWith(codeAfter)) {
+          const userCode = initialDoc.slice(
+            codeBefore.length,
+            initialDoc.length - codeAfter.length
+          );
+          prevValue.current = userCode;
+        }
+      } else if (isLanguageChange && editor.current) {
         const currentDoc = editor.current.state.doc.toString();
         if (currentDoc && currentDoc.trim()) {
           initialDoc = currentDoc;
@@ -478,18 +489,6 @@ const CodeEditor: React.FC<IProps> = React.memo(
               initialDoc.length - codeAfter.length
             );
             prevValue.current = userCode;
-          }
-        } else if (ydoc) {
-          const ytext = ydoc.getText("codemirror");
-          if (ytext && ytext.toString().trim()) {
-            initialDoc = ytext.toString();
-            if (initialDoc.startsWith(codeBefore) && initialDoc.endsWith(codeAfter)) {
-              const userCode = initialDoc.slice(
-                codeBefore.length,
-                initialDoc.length - codeAfter.length
-              );
-              prevValue.current = userCode;
-            }
           }
         }
       }
@@ -740,10 +739,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 if (userCode !== prevValue.current) {
                   prevValue.current = userCode;
                   lastLocalEditTime.current = Date.now();
-
-                  if (!isRemoteUpdate.current) {
-                    onChangeRef.current(userCode);
-                  }
+                  onChangeRef.current(userCode);
 
                   if (ydoc && onSendUpdate && !isRemoteUpdate.current) {
                     isRemoteUpdate.current = true;
