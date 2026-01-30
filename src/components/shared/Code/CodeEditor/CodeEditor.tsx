@@ -576,7 +576,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
       const iosKeydownHandler = isIOS
         ? EditorView.domEventHandlers({
             keydown: (event, view) => {
-              if (event.key === "Enter") {
+              const keyCode = (event as KeyboardEvent).keyCode;
+              const key = event.key;
+
+              if (key === "Enter" || keyCode === 13) {
                 if (handleEnterBetweenBraces(view) || insertNewlineAndIndent(view)) {
                   event.preventDefault();
                   return true;
@@ -584,7 +587,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 return false;
               }
 
-              if (event.key === "ArrowLeft") {
+              if (key === "ArrowLeft" || keyCode === 37) {
                 const handled = cursorCharLeft(view);
                 if (handled) {
                   event.preventDefault();
@@ -592,7 +595,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 return handled;
               }
 
-              if (event.key === "ArrowRight") {
+              if (key === "ArrowRight" || keyCode === 39) {
                 const handled = cursorCharRight(view);
                 if (handled) {
                   event.preventDefault();
@@ -600,7 +603,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 return handled;
               }
 
-              if (event.key === "ArrowUp") {
+              if (key === "ArrowUp" || keyCode === 38) {
                 const handled = cursorLineUp(view);
                 if (handled) {
                   event.preventDefault();
@@ -608,7 +611,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 return handled;
               }
 
-              if (event.key === "ArrowDown") {
+              if (key === "ArrowDown" || keyCode === 40) {
                 const handled = cursorLineDown(view);
                 if (handled) {
                   event.preventDefault();
@@ -861,8 +864,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
         if (!isIOS) return;
         if (!editor.current || !editor.current.hasFocus) return;
         if (event.defaultPrevented) return;
+        const keyCode = event.keyCode;
+        const key = event.key;
 
-        if (event.key === "Enter") {
+        if (key === "Enter" || keyCode === 13) {
           if (
             handleEnterBetweenBraces(editor.current) ||
             insertNewlineAndIndent(editor.current)
@@ -872,28 +877,28 @@ const CodeEditor: React.FC<IProps> = React.memo(
           return;
         }
 
-        if (event.key === "ArrowLeft") {
+        if (key === "ArrowLeft" || keyCode === 37) {
           if (cursorCharLeft(editor.current)) {
             event.preventDefault();
           }
           return;
         }
 
-        if (event.key === "ArrowRight") {
+        if (key === "ArrowRight" || keyCode === 39) {
           if (cursorCharRight(editor.current)) {
             event.preventDefault();
           }
           return;
         }
 
-        if (event.key === "ArrowUp") {
+        if (key === "ArrowUp" || keyCode === 38) {
           if (cursorLineUp(editor.current)) {
             event.preventDefault();
           }
           return;
         }
 
-        if (event.key === "ArrowDown") {
+        if (key === "ArrowDown" || keyCode === 40) {
           if (cursorLineDown(editor.current)) {
             event.preventDefault();
           }

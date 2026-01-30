@@ -84,6 +84,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [isOutputData, setIsOutputData] = useState<boolean>(false);
   const [isInputData, setIsInputData] = useState<boolean>(true);
   const [showStartModal, setShowStartModal] = useState<boolean>(false);
+  const [hasJoinedOnce, setHasJoinedOnce] = useState<boolean>(false);
   const [editorWidth, setEditorWidth] = useState<number>(() => {
     const saved = localStorage.getItem("innoprog-editor-width");
     return saved ? parseFloat(saved) : 50;
@@ -133,6 +134,16 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       });
     }
   }, [setSearchParams, webSocketData?.language]);
+
+  useEffect(() => {
+    if (webSocketData?.isJoinedRoom) {
+      setHasJoinedOnce(true);
+    }
+  }, [webSocketData?.isJoinedRoom]);
+
+  useEffect(() => {
+    setHasJoinedOnce(false);
+  }, [roomId]);
 
   useEffect(() => {
     if (!roomId) {
@@ -340,6 +351,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   return (
     <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden">
       {roomId &&
+        !hasJoinedOnce &&
         (!webSocketData?.isConnected || !webSocketData?.isJoinedRoom) && (
           <Loader
             message={
