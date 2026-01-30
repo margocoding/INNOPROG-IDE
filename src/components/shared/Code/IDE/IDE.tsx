@@ -1,5 +1,5 @@
 import { useDisclosure } from "@heroui/react";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useCodeExecution } from "../../../../hooks/useCodeExecution";
 import { api } from "../../../../services/api";
@@ -85,6 +85,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [isInputData, setIsInputData] = useState<boolean>(true);
   const [showStartModal, setShowStartModal] = useState<boolean>(false);
   const [hasJoinedOnce, setHasJoinedOnce] = useState<boolean>(false);
+  const [showBlockingLoader, setShowBlockingLoader] = useState<boolean>(true);
+  const loaderTimeoutRef = useRef<number | null>(null);
   const [editorWidth, setEditorWidth] = useState<number>(() => {
     const saved = localStorage.getItem("innoprog-editor-width");
     return saved ? parseFloat(saved) : 50;
@@ -144,6 +146,29 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   useEffect(() => {
     setHasJoinedOnce(false);
   }, [roomId]);
+
+  useEffect(() => {
+    if (loaderTimeoutRef.current) {
+      window.clearTimeout(loaderTimeoutRef.current);
+      loaderTimeoutRef.current = null;
+    }
+
+    if (roomId && !webSocketData?.isJoinedRoom) {
+      setShowBlockingLoader(true);
+      loaderTimeoutRef.current = window.setTimeout(() => {
+        setShowBlockingLoader(false);
+      }, 12000);
+    } else {
+      setShowBlockingLoader(false);
+    }
+
+    return () => {
+      if (loaderTimeoutRef.current) {
+        window.clearTimeout(loaderTimeoutRef.current);
+        loaderTimeoutRef.current = null;
+      }
+    };
+  }, [roomId, webSocketData?.isJoinedRoom]);
 
   useEffect(() => {
     if (!roomId) {
@@ -352,6 +377,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden">
       {roomId &&
         !hasJoinedOnce &&
+        showBlockingLoader &&
         (!webSocketData?.isConnected || !webSocketData?.isJoinedRoom) && (
           <Loader
             message={

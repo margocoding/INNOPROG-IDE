@@ -5,6 +5,7 @@ import { ToastContainer } from "react-toastify";
 import App from "./App";
 import "./index.css";
 import reportWebVitals from "./reportWebVitals";
+import ErrorBoundary from "./components/shared/ErrorBoundary/ErrorBoundary";
 
 declare global {
   interface Window {
@@ -51,9 +52,11 @@ root.render(
   <React.StrictMode>
     <ToastContainer theme="dark" />
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<App />} />
-      </Routes>
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/" element={<App />} />
+        </Routes>
+      </ErrorBoundary>
     </BrowserRouter>
   </React.StrictMode>
 );
