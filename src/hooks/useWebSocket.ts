@@ -64,6 +64,8 @@ export const useWebSocket = ({
     const socketRef = useRef<Socket | null>(null);
     const socketUrlRef = useRef<string>(socketUrl);
     const myTelegramIdRef = useRef<string>(myTelegramId);
+    const hasServerTelegramIdRef = useRef<boolean>(false);
+    const selfIdsRef = useRef<Set<string>>(new Set());
     const roomIdRef = useRef(roomId);
     const isConnectedRef = useRef<boolean>(false);
     const shouldReconnectRef = useRef<boolean>(true);
@@ -118,6 +120,11 @@ export const useWebSocket = ({
             });
         }
     }, [completed]);
+
+    const isSelfId = useCallback(
+        (id?: string) => Boolean(id && selfIdsRef.current.has(id)),
+        []
+    );
 
     const connectWebSocket = useCallback(() => {
         const currentRoomId = roomIdRef.current;
@@ -212,8 +219,12 @@ export const useWebSocket = ({
             setIsTeacher(eventData.isTeacher);
             setLanguage(eventData.language);
             setJoinedCode(eventData.joinedCode);
-            localStorage.setItem('telegramId', eventData.telegramId);
-            myTelegramIdRef.current = eventData.telegramId.startsWith('i') ? eventData.telegramId : myTelegramIdRef.current;
+            if (eventData.telegramId) {
+                localStorage.setItem('telegramId', eventData.telegramId);
+                hasServerTelegramIdRef.current = true;
+                selfIdsRef.current.add(eventData.telegramId);
+                myTelegramIdRef.current = eventData.telegramId;
+            }
 
             if (eventData.roomPermissions) {
                 setRoomPermissions(eventData.roomPermissions);
@@ -222,10 +233,9 @@ export const useWebSocket = ({
             if (eventData.currentCursors) {
                 setCursors(
                     new Map(
-                        eventData.currentCursors.map((cursor: CursorData) => [
-                            cursor.telegramId,
-                            cursor,
-                        ])
+                        eventData.currentCursors
+                            .filter((cursor: CursorData) => !isSelfId(cursor.telegramId))
+                            .map((cursor: CursorData) => [cursor.telegramId, cursor])
                     )
                 );
             }
@@ -233,7 +243,7 @@ export const useWebSocket = ({
             if (eventData.currentSelections) {
                 const selectionsMap = new Map();
                 eventData.currentSelections.forEach((selection: any) => {
-                    if (selection.telegramId !== myTelegramIdRef.current) {
+                    if (selection.telegramId && !isSelfId(selection.telegramId)) {
                         selectionsMap.set(selection.telegramId, {
                             line: selection.line,
                             column: selection.column,
@@ -286,7 +296,7 @@ export const useWebSocket = ({
         });
 
         socket.on("cursor-action", (eventData) => {
-            if (eventData.telegramId !== myTelegramIdRef.current) {
+            if (eventData.telegramId && !isSelfId(eventData.telegramId)) {
                 setCursors((prev) => {
                     const newCursors = new Map(prev);
                     newCursors.set(eventData.telegramId, {
@@ -304,10 +314,7 @@ export const useWebSocket = ({
         socket.on("selection-state", (eventData) => {
             const newSelections = new Map();
             eventData.selections.forEach((selection: any) => {
-                if (
-                    selection.telegramId &&
-                    selection.telegramId !== myTelegramIdRef.current
-                ) {
+                if (selection.telegramId && !isSelfId(selection.telegramId)) {
                     newSelections.set(selection.telegramId, {
                         line: selection.line,
                         column: selection.column,
@@ -369,7 +376,7 @@ export const useWebSocket = ({
         });
 
         socket.on("clear-user-selections", (eventData) => {
-            if (eventData.telegramId !== myTelegramIdRef.current) {
+            if (eventData.telegramId && !isSelfId(eventData.telegramId)) {
                 setSelections((prev) => {
                     const newSelections = new Map(prev);
                     newSelections.delete(eventData.telegramId);
@@ -381,7 +388,7 @@ export const useWebSocket = ({
         socket.on("join-room:error", (eventData) => {
             setConnectionError(eventData.message);
         });
-    }, [joinRoom, clearIntervals]);
+    }, [joinRoom, clearIntervals, isSelfId]);
 
     useEffect(() => {
         if (
@@ -399,7 +406,12 @@ export const useWebSocket = ({
 
     useEffect(() => {
         socketUrlRef.current = socketUrl;
-        myTelegramIdRef.current = myTelegramId;
+        if (myTelegramId) {
+            selfIdsRef.current.add(myTelegramId);
+            if (!hasServerTelegramIdRef.current) {
+                myTelegramIdRef.current = myTelegramId;
+            }
+        }
         const wasRoomId = roomIdRef.current;
         roomIdRef.current = roomId;
 
@@ -532,13 +544,13 @@ export const useWebSocket = ({
         }) => {
             if (socketRef.current?.connected && roomIdRef.current && ((!completed && roomPermissions.studentSelectionEnabled) || isTeacher)) {
                 socketRef.current.emit("selection", {
-                    telegramId: myTelegramId,
+                    telegramId: myTelegramIdRef.current,
                     roomId: roomIdRef.current,
                     ...selectionData,
                 });
             }
         },
-        [completed, roomPermissions.studentSelectionEnabled, isTeacher, myTelegramId]
+        [completed, roomPermissions.studentSelectionEnabled, isTeacher]
     );
 
     const sendCodeEdit = useCallback(
@@ -573,24 +585,24 @@ export const useWebSocket = ({
     const sendChangeLanguage = useCallback((language: Language) => {
         if (socketRef.current?.connected && roomIdRef.current && !completed) {
             socketRef.current.emit('edit-room', {
-                telegramId: myTelegramId,
+                telegramId: myTelegramIdRef.current,
                 roomId: roomIdRef.current,
                 language
             })
         }
-    }, [completed, myTelegramId]);
+    }, [completed]);
 
     const sendRoomPermissions = useCallback(
         (permissions: RoomPermissions) => {
             if (socketRef.current?.connected && roomIdRef.current && !completed) {
                 socketRef.current.emit("edit-room", {
-                    telegramId: myTelegramId,
+                    telegramId: myTelegramIdRef.current,
                     roomId: roomIdRef.current,
                     ...permissions
                 });
             }
         },
-        [completed, myTelegramId, roomIdRef]
+        [completed]
     );
 
     return {

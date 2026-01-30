@@ -27,7 +27,7 @@ const App = React.memo(() => {
   return (
     <>
       <Cursor
-        myTelegramId={telegramId}
+        myTelegramId={webSocketData.telegramId || telegramId}
         roomId={roomId}
         webSocketData={webSocketData}
       />
