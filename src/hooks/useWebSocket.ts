@@ -558,12 +558,12 @@ export const useWebSocket = ({
             if (socketRef.current?.connected && roomIdRef.current && !completed && (roomPermissions.studentEditCodeEnabled || isTeacher)) {
                 socketRef.current.emit("code-edit", {
                     roomId: roomIdRef.current,
-                    telegramId: myTelegramIdRef.current,
+                    telegramId: myTelegramId || myTelegramIdRef.current,
                     update,
                 });
             }
         },
-        [completed, roomPermissions.studentEditCodeEnabled, isTeacher]
+        [completed, roomPermissions.studentEditCodeEnabled, isTeacher, myTelegramId]
     );
 
 
