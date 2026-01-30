@@ -56,7 +56,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 
 	return (
 		<div
-			className={`h-full ${
+			className={`h-full min-w-0 ${
 				activeTab === "output" ? "block" : "hidden md:block"
 			}`}
 			style={
