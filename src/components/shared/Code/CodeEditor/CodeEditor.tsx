@@ -223,64 +223,18 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
     const onChangeRef = useRef(onChange);
     const sendSelectionRef = useRef(sendSelection);
+    const isWebSocketRef = useRef(isWebSocket);
     const isRemoteUpdate = useRef<boolean>(false);
 
     onChangeRef.current = onChange;
     sendSelectionRef.current = sendSelection;
+    isWebSocketRef.current = isWebSocket;
 
     const ydoc = useYDocFromUpdates({
       updates: updatesFromProps,
       isRemoteUpdate,
     });
     const awareness = useMemo(() => new Awareness(ydoc), [ydoc]);
-
-    useEffect(() => {
-      const handleRoomStateLoaded = (event: CustomEvent) => {
-        const { lastCode } = event.detail;
-        if (lastCode && lastCode !== value && editor.current) {
-          try {
-            let editableCode = lastCode;
-
-            if (codeBefore && lastCode.startsWith(codeBefore)) {
-              editableCode = lastCode.slice(codeBefore.length);
-              if (codeAfter && editableCode.endsWith(codeAfter)) {
-                editableCode = editableCode.slice(0, -codeAfter.length);
-              }
-            }
-
-            const fullContent = `${codeBefore}${editableCode}${codeAfter}`;
-
-            const transaction = editor.current.state.update({
-              changes: {
-                from: 0,
-                to: editor.current.state.doc.length,
-                insert: fullContent,
-              },
-            });
-            editor.current.dispatch(transaction);
-
-            if (onChangeRef.current) {
-              onChangeRef.current(editableCode);
-            }
-
-            prevValue.current = editableCode;
-          } catch (error) {
-            console.error(error);
-          }
-        }
-      };
-
-      window.addEventListener(
-        "roomStateLoaded",
-        handleRoomStateLoaded as EventListener
-      );
-      return () => {
-        window.removeEventListener(
-          "roomStateLoaded",
-          handleRoomStateLoaded as EventListener
-        );
-      };
-    }, [value, codeBefore, codeAfter]);
 
     const effectiveReadOnly = useMemo(
       () => disabled || readOnly,
@@ -713,7 +667,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
                  const newValue = update.state.doc.toString();
 
-                if (isWebSocket) {
+                if (isWebSocketRef.current) {
                   setCurrentCode(newValue);
                 }
 
@@ -721,12 +675,24 @@ const CodeEditor: React.FC<IProps> = React.memo(
                   !newValue.startsWith(codeBefore) ||
                   !newValue.endsWith(codeAfter)
                 ) {
+                  const fallbackContent = `${codeBefore}${prevValue.current}${codeAfter}`;
+                  const minEditablePosition = codeBefore.length;
+                  const maxEditablePosition = Math.max(
+                    minEditablePosition,
+                    fallbackContent.length - codeAfter.length
+                  );
+                  const preservedCursorPos = Math.max(
+                    minEditablePosition,
+                    Math.min(update.state.selection.main.head, maxEditablePosition)
+                  );
+
                   editor.current?.dispatch({
                     changes: {
                       from: 0,
                       to: newValue.length,
-                      insert: `${codeBefore}${prevValue.current}${codeAfter}`,
+                      insert: fallbackContent,
                     },
+                    selection: { anchor: preservedCursorPos, head: preservedCursorPos },
                   });
                   return;
                 }
@@ -907,7 +873,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
         window.removeEventListener("keydown", handleGlobalKeydown);
         view.destroy();
       };
-    }, [language, effectiveReadOnly, codeBefore, codeAfter, ydoc, isWebSocket]);
+    }, [language, effectiveReadOnly, codeBefore, codeAfter, ydoc]);
 
     useEffect(() => {
       if (editor.current && value !== prevValue.current) {
@@ -923,6 +889,11 @@ const CodeEditor: React.FC<IProps> = React.memo(
           );
 
           const fullContent = `${codeBefore}${value}${codeAfter}`;
+
+          if (editor.current.state.doc.toString() === fullContent) {
+            prevValue.current = value;
+            return;
+          }
 
           const newCursorPos = Math.min(
             relativeCursorPos,

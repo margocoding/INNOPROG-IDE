@@ -87,6 +87,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [hasJoinedOnce, setHasJoinedOnce] = useState<boolean>(false);
   const [showBlockingLoader, setShowBlockingLoader] = useState<boolean>(true);
   const loaderTimeoutRef = useRef<number | null>(null);
+  const roomStateAppliedRef = useRef<boolean>(false);
   const [editorWidth, setEditorWidth] = useState<number>(() => {
     const saved = localStorage.getItem("innoprog-editor-width");
     return saved ? parseFloat(saved) : 50;
@@ -210,6 +211,12 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [roomCodeLoaded, setRoomCodeLoaded] = useState(false);
 
   useEffect(() => {
+    roomStateAppliedRef.current = false;
+    setCodeSource("none");
+    setRoomCodeLoaded(!roomId);
+  }, [roomId]);
+
+  useEffect(() => {
     const loadTask = async () => {
       if (!taskId) return;
 
@@ -270,6 +277,11 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   useEffect(() => {
     const handleRoomStateLoaded = (event: CustomEvent) => {
+      if (roomStateAppliedRef.current) {
+        return;
+      }
+      roomStateAppliedRef.current = true;
+
       const { lastCode } = event.detail;
 
       if (lastCode && lastCode.trim()) {
@@ -299,11 +311,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       "roomStateLoaded",
       handleRoomStateLoaded as EventListener
     );
-
-    // Если нет roomId, сразу помечаем как "загружено"
-    if (!roomId) {
-      setRoomCodeLoaded(true);
-    }
 
     return () => {
       window.removeEventListener(
