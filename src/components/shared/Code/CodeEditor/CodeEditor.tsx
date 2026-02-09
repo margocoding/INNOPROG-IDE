@@ -223,10 +223,12 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
     const onChangeRef = useRef(onChange);
     const sendSelectionRef = useRef(sendSelection);
+    const isWebSocketRef = useRef(isWebSocket);
     const isRemoteUpdate = useRef<boolean>(false);
 
     onChangeRef.current = onChange;
     sendSelectionRef.current = sendSelection;
+    isWebSocketRef.current = isWebSocket;
 
     const ydoc = useYDocFromUpdates({
       updates: updatesFromProps,
@@ -235,38 +237,57 @@ const CodeEditor: React.FC<IProps> = React.memo(
     const awareness = useMemo(() => new Awareness(ydoc), [ydoc]);
 
     useEffect(() => {
-      const handleRoomStateLoaded = (event: CustomEvent) => {
-        const { lastCode } = event.detail;
-        if (lastCode && lastCode !== value && editor.current) {
-          try {
-            let editableCode = lastCode;
+      const handleRoomStateLoaded = (event: Event) => {
+        if (!editor.current) return;
+        const customEvent = event as CustomEvent<{ lastCode?: string }>;
+        const lastCode = customEvent.detail?.lastCode;
+        if (!lastCode) return;
 
-            if (codeBefore && lastCode.startsWith(codeBefore)) {
-              editableCode = lastCode.slice(codeBefore.length);
-              if (codeAfter && editableCode.endsWith(codeAfter)) {
-                editableCode = editableCode.slice(0, -codeAfter.length);
-              }
+        try {
+          let editableCode = lastCode;
+
+          if (codeBefore && lastCode.startsWith(codeBefore)) {
+            editableCode = lastCode.slice(codeBefore.length);
+            if (codeAfter && editableCode.endsWith(codeAfter)) {
+              editableCode = editableCode.slice(0, -codeAfter.length);
             }
-
-            const fullContent = `${codeBefore}${editableCode}${codeAfter}`;
-
-            const transaction = editor.current.state.update({
-              changes: {
-                from: 0,
-                to: editor.current.state.doc.length,
-                insert: fullContent,
-              },
-            });
-            editor.current.dispatch(transaction);
-
-            if (onChangeRef.current) {
-              onChangeRef.current(editableCode);
-            }
-
-            prevValue.current = editableCode;
-          } catch (error) {
-            console.error(error);
           }
+
+          const fullContent = `${codeBefore}${editableCode}${codeAfter}`;
+          const currentContent = editor.current.state.doc.toString();
+
+          if (currentContent === fullContent) {
+            return;
+          }
+
+          const currentSelection = editor.current.state.selection.main;
+          const minEditablePosition = codeBefore.length;
+          const maxEditablePosition = Math.max(
+            minEditablePosition,
+            fullContent.length - codeAfter.length
+          );
+          const preservedCursorPos = Math.max(
+            minEditablePosition,
+            Math.min(currentSelection.head, maxEditablePosition)
+          );
+
+          const transaction = editor.current.state.update({
+            changes: {
+              from: 0,
+              to: editor.current.state.doc.length,
+              insert: fullContent,
+            },
+            selection: {
+              anchor: preservedCursorPos,
+              head: preservedCursorPos,
+            },
+          });
+          editor.current.dispatch(transaction);
+
+          onChangeRef.current?.(editableCode);
+          prevValue.current = editableCode;
+        } catch (error) {
+          console.error(error);
         }
       };
 
@@ -280,7 +301,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
           handleRoomStateLoaded as EventListener
         );
       };
-    }, [value, codeBefore, codeAfter]);
+    }, [codeBefore, codeAfter]);
 
     const effectiveReadOnly = useMemo(
       () => disabled || readOnly,
@@ -713,7 +734,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
                  const newValue = update.state.doc.toString();
 
-                if (isWebSocket) {
+                if (isWebSocketRef.current) {
                   setCurrentCode(newValue);
                 }
 
@@ -721,12 +742,24 @@ const CodeEditor: React.FC<IProps> = React.memo(
                   !newValue.startsWith(codeBefore) ||
                   !newValue.endsWith(codeAfter)
                 ) {
+                  const fallbackContent = `${codeBefore}${prevValue.current}${codeAfter}`;
+                  const minEditablePosition = codeBefore.length;
+                  const maxEditablePosition = Math.max(
+                    minEditablePosition,
+                    fallbackContent.length - codeAfter.length
+                  );
+                  const preservedCursorPos = Math.max(
+                    minEditablePosition,
+                    Math.min(update.state.selection.main.head, maxEditablePosition)
+                  );
+
                   editor.current?.dispatch({
                     changes: {
                       from: 0,
                       to: newValue.length,
-                      insert: `${codeBefore}${prevValue.current}${codeAfter}`,
+                      insert: fallbackContent,
                     },
+                    selection: { anchor: preservedCursorPos, head: preservedCursorPos },
                   });
                   return;
                 }
@@ -907,7 +940,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
         window.removeEventListener("keydown", handleGlobalKeydown);
         view.destroy();
       };
-    }, [language, effectiveReadOnly, codeBefore, codeAfter, ydoc, isWebSocket]);
+    }, [language, effectiveReadOnly, codeBefore, codeAfter, ydoc]);
 
     useEffect(() => {
       if (editor.current && value !== prevValue.current) {
