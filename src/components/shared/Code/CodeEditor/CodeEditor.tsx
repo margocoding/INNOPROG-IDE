@@ -251,7 +251,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
       isRemoteUpdate,
     });
     const awareness = useMemo(() => new Awareness(ydoc), [ydoc]);
-    const syncDelayMs = 140;
+    const syncDelayMs = 220;
 
     const effectiveReadOnly = useMemo(
       () => disabled || readOnly,
@@ -681,6 +681,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
             const hasUserSelectionChange = update.transactions.some(
               (transaction) => transaction.isUserEvent("select")
             );
+            const hasLocalInteraction = hasUserEdit || hasUserSelectionChange;
 
             if (update.focusChanged && !update.view.hasFocus) {
               scheduleSelectionSend({ clearSelection: true }, true);
@@ -688,60 +689,62 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
             if (update.docChanged) {
               try {
-                const bracketPairs: { [key: string]: string } = {
-                  "{": "}",
-                  "[": "]",
-                  "(": ")",
-                  "<": ">",
-                  '"': '"',
-                  "'": "'",
-                  "`": "`",
-                };
+                if (!isWebSocketRef.current) {
+                  const bracketPairs: { [key: string]: string } = {
+                    "{": "}",
+                    "[": "]",
+                    "(": ")",
+                    "<": ">",
+                    '"': '"',
+                    "'": "'",
+                    "`": "`",
+                  };
 
-                for (const tr of update.transactions) {
-                  if (tr.isUserEvent("delete.backward") || tr.isUserEvent("delete.forward")) {
-                    tr.changes.iterChanges((fromA, toA, fromB, toB) => {
-                      if (toA - fromA === 1 && fromB === toB) {
-                        const deletedChar = update.startState.doc.sliceString(fromA, toA);
-                        
-                        if (bracketPairs[deletedChar]) {
-                          const closingBracket = bracketPairs[deletedChar];
-                          const oldDoc = update.startState.doc;
-                          const newDoc = update.state.doc;
+                  for (const tr of update.transactions) {
+                    if (tr.isUserEvent("delete.backward") || tr.isUserEvent("delete.forward")) {
+                      tr.changes.iterChanges((fromA, toA, fromB, toB) => {
+                        if (toA - fromA === 1 && fromB === toB) {
+                          const deletedChar = update.startState.doc.sliceString(fromA, toA);
                           
-                          if (fromA + 1 < oldDoc.length) {
-                            const afterDeleted = oldDoc.sliceString(fromA + 1);
-                            const closingPos = afterDeleted.indexOf(closingBracket);
+                          if (bracketPairs[deletedChar]) {
+                            const closingBracket = bracketPairs[deletedChar];
+                            const oldDoc = update.startState.doc;
+                            const newDoc = update.state.doc;
                             
-                            if (closingPos >= 0) {
-                              const betweenText = afterDeleted.slice(0, closingPos);
+                            if (fromA + 1 < oldDoc.length) {
+                              const afterDeleted = oldDoc.sliceString(fromA + 1);
+                              const closingPos = afterDeleted.indexOf(closingBracket);
                               
-                              if (betweenText.trim().length === 0) {
-                                const actualClosingPos = fromA + 1 + closingPos;
-                                const mappedPos = tr.changes.mapPos(actualClosingPos, -1);
+                              if (closingPos >= 0) {
+                                const betweenText = afterDeleted.slice(0, closingPos);
                                 
-                                if (mappedPos >= 0 && mappedPos < newDoc.length) {
-                                  const nextChar = newDoc.sliceString(mappedPos, mappedPos + 1);
-                                  if (nextChar === closingBracket) {
-                                    setTimeout(() => {
-                                      if (editor.current) {
-                                        editor.current.dispatch({
-                                          changes: {
-                                            from: mappedPos,
-                                            to: mappedPos + 1,
-                                            insert: "",
-                                          },
-                                        });
-                                      }
-                                    }, 0);
+                                if (betweenText.trim().length === 0) {
+                                  const actualClosingPos = fromA + 1 + closingPos;
+                                  const mappedPos = tr.changes.mapPos(actualClosingPos, -1);
+                                  
+                                  if (mappedPos >= 0 && mappedPos < newDoc.length) {
+                                    const nextChar = newDoc.sliceString(mappedPos, mappedPos + 1);
+                                    if (nextChar === closingBracket) {
+                                      setTimeout(() => {
+                                        if (editor.current) {
+                                          editor.current.dispatch({
+                                            changes: {
+                                              from: mappedPos,
+                                              to: mappedPos + 1,
+                                              insert: "",
+                                            },
+                                          });
+                                        }
+                                      }, 0);
+                                    }
                                   }
                                 }
                               }
                             }
                           }
                         }
-                      }
-                    });
+                      });
+                    }
                   }
                 }
 
@@ -755,7 +758,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
                   newValue.startsWith(codeBefore) &&
                   newValue.endsWith(codeAfter);
 
-                if (!hasExpectedBounds && hasUserEdit) {
+                if (!isWebSocketRef.current && !hasExpectedBounds && hasUserEdit) {
                   const fallbackContent = `${codeBefore}${prevValue.current}${codeAfter}`;
                   const minEditablePosition = codeBefore.length;
                   const maxEditablePosition = Math.max(
@@ -794,7 +797,6 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
                   if (
                     ydoc &&
-                    !isRemoteUpdate.current &&
                     hasUserEdit
                   ) {
                     pendingCodeUpdateRef.current = Y.encodeStateAsUpdate(ydoc);
@@ -810,9 +812,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
                           return;
                         }
 
-                        isRemoteUpdate.current = true;
                         onSendUpdateRef.current(pendingUpdate);
-                        isRemoteUpdate.current = false;
                       }, syncDelayMs);
                     }
                   }
@@ -828,7 +828,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 return;
               }
 
-              if (update.docChanged && !hasUserEdit && !hasUserSelectionChange) {
+              if (!hasLocalInteraction) {
                 return;
               }
 
@@ -989,6 +989,11 @@ const CodeEditor: React.FC<IProps> = React.memo(
     useEffect(() => {
       if (editor.current && value !== prevValue.current) {
         try {
+          if (isWebSocketRef.current) {
+            prevValue.current = value;
+            return;
+          }
+
           const selection = editor.current.state.selection;
           const cursorPos = selection.main.head;
           const relativeCursorPos = Math.max(
