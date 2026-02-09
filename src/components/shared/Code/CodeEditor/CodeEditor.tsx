@@ -707,7 +707,21 @@ const CodeEditor: React.FC<IProps> = React.memo(
                   lastLocalEditTime.current = Date.now();
                   onChangeRef.current(userCode);
 
-                  if (ydoc && onSendUpdate && !isRemoteUpdate.current) {
+                  const hasUserEdit = update.transactions.some(
+                    (transaction) =>
+                      transaction.docChanged &&
+                      (transaction.isUserEvent("input") ||
+                        transaction.isUserEvent("delete") ||
+                        transaction.isUserEvent("undo") ||
+                        transaction.isUserEvent("redo"))
+                  );
+
+                  if (
+                    ydoc &&
+                    onSendUpdate &&
+                    !isRemoteUpdate.current &&
+                    hasUserEdit
+                  ) {
                     isRemoteUpdate.current = true;
                     const updateBinary = Y.encodeStateAsUpdate(ydoc);
                     onSendUpdate(updateBinary);
