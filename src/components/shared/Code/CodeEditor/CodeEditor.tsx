@@ -602,6 +602,18 @@ const CodeEditor: React.FC<IProps> = React.memo(
           foldGutter(),
           EditorState.tabSize.of(2),
           EditorView.updateListener.of((update) => {
+            const hasUserEdit = update.transactions.some(
+              (transaction) =>
+                transaction.docChanged &&
+                (transaction.isUserEvent("input") ||
+                  transaction.isUserEvent("delete") ||
+                  transaction.isUserEvent("undo") ||
+                  transaction.isUserEvent("redo"))
+            );
+            const hasUserSelectionChange = update.transactions.some(
+              (transaction) => transaction.isUserEvent("select")
+            );
+
             if (update.focusChanged && !update.view.hasFocus) {
               sendSelectionRef.current?.({ clearSelection: true });
             }
@@ -671,10 +683,11 @@ const CodeEditor: React.FC<IProps> = React.memo(
                   setCurrentCode(newValue);
                 }
 
-                if (
-                  !newValue.startsWith(codeBefore) ||
-                  !newValue.endsWith(codeAfter)
-                ) {
+                const hasExpectedBounds =
+                  newValue.startsWith(codeBefore) &&
+                  newValue.endsWith(codeAfter);
+
+                if (!hasExpectedBounds && hasUserEdit) {
                   const fallbackContent = `${codeBefore}${prevValue.current}${codeAfter}`;
                   const minEditablePosition = codeBefore.length;
                   const maxEditablePosition = Math.max(
@@ -697,6 +710,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
                   return;
                 }
 
+                if (!hasExpectedBounds) {
+                  return;
+                }
+
                 const userCode = newValue.slice(
                   codeBefore.length,
                   newValue.length - codeAfter.length
@@ -706,15 +723,6 @@ const CodeEditor: React.FC<IProps> = React.memo(
                   prevValue.current = userCode;
                   lastLocalEditTime.current = Date.now();
                   onChangeRef.current(userCode);
-
-                  const hasUserEdit = update.transactions.some(
-                    (transaction) =>
-                      transaction.docChanged &&
-                      (transaction.isUserEvent("input") ||
-                        transaction.isUserEvent("delete") ||
-                        transaction.isUserEvent("undo") ||
-                        transaction.isUserEvent("redo"))
-                  );
 
                   if (
                     ydoc &&
@@ -735,6 +743,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
             // === 2. Обновление курсора / выделения ===
             if (update.selectionSet && sendSelectionRef.current) {
+              if (update.docChanged && !hasUserEdit && !hasUserSelectionChange) {
+                return;
+              }
+
               try {
                 const selection = update.state.selection.main;
                 const doc = update.state.doc;
