@@ -222,6 +222,18 @@ const CodeEditor: React.FC<IProps> = React.memo(
     const hadTextSelection = useRef<boolean>(false);
     const pendingCodeUpdateRef = useRef<Uint8Array | null>(null);
     const codeUpdateTimeoutRef = useRef<number | null>(null);
+    const pendingSelectionRef = useRef<
+      | {
+          line?: number;
+          column?: number;
+          selectionStart?: { line: number; column: number };
+          selectionEnd?: { line: number; column: number };
+          selectedText?: string;
+          clearSelection?: boolean;
+        }
+      | null
+    >(null);
+    const selectionTimeoutRef = useRef<number | null>(null);
 
     const onChangeRef = useRef(onChange);
     const sendSelectionRef = useRef(sendSelection);
@@ -239,11 +251,50 @@ const CodeEditor: React.FC<IProps> = React.memo(
       isRemoteUpdate,
     });
     const awareness = useMemo(() => new Awareness(ydoc), [ydoc]);
+    const syncDelayMs = 140;
 
     const effectiveReadOnly = useMemo(
       () => disabled || readOnly,
       [readOnly, disabled]
     );
+
+    const flushPendingSelection = () => {
+      if (!pendingSelectionRef.current) return;
+      sendSelectionRef.current?.(pendingSelectionRef.current);
+      pendingSelectionRef.current = null;
+    };
+
+    const scheduleSelectionSend = (
+      selectionData: {
+        line?: number;
+        column?: number;
+        selectionStart?: { line: number; column: number };
+        selectionEnd?: { line: number; column: number };
+        selectedText?: string;
+        clearSelection?: boolean;
+      },
+      immediate: boolean = false
+    ) => {
+      pendingSelectionRef.current = selectionData;
+
+      if (immediate) {
+        if (selectionTimeoutRef.current !== null) {
+          window.clearTimeout(selectionTimeoutRef.current);
+          selectionTimeoutRef.current = null;
+        }
+        flushPendingSelection();
+        return;
+      }
+
+      if (selectionTimeoutRef.current !== null) {
+        return;
+      }
+
+      selectionTimeoutRef.current = window.setTimeout(() => {
+        selectionTimeoutRef.current = null;
+        flushPendingSelection();
+      }, syncDelayMs);
+    };
 
     useEffect(() => {
       return () => {
@@ -251,8 +302,12 @@ const CodeEditor: React.FC<IProps> = React.memo(
           window.clearTimeout(codeUpdateTimeoutRef.current);
           codeUpdateTimeoutRef.current = null;
         }
+        if (selectionTimeoutRef.current !== null) {
+          window.clearTimeout(selectionTimeoutRef.current);
+          selectionTimeoutRef.current = null;
+        }
       };
-    }, []);
+    }, [syncDelayMs]);
 
     useEffect(() => {
       if (!editor.current) return;
@@ -628,7 +683,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
             );
 
             if (update.focusChanged && !update.view.hasFocus) {
-              sendSelectionRef.current?.({ clearSelection: true });
+              scheduleSelectionSend({ clearSelection: true }, true);
             }
 
             if (update.docChanged) {
@@ -758,7 +813,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
                         isRemoteUpdate.current = true;
                         onSendUpdateRef.current(pendingUpdate);
                         isRemoteUpdate.current = false;
-                      }, 80);
+                      }, syncDelayMs);
                     }
                   }
                 }
@@ -769,6 +824,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
             // === 2. Обновление курсора / выделения ===
             if (update.selectionSet && sendSelectionRef.current) {
+              if (!update.view.hasFocus) {
+                return;
+              }
+
               if (update.docChanged && !hasUserEdit && !hasUserSelectionChange) {
                 return;
               }
@@ -789,7 +848,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
                       selection.to
                     );
 
-                    sendSelectionRef.current({
+                    scheduleSelectionSend({
                       selectionStart: {
                         line: startLine.number,
                         column: selection.from - startLine.from,
@@ -812,14 +871,14 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
                   // если до этого было выделение → сбрасываем
                   if (hadTextSelection.current) {
-                    sendSelectionRef.current({
+                    scheduleSelectionSend({
                       line: lineNumber,
                       column: columnNumber,
                       clearSelection: true,
                     });
                     hadTextSelection.current = false;
                   } else {
-                    sendSelectionRef.current({
+                    scheduleSelectionSend({
                       line: lineNumber,
                       column: columnNumber,
                     });
