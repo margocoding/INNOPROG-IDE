@@ -29,6 +29,7 @@ import { Select, SelectItem } from "@heroui/react";
 import React, { useEffect, useMemo, useRef } from "react";
 import { yCollab } from "y-codemirror.next";
 import { Awareness } from "y-protocols/awareness";
+import * as Y from "yjs";
 import useYDocFromUpdates from "../../../../hooks/useYDocFromUpdates";
 import { Language } from "../../../../types/task";
 
@@ -236,21 +237,71 @@ const CodeEditor: React.FC<IProps> = React.memo(
     const awareness = useMemo(() => new Awareness(ydoc), [ydoc]);
 
     useEffect(() => {
-      if (!onSendUpdate) return;
+      const handleRoomStateLoaded = (event: Event) => {
+        if (!editor.current) return;
+        const customEvent = event as CustomEvent<{ lastCode?: string }>;
+        const lastCode = customEvent.detail?.lastCode;
+        if (!lastCode) return;
 
-      const handleYDocUpdate = (update: Uint8Array, origin: unknown) => {
-        if (isRemoteUpdate.current || origin === "remote") {
-          return;
+        try {
+          let editableCode = lastCode;
+
+          if (codeBefore && lastCode.startsWith(codeBefore)) {
+            editableCode = lastCode.slice(codeBefore.length);
+            if (codeAfter && editableCode.endsWith(codeAfter)) {
+              editableCode = editableCode.slice(0, -codeAfter.length);
+            }
+          }
+
+          const fullContent = `${codeBefore}${editableCode}${codeAfter}`;
+          const currentContent = editor.current.state.doc.toString();
+
+          if (currentContent === fullContent) {
+            return;
+          }
+
+          const currentSelection = editor.current.state.selection.main;
+          const minEditablePosition = codeBefore.length;
+          const maxEditablePosition = Math.max(
+            minEditablePosition,
+            fullContent.length - codeAfter.length
+          );
+          const preservedCursorPos = Math.max(
+            minEditablePosition,
+            Math.min(currentSelection.head, maxEditablePosition)
+          );
+
+          const transaction = editor.current.state.update({
+            changes: {
+              from: 0,
+              to: editor.current.state.doc.length,
+              insert: fullContent,
+            },
+            selection: {
+              anchor: preservedCursorPos,
+              head: preservedCursorPos,
+            },
+          });
+          editor.current.dispatch(transaction);
+
+          onChangeRef.current?.(editableCode);
+          prevValue.current = editableCode;
+        } catch (error) {
+          console.error(error);
         }
-
-        onSendUpdate(new Uint8Array(update));
       };
 
-      ydoc.on("update", handleYDocUpdate);
+      window.addEventListener(
+        "roomStateLoaded",
+        handleRoomStateLoaded as EventListener
+      );
       return () => {
-        ydoc.off("update", handleYDocUpdate);
+        window.removeEventListener(
+          "roomStateLoaded",
+          handleRoomStateLoaded as EventListener
+        );
       };
-    }, [ydoc, onSendUpdate]);
+    }, [codeBefore, codeAfter]);
 
     const effectiveReadOnly = useMemo(
       () => disabled || readOnly,
@@ -722,6 +773,13 @@ const CodeEditor: React.FC<IProps> = React.memo(
                   prevValue.current = userCode;
                   lastLocalEditTime.current = Date.now();
                   onChangeRef.current(userCode);
+
+                  if (ydoc && onSendUpdate && !isRemoteUpdate.current) {
+                    isRemoteUpdate.current = true;
+                    const updateBinary = Y.encodeStateAsUpdate(ydoc);
+                    onSendUpdate(updateBinary);
+                    isRemoteUpdate.current = false;
+                  }
                 }
               } catch (error) {
                 console.error("Error in editor update:", error);

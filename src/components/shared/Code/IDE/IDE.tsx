@@ -145,9 +145,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   useEffect(() => {
     setHasJoinedOnce(false);
-    roomStateAppliedRef.current = false;
-    setCodeSource("none");
-    setRoomCodeLoaded(!roomId);
   }, [roomId]);
 
   useEffect(() => {
@@ -211,7 +208,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   const [codeSource, setCodeSource] = useState<"none" | "api" | "room">("none");
   const [roomCodeLoaded, setRoomCodeLoaded] = useState(false);
-  const roomStateAppliedRef = useRef(false);
 
   useEffect(() => {
     const loadTask = async () => {
@@ -274,11 +270,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   useEffect(() => {
     const handleRoomStateLoaded = (event: CustomEvent) => {
-      if (roomStateAppliedRef.current) {
-        return;
-      }
-      roomStateAppliedRef.current = true;
-
       const { lastCode } = event.detail;
 
       if (lastCode && lastCode.trim()) {
@@ -308,6 +299,11 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       "roomStateLoaded",
       handleRoomStateLoaded as EventListener
     );
+
+    // Если нет roomId, сразу помечаем как "загружено"
+    if (!roomId) {
+      setRoomCodeLoaded(true);
+    }
 
     return () => {
       window.removeEventListener(

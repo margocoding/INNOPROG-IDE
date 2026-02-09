@@ -348,10 +348,6 @@ export const useWebSocket = ({
         });
 
         socket.on("code-edit-action", (eventData) => {
-            if (eventData?.telegramId && isSelfId(eventData.telegramId)) {
-                return;
-            }
-
             setCodeEdits(eventData.update);
         });
 
