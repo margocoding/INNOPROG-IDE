@@ -689,62 +689,60 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
             if (update.docChanged) {
               try {
-                if (!isWebSocketRef.current) {
-                  const bracketPairs: { [key: string]: string } = {
-                    "{": "}",
-                    "[": "]",
-                    "(": ")",
-                    "<": ">",
-                    '"': '"',
-                    "'": "'",
-                    "`": "`",
-                  };
+                const bracketPairs: { [key: string]: string } = {
+                  "{": "}",
+                  "[": "]",
+                  "(": ")",
+                  "<": ">",
+                  '"': '"',
+                  "'": "'",
+                  "`": "`",
+                };
 
-                  for (const tr of update.transactions) {
-                    if (tr.isUserEvent("delete.backward") || tr.isUserEvent("delete.forward")) {
-                      tr.changes.iterChanges((fromA, toA, fromB, toB) => {
-                        if (toA - fromA === 1 && fromB === toB) {
-                          const deletedChar = update.startState.doc.sliceString(fromA, toA);
+                for (const tr of update.transactions) {
+                  if (tr.isUserEvent("delete.backward") || tr.isUserEvent("delete.forward")) {
+                    tr.changes.iterChanges((fromA, toA, fromB, toB) => {
+                      if (toA - fromA === 1 && fromB === toB) {
+                        const deletedChar = update.startState.doc.sliceString(fromA, toA);
+                        
+                        if (bracketPairs[deletedChar]) {
+                          const closingBracket = bracketPairs[deletedChar];
+                          const oldDoc = update.startState.doc;
+                          const newDoc = update.state.doc;
                           
-                          if (bracketPairs[deletedChar]) {
-                            const closingBracket = bracketPairs[deletedChar];
-                            const oldDoc = update.startState.doc;
-                            const newDoc = update.state.doc;
+                          if (fromA + 1 < oldDoc.length) {
+                            const afterDeleted = oldDoc.sliceString(fromA + 1);
+                            const closingPos = afterDeleted.indexOf(closingBracket);
                             
-                            if (fromA + 1 < oldDoc.length) {
-                              const afterDeleted = oldDoc.sliceString(fromA + 1);
-                              const closingPos = afterDeleted.indexOf(closingBracket);
+                            if (closingPos >= 0) {
+                              const betweenText = afterDeleted.slice(0, closingPos);
                               
-                              if (closingPos >= 0) {
-                                const betweenText = afterDeleted.slice(0, closingPos);
+                              if (betweenText.trim().length === 0) {
+                                const actualClosingPos = fromA + 1 + closingPos;
+                                const mappedPos = tr.changes.mapPos(actualClosingPos, -1);
                                 
-                                if (betweenText.trim().length === 0) {
-                                  const actualClosingPos = fromA + 1 + closingPos;
-                                  const mappedPos = tr.changes.mapPos(actualClosingPos, -1);
-                                  
-                                  if (mappedPos >= 0 && mappedPos < newDoc.length) {
-                                    const nextChar = newDoc.sliceString(mappedPos, mappedPos + 1);
-                                    if (nextChar === closingBracket) {
-                                      setTimeout(() => {
-                                        if (editor.current) {
-                                          editor.current.dispatch({
-                                            changes: {
-                                              from: mappedPos,
-                                              to: mappedPos + 1,
-                                              insert: "",
-                                            },
-                                          });
-                                        }
-                                      }, 0);
-                                    }
+                                if (mappedPos >= 0 && mappedPos < newDoc.length) {
+                                  const nextChar = newDoc.sliceString(mappedPos, mappedPos + 1);
+                                  if (nextChar === closingBracket) {
+                                    setTimeout(() => {
+                                      if (editor.current) {
+                                        editor.current.dispatch({
+                                          changes: {
+                                            from: mappedPos,
+                                            to: mappedPos + 1,
+                                            insert: "",
+                                          },
+                                        });
+                                      }
+                                    }, 0);
                                   }
                                 }
                               }
                             }
                           }
                         }
-                      });
-                    }
+                      }
+                    });
                   }
                 }
 
