@@ -220,14 +220,18 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
     const lastLocalEditTime = useRef<number>(0);
     const hadTextSelection = useRef<boolean>(false);
+    const pendingCodeUpdateRef = useRef<Uint8Array | null>(null);
+    const codeUpdateTimeoutRef = useRef<number | null>(null);
 
     const onChangeRef = useRef(onChange);
     const sendSelectionRef = useRef(sendSelection);
+    const onSendUpdateRef = useRef(onSendUpdate);
     const isWebSocketRef = useRef(isWebSocket);
     const isRemoteUpdate = useRef<boolean>(false);
 
     onChangeRef.current = onChange;
     sendSelectionRef.current = sendSelection;
+    onSendUpdateRef.current = onSendUpdate;
     isWebSocketRef.current = isWebSocket;
 
     const ydoc = useYDocFromUpdates({
@@ -240,6 +244,15 @@ const CodeEditor: React.FC<IProps> = React.memo(
       () => disabled || readOnly,
       [readOnly, disabled]
     );
+
+    useEffect(() => {
+      return () => {
+        if (codeUpdateTimeoutRef.current !== null) {
+          window.clearTimeout(codeUpdateTimeoutRef.current);
+          codeUpdateTimeoutRef.current = null;
+        }
+      };
+    }, []);
 
     useEffect(() => {
       if (!editor.current) return;
@@ -726,14 +739,27 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
                   if (
                     ydoc &&
-                    onSendUpdate &&
                     !isRemoteUpdate.current &&
                     hasUserEdit
                   ) {
-                    isRemoteUpdate.current = true;
-                    const updateBinary = Y.encodeStateAsUpdate(ydoc);
-                    onSendUpdate(updateBinary);
-                    isRemoteUpdate.current = false;
+                    pendingCodeUpdateRef.current = Y.encodeStateAsUpdate(ydoc);
+
+                    if (codeUpdateTimeoutRef.current === null) {
+                      codeUpdateTimeoutRef.current = window.setTimeout(() => {
+                        codeUpdateTimeoutRef.current = null;
+
+                        const pendingUpdate = pendingCodeUpdateRef.current;
+                        pendingCodeUpdateRef.current = null;
+
+                        if (!pendingUpdate || !onSendUpdateRef.current) {
+                          return;
+                        }
+
+                        isRemoteUpdate.current = true;
+                        onSendUpdateRef.current(pendingUpdate);
+                        isRemoteUpdate.current = false;
+                      }, 80);
+                    }
                   }
                 }
               } catch (error) {
