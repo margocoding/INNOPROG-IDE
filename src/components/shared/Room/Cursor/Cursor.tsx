@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
-import { EditorView } from "@codemirror/view";
 import { Socket } from "socket.io-client";
 import { RoomPermissions } from "../../../../types/room";
 import "./Cursor.css";
@@ -57,54 +56,18 @@ type LiveCursorsProps = {
 
 const HIDDEN_CURSOR_POSITION: [number, number] = [-1, -1];
 
-const getEditorView = (): EditorView | null => {
-  const editorElement = document.querySelector<HTMLElement>(".cm-editor");
-  if (!editorElement) return null;
-  return EditorView.findFromDOM(editorElement);
-};
-
-const isHiddenPosition = (position: [number, number]) =>
-  position[0] < 0 || position[1] < 0;
-
-const isLegacyNormalizedPosition = (position: [number, number]) => {
-  const [x, y] = position;
-  return (
-    x >= 0 &&
-    x <= 1 &&
-    y >= 0 &&
-    y <= 1 &&
-    (x < 1 || !Number.isInteger(y))
-  );
-};
-
-const getCursorPixelPosition = (
-  position: [number, number]
-): { x: number; y: number } | null => {
-  const view = getEditorView();
-  if (!view) return null;
-
-  if (isLegacyNormalizedPosition(position)) {
-    const rect = view.dom.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return null;
-    return {
-      x: rect.left + position[0] * rect.width,
-      y: rect.top + position[1] * rect.height,
-    };
-  }
-
-  const lineNumber = Math.floor(position[0]);
-  const rawColumn = Math.floor(position[1]);
-  if (lineNumber < 1 || lineNumber > view.state.doc.lines) {
+const getEditorRect = (): DOMRect | null => {
+  const editorElement = document.querySelector(".cm-editor");
+  if (!editorElement) {
     return null;
   }
 
-  const line = view.state.doc.line(lineNumber);
-  const column = Math.max(0, Math.min(rawColumn, line.length));
-  const pos = line.from + column;
-  const coords = view.coordsAtPos(pos);
-  if (!coords) return null;
+  const rect = editorElement.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return null;
+  }
 
-  return { x: coords.left, y: coords.top };
+  return rect;
 };
 
 const darkenColor = (color: string, amount: number = 0.2): string => {
@@ -126,14 +89,17 @@ const darkenColor = (color: string, amount: number = 0.2): string => {
 
 const SingleCursor = React.memo(
   ({ cursorData }: { cursorData: CursorData }) => {
-    if (isHiddenPosition(cursorData.position)) {
+    if (cursorData.position[0] < 0 || cursorData.position[1] < 0) {
       return null;
     }
 
-    const pixelPosition = getCursorPixelPosition(cursorData.position);
-    if (!pixelPosition) {
+    const editorRect = getEditorRect();
+    if (!editorRect) {
       return null;
     }
+
+    const pixelX = editorRect.left + cursorData.position[0] * editorRect.width;
+    const pixelY = editorRect.top + cursorData.position[1] * editorRect.height;
 
     const opacity = cursorData.isOffline ? 0.4 : 1;
 
@@ -152,8 +118,8 @@ const SingleCursor = React.memo(
         style={
           {
             position: "fixed",
-            left: pixelPosition.x,
-            top: pixelPosition.y,
+            left: pixelX,
+            top: pixelY,
             pointerEvents: "none",
             zIndex: 10000,
             transform: "translateX(-2px) translateY(-2px)",
@@ -230,20 +196,29 @@ const Cursor: React.FC<LiveCursorsProps> = ({
   const throttledSendCursor = useCallback(
     (position: [number, number]) => {
       const now = Date.now();
-      if (now - lastSentTime.current <= 33) {
-        return;
-      }
-
       const [newX, newY] = position;
-      const [lastX, lastY] = lastPosition.current || HIDDEN_CURSOR_POSITION;
+      const [lastX, lastY] = lastPosition.current || [0, 0];
 
-      if (newX === lastX && newY === lastY) {
-        return;
+      if (now - lastSentTime.current > 33) {
+        if (newX < 0 || newY < 0 || lastX < 0 || lastY < 0) {
+          const wasSameHiddenState =
+            newX < 0 && newY < 0 && lastX < 0 && lastY < 0;
+          if (!wasSameHiddenState) {
+            sendCursorPosition(position);
+            lastSentTime.current = now;
+            lastPosition.current = position;
+          }
+          return;
+        }
+
+        const distance = Math.sqrt((newX - lastX) ** 2 + (newY - lastY) ** 2);
+
+        if (distance > 0.005) {
+          sendCursorPosition(position);
+          lastSentTime.current = now;
+          lastPosition.current = position;
+        }
       }
-
-      sendCursorPosition(position);
-      lastSentTime.current = now;
-      lastPosition.current = position;
     },
     [sendCursorPosition]
   );
@@ -252,13 +227,12 @@ const Cursor: React.FC<LiveCursorsProps> = ({
     if (!roomId || !isConnected) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const view = getEditorView();
-      if (!view) {
+      const editorRect = getEditorRect();
+      if (!editorRect) {
         throttledSendCursor(HIDDEN_CURSOR_POSITION);
         return;
       }
 
-      const editorRect = view.dom.getBoundingClientRect();
       const isInsideEditor =
         e.clientX >= editorRect.left &&
         e.clientX <= editorRect.right &&
@@ -270,28 +244,15 @@ const Cursor: React.FC<LiveCursorsProps> = ({
         return;
       }
 
-      const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
-      if (pos === null) {
-        throttledSendCursor(HIDDEN_CURSOR_POSITION);
-        return;
-      }
+      const x = (e.clientX - editorRect.left) / editorRect.width;
+      const y = (e.clientY - editorRect.top) / editorRect.height;
 
-      const line = view.state.doc.lineAt(pos);
-      const column = pos - line.from;
-      throttledSendCursor([line.number, column]);
-    };
-
-    const hideCursor = () => {
-      throttledSendCursor(HIDDEN_CURSOR_POSITION);
+      throttledSendCursor([x, y]);
     };
 
     window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("blur", hideCursor);
-    document.addEventListener("mouseleave", hideCursor);
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("blur", hideCursor);
-      document.removeEventListener("mouseleave", hideCursor);
     };
   }, [roomId, isConnected, throttledSendCursor]);
 
