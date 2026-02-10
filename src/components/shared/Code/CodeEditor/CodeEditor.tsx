@@ -736,7 +736,9 @@ const CodeEditor: React.FC<IProps> = React.memo(
             const hasUserSelectionChange = update.transactions.some(
               (transaction) => transaction.isUserEvent("select")
             );
-            const hasLocalInteraction = hasUserEdit || hasUserSelectionChange;
+            const hasLocalInteraction =
+              !isRemoteUpdate.current &&
+              (hasUserEdit || hasUserSelectionChange || update.docChanged);
 
             if (update.focusChanged && !update.view.hasFocus) {
               scheduleSelectionSend({ clearSelection: true }, true);
