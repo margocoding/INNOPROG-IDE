@@ -1,6 +1,8 @@
 import * as Y from 'yjs';
 import React from 'react';
 
+export const REMOTE_WEBSOCKET_ORIGIN = "remote-websocket";
+
 interface UseYDocOptions {
     updates?: unknown;
     isRemoteUpdate?: React.MutableRefObject<boolean>;
@@ -54,7 +56,7 @@ const useYDocFromUpdates = ({ updates, isRemoteUpdate }: UseYDocOptions) => {
                 const normalizedUpdate = toUint8Array(candidate);
                 if (!normalizedUpdate || normalizedUpdate.length === 0) continue;
 
-                Y.applyUpdate(ydoc, normalizedUpdate);
+                Y.applyUpdate(ydoc, normalizedUpdate, REMOTE_WEBSOCKET_ORIGIN);
             }
         } catch (e) {
             console.error('Failed to apply updates:', e);

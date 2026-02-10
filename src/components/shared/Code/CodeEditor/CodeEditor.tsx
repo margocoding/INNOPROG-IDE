@@ -26,11 +26,13 @@ import {
   WidgetType,
 } from "@codemirror/view";
 import { Select, SelectItem } from "@heroui/react";
-import React, { useEffect, useMemo, useRef } from "react";
-import { yCollab } from "y-codemirror.next";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { yCollab, yUndoManagerKeymap } from "y-codemirror.next";
 import { Awareness } from "y-protocols/awareness";
 import * as Y from "yjs";
-import useYDocFromUpdates from "../../../../hooks/useYDocFromUpdates";
+import useYDocFromUpdates, {
+  REMOTE_WEBSOCKET_ORIGIN,
+} from "../../../../hooks/useYDocFromUpdates";
 import { Language } from "../../../../types/task";
 
 interface IProps {
@@ -258,6 +260,57 @@ const CodeEditor: React.FC<IProps> = React.memo(
       [readOnly, disabled]
     );
 
+    const flushPendingCodeUpdate = useCallback(() => {
+      if (!pendingCodeUpdateRef.current || !onSendUpdateRef.current) {
+        pendingCodeUpdateRef.current = null;
+        return;
+      }
+
+      onSendUpdateRef.current(pendingCodeUpdateRef.current);
+      pendingCodeUpdateRef.current = null;
+    }, []);
+
+    const scheduleCodeUpdateSend = useCallback(
+      (update: Uint8Array) => {
+        if (!isWebSocketRef.current || !onSendUpdateRef.current) {
+          return;
+        }
+
+        pendingCodeUpdateRef.current = pendingCodeUpdateRef.current
+          ? Y.mergeUpdates([pendingCodeUpdateRef.current, update])
+          : update;
+
+        if (codeUpdateTimeoutRef.current !== null) {
+          return;
+        }
+
+        codeUpdateTimeoutRef.current = window.setTimeout(() => {
+          codeUpdateTimeoutRef.current = null;
+          flushPendingCodeUpdate();
+        }, syncDelayMs);
+      },
+      [flushPendingCodeUpdate, syncDelayMs]
+    );
+
+    useEffect(() => {
+      const handleYDocUpdate = (update: Uint8Array, origin: unknown) => {
+        if (
+          isRemoteUpdate.current ||
+          origin === REMOTE_WEBSOCKET_ORIGIN
+        ) {
+          return;
+        }
+
+        scheduleCodeUpdateSend(update);
+      };
+
+      ydoc.on("update", handleYDocUpdate);
+
+      return () => {
+        ydoc.off("update", handleYDocUpdate);
+      };
+    }, [ydoc, scheduleCodeUpdateSend]);
+
     const flushPendingSelection = () => {
       if (!pendingSelectionRef.current) return;
       sendSelectionRef.current?.(pendingSelectionRef.current);
@@ -302,12 +355,13 @@ const CodeEditor: React.FC<IProps> = React.memo(
           window.clearTimeout(codeUpdateTimeoutRef.current);
           codeUpdateTimeoutRef.current = null;
         }
+        flushPendingCodeUpdate();
         if (selectionTimeoutRef.current !== null) {
           window.clearTimeout(selectionTimeoutRef.current);
           selectionTimeoutRef.current = null;
         }
       };
-    }, [syncDelayMs]);
+    }, [flushPendingCodeUpdate, syncDelayMs]);
 
     useEffect(() => {
       if (!editor.current) return;
@@ -654,6 +708,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
           closeBrackets(),
           indentGuidesField,
           keymap.of([
+            ...yUndoManagerKeymap,
             {
               key: "Enter",
               run: (view) => handleEnterBetweenBraces(view),
@@ -792,28 +847,6 @@ const CodeEditor: React.FC<IProps> = React.memo(
                   prevValue.current = userCode;
                   lastLocalEditTime.current = Date.now();
                   onChangeRef.current(userCode);
-
-                  if (
-                    ydoc &&
-                    hasUserEdit
-                  ) {
-                    pendingCodeUpdateRef.current = Y.encodeStateAsUpdate(ydoc);
-
-                    if (codeUpdateTimeoutRef.current === null) {
-                      codeUpdateTimeoutRef.current = window.setTimeout(() => {
-                        codeUpdateTimeoutRef.current = null;
-
-                        const pendingUpdate = pendingCodeUpdateRef.current;
-                        pendingCodeUpdateRef.current = null;
-
-                        if (!pendingUpdate || !onSendUpdateRef.current) {
-                          return;
-                        }
-
-                        onSendUpdateRef.current(pendingUpdate);
-                      }, syncDelayMs);
-                    }
-                  }
                 }
               } catch (error) {
                 console.error("Error in editor update:", error);
