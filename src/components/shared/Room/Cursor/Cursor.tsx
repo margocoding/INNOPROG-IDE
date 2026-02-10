@@ -54,6 +54,22 @@ type LiveCursorsProps = {
   webSocketData: WebSocketData;
 };
 
+const HIDDEN_CURSOR_POSITION: [number, number] = [-1, -1];
+
+const getEditorRect = (): DOMRect | null => {
+  const editorElement = document.querySelector(".cm-editor");
+  if (!editorElement) {
+    return null;
+  }
+
+  const rect = editorElement.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return null;
+  }
+
+  return rect;
+};
+
 const darkenColor = (color: string, amount: number = 0.2): string => {
   const cleanColor =
     color && color.startsWith("#") ? color.replace("#", "") : "ff0000";
@@ -73,8 +89,17 @@ const darkenColor = (color: string, amount: number = 0.2): string => {
 
 const SingleCursor = React.memo(
   ({ cursorData }: { cursorData: CursorData }) => {
-    const pixelX = cursorData.position[0] * window.innerWidth;
-    const pixelY = cursorData.position[1] * window.innerHeight;
+    if (cursorData.position[0] < 0 || cursorData.position[1] < 0) {
+      return null;
+    }
+
+    const editorRect = getEditorRect();
+    if (!editorRect) {
+      return null;
+    }
+
+    const pixelX = editorRect.left + cursorData.position[0] * editorRect.width;
+    const pixelY = editorRect.top + cursorData.position[1] * editorRect.height;
 
     const opacity = cursorData.isOffline ? 0.4 : 1;
 
@@ -162,7 +187,7 @@ const Cursor: React.FC<LiveCursorsProps> = ({
   roomId,
   webSocketData,
 }) => {
-  const { cursors, sendCursorPosition, isConnected, myUserColor, roomPermissions } =
+  const { cursors, sendCursorPosition, isConnected, roomPermissions } =
     webSocketData;
 
   const lastSentTime = useRef(0);
@@ -175,6 +200,17 @@ const Cursor: React.FC<LiveCursorsProps> = ({
       const [lastX, lastY] = lastPosition.current || [0, 0];
 
       if (now - lastSentTime.current > 33) {
+        if (newX < 0 || newY < 0 || lastX < 0 || lastY < 0) {
+          const wasSameHiddenState =
+            newX < 0 && newY < 0 && lastX < 0 && lastY < 0;
+          if (!wasSameHiddenState) {
+            sendCursorPosition(position);
+            lastSentTime.current = now;
+            lastPosition.current = position;
+          }
+          return;
+        }
+
         const distance = Math.sqrt((newX - lastX) ** 2 + (newY - lastY) ** 2);
 
         if (distance > 0.005) {
@@ -191,8 +227,25 @@ const Cursor: React.FC<LiveCursorsProps> = ({
     if (!roomId || !isConnected) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const x = e.clientX / window.innerWidth;
-      const y = e.clientY / window.innerHeight;
+      const editorRect = getEditorRect();
+      if (!editorRect) {
+        throttledSendCursor(HIDDEN_CURSOR_POSITION);
+        return;
+      }
+
+      const isInsideEditor =
+        e.clientX >= editorRect.left &&
+        e.clientX <= editorRect.right &&
+        e.clientY >= editorRect.top &&
+        e.clientY <= editorRect.bottom;
+
+      if (!isInsideEditor) {
+        throttledSendCursor(HIDDEN_CURSOR_POSITION);
+        return;
+      }
+
+      const x = (e.clientX - editorRect.left) / editorRect.width;
+      const y = (e.clientY - editorRect.top) / editorRect.height;
 
       throttledSendCursor([x, y]);
     };
