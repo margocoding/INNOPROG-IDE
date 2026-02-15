@@ -224,6 +224,11 @@ export const useWebSocket = ({
             return "#FF6B6B";
         }
 
+        if (selfIdsRef.current.has(telegramId)) {
+            assignedColorsRef.current.set(telegramId, REFERENCE_BLUE);
+            return REFERENCE_BLUE;
+        }
+
         const existing = assignedColorsRef.current.get(telegramId);
         if (existing) {
             return existing;
