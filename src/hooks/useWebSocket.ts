@@ -31,7 +31,6 @@ export const useWebSocket = ({
     myTelegramId,
     roomId,
 }: UseWebSocketProps) => {
-    const TELEGRAM_ID_STORAGE_KEY = "innoprog-telegram-id";
     const [isConnected, setIsConnected] = useState<boolean>(false);
     const [isJoinedRoom, setIsJoinedRoom] = useState<boolean>(false);
     const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -465,12 +464,20 @@ export const useWebSocket = ({
                 typeof eventData?.message === "string"
                     ? eventData.message
                     : "Не удалось присоединиться к комнате";
+            const lowerMessage = message.toLowerCase();
+            const ownerDenied =
+                lowerMessage.includes("owner") ||
+                lowerMessage.includes("not owner") ||
+                lowerMessage.includes("teacher") ||
+                lowerMessage.includes("владел") ||
+                lowerMessage.includes("хозяин") ||
+                lowerMessage.includes("преподав");
 
             if (
+                ownerDenied &&
                 !guestJoinAttemptedRef.current &&
                 !joinAsGuestRef.current &&
-                roomIdRef.current &&
-                Boolean(myTelegramIdRef.current)
+                roomIdRef.current
             ) {
                 guestJoinAttemptedRef.current = true;
                 joinAsGuestRef.current = true;
@@ -503,7 +510,6 @@ export const useWebSocket = ({
         socketUrlRef.current = socketUrl;
         if (myTelegramId) {
             selfIdsRef.current.add(myTelegramId);
-            localStorage.setItem(TELEGRAM_ID_STORAGE_KEY, myTelegramId);
             if (!hasServerTelegramIdRef.current) {
                 myTelegramIdRef.current = myTelegramId;
             }
