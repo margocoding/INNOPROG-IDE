@@ -65,6 +65,7 @@ interface IProps {
   >;
   onSendUpdate?: (update: Uint8Array) => void;
   updatesFromProps?: Uint8Array[];
+  joinedCode?: string;
   activeTypers?: Set<string>;
   myTelegramId?: string;
   disabled: boolean;
@@ -208,6 +209,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
     selections,
     onSendUpdate,
     updatesFromProps,
+    joinedCode,
     disabled,
     handleLanguageChange,
     isTeacher,
@@ -310,6 +312,43 @@ const CodeEditor: React.FC<IProps> = React.memo(
         ydoc.off("update", handleYDocUpdate);
       };
     }, [ydoc, scheduleCodeUpdateSend]);
+
+    useEffect(() => {
+      if (!isWebSocketRef.current) {
+        return;
+      }
+
+      if (typeof joinedCode !== "string") {
+        return;
+      }
+
+      const hasReadonlyBounds =
+        joinedCode.startsWith(codeBefore) && joinedCode.endsWith(codeAfter);
+      const fullCode = hasReadonlyBounds
+        ? joinedCode
+        : `${codeBefore}${joinedCode}${codeAfter}`;
+      const ytext = ydoc.getText("codemirror");
+
+      if (ytext.toString() === fullCode) {
+        return;
+      }
+
+      ydoc.transact(() => {
+        ytext.delete(0, ytext.length);
+        ytext.insert(0, fullCode);
+      }, REMOTE_WEBSOCKET_ORIGIN);
+
+      if (fullCode.startsWith(codeBefore) && fullCode.endsWith(codeAfter)) {
+        const editableCode = fullCode.slice(
+          codeBefore.length,
+          fullCode.length - codeAfter.length
+        );
+        prevValue.current = editableCode;
+        onChangeRef.current(editableCode);
+      }
+
+      setCurrentCode(fullCode);
+    }, [joinedCode, codeBefore, codeAfter, ydoc, setCurrentCode]);
 
     const flushPendingSelection = () => {
       if (!pendingSelectionRef.current) return;

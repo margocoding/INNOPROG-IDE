@@ -59,7 +59,7 @@ export const useWebSocket = ({
     const [isTeacher, setIsTeacher] = useState<boolean | undefined>(undefined);
     const [completed, setCompleted] = useState<boolean>(false);
     const [language, setLanguage] = useState<Language | undefined>(undefined);
-    const [joinedCode, setJoinedCode] = useState<string>('');
+    const [joinedCode, setJoinedCode] = useState<string | undefined>(undefined);
 
     const socketRef = useRef<Socket | null>(null);
     const socketUrlRef = useRef<string>(socketUrl);
@@ -196,11 +196,15 @@ export const useWebSocket = ({
 
                 const delay = 2000;
                 reconnectTimeoutRef.current = setTimeout(() => {
-                    socketRef.current?.disconnect();
-                    socketRef.current = io("wss://your-server.com", {
-                        transports: ["websocket"],
-                        reconnection: false,
-                    });
+                    if (!shouldReconnectRef.current) {
+                        return;
+                    }
+
+                    if (socketRef.current && !socketRef.current.disconnected) {
+                        socketRef.current.close();
+                    }
+
+                    lastConnectionTime.current = 0;
                     connectWebSocket();
                 }, delay);
             }
@@ -385,6 +389,10 @@ export const useWebSocket = ({
         });
 
         socket.on("room-state-loaded", (eventData) => {
+            if (typeof eventData.lastCode === "string") {
+                setJoinedCode(eventData.lastCode);
+            }
+
             window.dispatchEvent(
                 new CustomEvent("roomStateLoaded", {
                     detail: {
@@ -436,6 +444,7 @@ export const useWebSocket = ({
         roomIdRef.current = roomId;
 
         if (wasRoomId !== roomId) {
+            setJoinedCode(undefined);
             if (!roomId) {
                 shouldReconnectRef.current = false;
                 setIsConnected(false);
@@ -509,24 +518,41 @@ export const useWebSocket = ({
             }
         };
 
+        const syncOnActiveTab = () => {
+            if (!roomIdRef.current || !shouldReconnectRef.current) {
+                return;
+            }
+
+            if (socketRef.current?.connected) {
+                setConnectionError(null);
+                connectionAttempts.current = 0;
+                joinRoom();
+                return;
+            }
+
+            if (!isConnectedRef.current) {
+                setConnectionError(null);
+                connectionAttempts.current = 0;
+                lastConnectionTime.current = 0;
+                connectWebSocket();
+            }
+        };
+
         const handleVisibilityChange = () => {
             if (document.hidden) {
-            } else {
-                if (
-                    roomIdRef.current &&
-                    !isConnectedRef.current &&
-                    shouldReconnectRef.current
-                ) {
-                    setConnectionError(null);
-                    connectionAttempts.current = 0;
-                    lastConnectionTime.current = 0;
-                    connectWebSocket();
-                }
+                return;
             }
+
+            syncOnActiveTab();
+        };
+
+        const handleWindowFocus = () => {
+            syncOnActiveTab();
         };
 
         window.addEventListener("beforeunload", handleBeforeUnload);
         document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("focus", handleWindowFocus);
 
         return () => {
             shouldReconnectRef.current = false;
@@ -536,8 +562,9 @@ export const useWebSocket = ({
             }
             window.removeEventListener("beforeunload", handleBeforeUnload);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
+            window.removeEventListener("focus", handleWindowFocus);
         };
-    }, [roomId, connectWebSocket, clearIntervals]);
+    }, [roomId, connectWebSocket, clearIntervals, joinRoom]);
 
     const sendCursorPosition = useCallback(
         (position: [number, number]) => {

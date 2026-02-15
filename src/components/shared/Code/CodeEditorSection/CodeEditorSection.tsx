@@ -37,6 +37,7 @@ interface CodeEditorSectionProps {
     >;
     onSendUpdate?: (update: Uint8Array) => void;
     updatesFromProps?: Uint8Array[];
+    joinedCode?: string;
     myTelegramId: string;
     completed: boolean;
   };
@@ -94,6 +95,7 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
           selections={webSocketData?.selections}
           onSendUpdate={webSocketData?.onSendUpdate}
           updatesFromProps={webSocketData?.updatesFromProps}
+          joinedCode={webSocketData?.joinedCode}
           myTelegramId={webSocketData?.myTelegramId}
           isTeacher={webSocketData?.isTeacher}
           isWebSocket={!!webSocketData?.isConnected}
