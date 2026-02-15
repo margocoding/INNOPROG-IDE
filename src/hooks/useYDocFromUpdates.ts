@@ -8,6 +8,10 @@ interface UseYDocOptions {
     isRemoteUpdate?: React.MutableRefObject<boolean>;
 };
 
+const isNumberArray = (value: unknown): value is number[] => {
+    return Array.isArray(value) && (value.length === 0 || typeof value[0] === "number");
+};
+
 const toUint8Array = (value: unknown): Uint8Array | null => {
     if (!value) return null;
 
@@ -24,11 +28,20 @@ const toUint8Array = (value: unknown): Uint8Array | null => {
         return new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
     }
 
-    if (Array.isArray(value)) {
+    if (isNumberArray(value)) {
         if (value.length === 0) return null;
-        if (typeof value[0] !== "number") return null;
+        return new Uint8Array(value);
+    }
 
-        return new Uint8Array(value as number[]);
+    if (typeof value === "object" && value !== null) {
+        const maybeBufferLike = value as { type?: unknown; data?: unknown };
+        if (
+            (maybeBufferLike.type === "Buffer" || maybeBufferLike.type === undefined) &&
+            isNumberArray(maybeBufferLike.data)
+        ) {
+            if (maybeBufferLike.data.length === 0) return null;
+            return new Uint8Array(maybeBufferLike.data);
+        }
     }
 
     return null;
@@ -36,21 +49,39 @@ const toUint8Array = (value: unknown): Uint8Array | null => {
 
 const useYDocFromUpdates = ({ updates, isRemoteUpdate }: UseYDocOptions) => {
     const [ydoc] = React.useState(() => new Y.Doc());
+    const processedQueueLengthRef = React.useRef<number>(0);
 
 
     React.useEffect(() => {
-        if (!updates) return;
+        if (updates === undefined || updates === null) {
+            processedQueueLengthRef.current = 0;
+            return;
+        }
 
         try {
             if (isRemoteUpdate) {
                 isRemoteUpdate.current = true;
             }
 
-            const updateCandidates: unknown[] = Array.isArray(updates)
-                ? updates.length > 0 && typeof updates[0] === "number"
-                    ? [updates]
-                    : updates
-                : [updates];
+            let updateCandidates: unknown[] = [];
+
+            if (Array.isArray(updates)) {
+                const isSingleBinaryArray = isNumberArray(updates);
+                if (isSingleBinaryArray) {
+                    updateCandidates = updates.length > 0 ? [updates] : [];
+                    processedQueueLengthRef.current = 0;
+                } else {
+                    if (updates.length < processedQueueLengthRef.current) {
+                        processedQueueLengthRef.current = 0;
+                    }
+
+                    updateCandidates = updates.slice(processedQueueLengthRef.current);
+                    processedQueueLengthRef.current = updates.length;
+                }
+            } else {
+                updateCandidates = [updates];
+                processedQueueLengthRef.current = 0;
+            }
 
             for (const candidate of updateCandidates) {
                 const normalizedUpdate = toUint8Array(candidate);

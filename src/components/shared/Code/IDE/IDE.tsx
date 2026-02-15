@@ -54,7 +54,7 @@ interface WebSocketData {
     selectedText?: string;
   }) => void;
   onSendUpdate?: (update: Uint8Array) => void;
-  updatesFromProps?: Uint8Array[];
+  updatesFromProps?: unknown[];
   sendEditMember: (username?: string) => void;
   sendRoomPermissions: (permissions: RoomPermissions) => void;
   completed: boolean;

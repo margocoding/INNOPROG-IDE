@@ -49,7 +49,7 @@ export const useWebSocket = ({
             }
         >
     >(new Map());
-    const [codeEdits, setCodeEdits] = useState<Uint8Array[]>([]);
+    const [codeEdits, setCodeEdits] = useState<unknown[]>([]);
     const [myUserColor, setMyUserColor] = useState<string>("#FF6B6B");
     const [roomPermissions, setRoomPermissions] = useState<RoomPermissions>({
         studentCursorEnabled: true,
@@ -125,6 +125,26 @@ export const useWebSocket = ({
         (id?: string) => Boolean(id && selfIdsRef.current.has(id)),
         []
     );
+
+    const enqueueCodeEdit = useCallback((update: unknown) => {
+        const appendUpdate = (payload: unknown) => {
+            setCodeEdits((prev) => [...prev, payload]);
+        };
+
+        if (typeof Blob !== "undefined" && update instanceof Blob) {
+            update
+                .arrayBuffer()
+                .then((buffer) => {
+                    appendUpdate(new Uint8Array(buffer));
+                })
+                .catch((error) => {
+                    console.error("Failed to decode blob code update:", error);
+                });
+            return;
+        }
+
+        appendUpdate(update);
+    }, []);
 
     const connectWebSocket = useCallback(() => {
         const currentRoomId = roomIdRef.current;
@@ -217,6 +237,7 @@ export const useWebSocket = ({
         });
 
         socket.on("joined", (eventData) => {
+            setCodeEdits([]);
             setIsJoinedRoom(true);
             setCompleted(eventData.completed);
             setMyUserColor(eventData.userColor || "#FF6B6B");
@@ -362,7 +383,7 @@ export const useWebSocket = ({
                 return;
             }
 
-            setCodeEdits(eventData.update);
+            enqueueCodeEdit(eventData.update);
         });
 
         socket.on("room-edited", (eventData) => {
@@ -422,7 +443,7 @@ export const useWebSocket = ({
         socket.on("join-room:error", (eventData) => {
             setConnectionError(eventData.message);
         });
-    }, [joinRoom, clearIntervals, isSelfId]);
+    }, [joinRoom, clearIntervals, isSelfId, enqueueCodeEdit]);
 
     useEffect(() => {
         if (
@@ -451,6 +472,7 @@ export const useWebSocket = ({
 
         if (wasRoomId !== roomId) {
             setJoinedCode(undefined);
+            setCodeEdits([]);
             if (!roomId) {
                 shouldReconnectRef.current = false;
                 setIsConnected(false);

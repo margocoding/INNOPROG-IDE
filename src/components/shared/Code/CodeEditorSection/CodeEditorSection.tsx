@@ -36,7 +36,7 @@ interface CodeEditorSectionProps {
       }
     >;
     onSendUpdate?: (update: Uint8Array) => void;
-    updatesFromProps?: Uint8Array[];
+    updatesFromProps?: unknown[];
     joinedCode?: string;
     myTelegramId: string;
     completed: boolean;

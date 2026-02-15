@@ -64,7 +64,7 @@ interface IProps {
     }
   >;
   onSendUpdate?: (update: Uint8Array) => void;
-  updatesFromProps?: Uint8Array[];
+  updatesFromProps?: unknown[];
   joinedCode?: string;
   activeTypers?: Set<string>;
   myTelegramId?: string;
