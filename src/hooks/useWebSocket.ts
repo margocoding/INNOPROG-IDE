@@ -67,8 +67,6 @@ export const useWebSocket = ({
     const hasServerTelegramIdRef = useRef<boolean>(false);
     const selfIdsRef = useRef<Set<string>>(new Set());
     const roomIdRef = useRef(roomId);
-    const joinAsGuestRef = useRef<boolean>(false);
-    const guestJoinAttemptedRef = useRef<boolean>(false);
     const isConnectedRef = useRef<boolean>(false);
     const shouldReconnectRef = useRef<boolean>(true);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -97,31 +95,21 @@ export const useWebSocket = ({
         }
     }, []);
 
-    const emitJoinRoom = useCallback(() => {
-        if (!roomIdRef.current || !socketRef.current?.connected) {
+    const joinRoom = useCallback(() => {
+        if (!roomIdRef.current) {
             return;
         }
 
-        const savedUsername = localStorage.getItem("innoprog-username");
-        const payload: {
-            telegramId?: string;
-            roomId: string;
-            username?: string;
-        } = {
-            roomId: roomIdRef.current,
-            username: savedUsername || undefined,
-        };
+        if (socketRef.current?.connected) {
+            const savedUsername = localStorage.getItem("innoprog-username");
 
-        if (!joinAsGuestRef.current && myTelegramIdRef.current) {
-            payload.telegramId = myTelegramIdRef.current;
+            socketRef.current.emit("join-room", {
+                telegramId: myTelegramIdRef.current,
+                roomId: roomIdRef.current,
+                username: savedUsername || undefined,
+            });
         }
-
-        socketRef.current.emit("join-room", payload);
     }, []);
-
-    const joinRoom = useCallback(() => {
-        emitJoinRoom();
-    }, [emitJoinRoom]);
 
     const completeSession = useCallback(() => {
         if (completed) return;
@@ -249,15 +237,12 @@ export const useWebSocket = ({
         });
 
         socket.on("joined", (eventData) => {
-            const joinedAsGuest = joinAsGuestRef.current;
             setCodeEdits([]);
             setIsJoinedRoom(true);
             setCompleted(eventData.completed);
             setMyUserColor(eventData.userColor || "#FF6B6B");
             setIsTeacher(eventData.isTeacher);
             setLanguage(eventData.language);
-            joinAsGuestRef.current = false;
-            guestJoinAttemptedRef.current = false;
             const initialRoomCode =
                 typeof eventData.joinedCode === "string"
                     ? eventData.joinedCode
@@ -268,13 +253,9 @@ export const useWebSocket = ({
             if (eventData.telegramId) {
                 localStorage.setItem('telegramId', eventData.telegramId);
                 selfIdsRef.current.add(eventData.telegramId);
-                myTelegramIdRef.current = eventData.telegramId;
-                if (
-                    eventData.telegramId.startsWith('i') ||
-                    joinedAsGuest ||
-                    eventData.telegramId !== myTelegramId
-                ) {
+                if (eventData.telegramId.startsWith('i')) {
                     hasServerTelegramIdRef.current = true;
+                    myTelegramIdRef.current = eventData.telegramId;
                 }
             }
 
@@ -460,37 +441,9 @@ export const useWebSocket = ({
         });
 
         socket.on("join-room:error", (eventData) => {
-            const message =
-                typeof eventData?.message === "string"
-                    ? eventData.message
-                    : "Не удалось присоединиться к комнате";
-            const lowerMessage = message.toLowerCase();
-            const ownerDenied =
-                lowerMessage.includes("owner") ||
-                lowerMessage.includes("not owner") ||
-                lowerMessage.includes("teacher") ||
-                lowerMessage.includes("владел") ||
-                lowerMessage.includes("хозяин") ||
-                lowerMessage.includes("преподав");
-
-            if (
-                ownerDenied &&
-                !guestJoinAttemptedRef.current &&
-                !joinAsGuestRef.current &&
-                roomIdRef.current
-            ) {
-                guestJoinAttemptedRef.current = true;
-                joinAsGuestRef.current = true;
-                setConnectionError(null);
-                setTimeout(() => {
-                    joinRoom();
-                }, 0);
-                return;
-            }
-
-            setConnectionError(message);
+            setConnectionError(eventData.message);
         });
-    }, [joinRoom, clearIntervals, isSelfId, enqueueCodeEdit, myTelegramId]);
+    }, [joinRoom, clearIntervals, isSelfId, enqueueCodeEdit]);
 
     useEffect(() => {
         if (
@@ -520,8 +473,6 @@ export const useWebSocket = ({
         if (wasRoomId !== roomId) {
             setJoinedCode(undefined);
             setCodeEdits([]);
-            joinAsGuestRef.current = false;
-            guestJoinAttemptedRef.current = false;
             if (!roomId) {
                 shouldReconnectRef.current = false;
                 setIsConnected(false);
@@ -555,7 +506,12 @@ export const useWebSocket = ({
                     isConnectedRef.current &&
                     socketRef.current?.connected
                 ) {
-                    joinRoom();
+                    const savedUsername = localStorage.getItem("innoprog-username");
+                    socketRef.current.emit("join-room", {
+                        telegramId: myTelegramIdRef.current,
+                        roomId: roomId,
+                        username: savedUsername || undefined,
+                    });
                     return;
                 }
 
@@ -571,7 +527,7 @@ export const useWebSocket = ({
                 return;
             }
         }
-    }, [socketUrl, myTelegramId, roomId, joinRoom]);
+    }, [socketUrl, myTelegramId, roomId]);
 
     useEffect(() => {
         shouldReconnectRef.current = true;
@@ -642,14 +598,14 @@ export const useWebSocket = ({
         (position: [number, number]) => {
             if (socketRef.current?.connected && roomIdRef.current && !completed && roomPermissions.studentCursorEnabled) {
                 socketRef.current.emit("cursor", {
-                    telegramId: myTelegramIdRef.current,
+                    telegramId: myTelegramId || myTelegramIdRef.current,
                     roomId: roomIdRef.current,
                     position,
                     logs: [],
                 });
             }
         },
-        [completed, roomPermissions.studentCursorEnabled]
+        [completed, roomPermissions.studentCursorEnabled, myTelegramId]
     );
 
     const sendSelection = useCallback(
@@ -663,13 +619,13 @@ export const useWebSocket = ({
         }) => {
             if (socketRef.current?.connected && roomIdRef.current && ((!completed && roomPermissions.studentSelectionEnabled) || isTeacher)) {
                 socketRef.current.emit("selection", {
-                    telegramId: myTelegramIdRef.current,
+                    telegramId: myTelegramId || myTelegramIdRef.current,
                     roomId: roomIdRef.current,
                     ...selectionData,
                 });
             }
         },
-        [completed, roomPermissions.studentSelectionEnabled, isTeacher]
+        [completed, roomPermissions.studentSelectionEnabled, isTeacher, myTelegramId]
     );
 
     const sendCodeEdit = useCallback(
@@ -677,12 +633,12 @@ export const useWebSocket = ({
             if (socketRef.current?.connected && roomIdRef.current && !completed && (roomPermissions.studentEditCodeEnabled || isTeacher)) {
                 socketRef.current.emit("code-edit", {
                     roomId: roomIdRef.current,
-                    telegramId: myTelegramIdRef.current,
+                    telegramId: myTelegramId || myTelegramIdRef.current,
                     update,
                 });
             }
         },
-        [completed, roomPermissions.studentEditCodeEnabled, isTeacher]
+        [completed, roomPermissions.studentEditCodeEnabled, isTeacher, myTelegramId]
     );
 
 
@@ -704,24 +660,24 @@ export const useWebSocket = ({
     const sendChangeLanguage = useCallback((language: Language) => {
         if (socketRef.current?.connected && roomIdRef.current && !completed) {
             socketRef.current.emit('edit-room', {
-                telegramId: myTelegramIdRef.current,
+                telegramId: myTelegramId || myTelegramIdRef.current,
                 roomId: roomIdRef.current,
                 language
             })
         }
-    }, [completed]);
+    }, [completed, myTelegramId]);
 
     const sendRoomPermissions = useCallback(
         (permissions: RoomPermissions) => {
             if (socketRef.current?.connected && roomIdRef.current && !completed) {
                 socketRef.current.emit("edit-room", {
-                    telegramId: myTelegramIdRef.current,
+                    telegramId: myTelegramId || myTelegramIdRef.current,
                     roomId: roomIdRef.current,
                     ...permissions
                 });
             }
         },
-        [completed]
+        [completed, myTelegramId]
     );
 
     return {
