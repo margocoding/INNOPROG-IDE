@@ -4,6 +4,98 @@ import { io, Socket } from "socket.io-client";
 import { RoomPermissions } from "../types/room";
 import { Language } from "../types/task";
 
+const REFERENCE_BLUE = "#518bff";
+const MIN_CONTRAST_WITH_REFERENCE = 1.9;
+const MIN_COLOR_DISTANCE = 95;
+
+const hexToRgb = (hex: string): [number, number, number] => {
+    const cleanHex = hex.replace("#", "");
+    const fullHex =
+        cleanHex.length === 3
+            ? cleanHex
+                  .split("")
+                  .map((char) => char + char)
+                  .join("")
+            : cleanHex;
+
+    const r = parseInt(fullHex.substring(0, 2), 16);
+    const g = parseInt(fullHex.substring(2, 4), 16);
+    const b = parseInt(fullHex.substring(4, 6), 16);
+
+    return [r, g, b];
+};
+
+const toLinear = (value: number): number => {
+    const normalized = value / 255;
+    return normalized <= 0.03928
+        ? normalized / 12.92
+        : Math.pow((normalized + 0.055) / 1.055, 2.4);
+};
+
+const luminance = (hex: string): number => {
+    const [r, g, b] = hexToRgb(hex);
+    return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+};
+
+const contrastRatio = (firstHex: string, secondHex: string): number => {
+    const firstLum = luminance(firstHex);
+    const secondLum = luminance(secondHex);
+    const lighter = Math.max(firstLum, secondLum);
+    const darker = Math.min(firstLum, secondLum);
+    return (lighter + 0.05) / (darker + 0.05);
+};
+
+const colorDistance = (firstHex: string, secondHex: string): number => {
+    const [r1, g1, b1] = hexToRgb(firstHex);
+    const [r2, g2, b2] = hexToRgb(secondHex);
+    return Math.sqrt(
+        Math.pow(r1 - r2, 2) + Math.pow(g1 - g2, 2) + Math.pow(b1 - b2, 2)
+    );
+};
+
+const randomInt = (min: number, max: number): number => {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
+const hslToHex = (h: number, s: number, l: number): string => {
+    const saturation = s / 100;
+    const lightness = l / 100;
+    const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+    const huePrime = h / 60;
+    const x = chroma * (1 - Math.abs((huePrime % 2) - 1));
+    let r = 0;
+    let g = 0;
+    let b = 0;
+
+    if (huePrime >= 0 && huePrime < 1) {
+        r = chroma;
+        g = x;
+    } else if (huePrime < 2) {
+        r = x;
+        g = chroma;
+    } else if (huePrime < 3) {
+        g = chroma;
+        b = x;
+    } else if (huePrime < 4) {
+        g = x;
+        b = chroma;
+    } else if (huePrime < 5) {
+        r = x;
+        b = chroma;
+    } else {
+        r = chroma;
+        b = x;
+    }
+
+    const m = lightness - chroma / 2;
+    const toHex = (value: number) =>
+        Math.round((value + m) * 255)
+            .toString(16)
+            .padStart(2, "0");
+
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+
 interface UseWebSocketProps {
     socketUrl: string;
     myTelegramId: string;
@@ -64,6 +156,7 @@ export const useWebSocket = ({
     const socketRef = useRef<Socket | null>(null);
     const socketUrlRef = useRef<string>(socketUrl);
     const myTelegramIdRef = useRef<string>(myTelegramId);
+    const assignedColorsRef = useRef<Map<string, string>>(new Map());
     const hasServerTelegramIdRef = useRef<boolean>(false);
     const selfIdsRef = useRef<Set<string>>(new Set());
     const roomIdRef = useRef(roomId);
@@ -125,6 +218,81 @@ export const useWebSocket = ({
         (id?: string) => Boolean(id && selfIdsRef.current.has(id)),
         []
     );
+
+    const getOrAssignUserColor = useCallback((telegramId?: string): string => {
+        if (!telegramId) {
+            return "#FF6B6B";
+        }
+
+        const existing = assignedColorsRef.current.get(telegramId);
+        if (existing) {
+            return existing;
+        }
+
+        const usedColors = Array.from(assignedColorsRef.current.values());
+        let selectedColor = "#FF6B6B";
+
+        for (let attempt = 0; attempt < 220; attempt++) {
+            const candidateColor = hslToHex(
+                randomInt(0, 359),
+                randomInt(62, 90),
+                randomInt(42, 64)
+            );
+
+            if (
+                contrastRatio(candidateColor, REFERENCE_BLUE) <
+                MIN_CONTRAST_WITH_REFERENCE
+            ) {
+                continue;
+            }
+
+            const isTooCloseToExisting = usedColors.some(
+                (usedColor) =>
+                    colorDistance(candidateColor, usedColor) < MIN_COLOR_DISTANCE
+            );
+
+            if (!isTooCloseToExisting) {
+                selectedColor = candidateColor;
+                break;
+            }
+        }
+
+        if (
+            contrastRatio(selectedColor, REFERENCE_BLUE) <
+            MIN_CONTRAST_WITH_REFERENCE
+        ) {
+            const fallbackColors = [
+                "#ff6b6b",
+                "#22c55e",
+                "#f59e0b",
+                "#e11d48",
+                "#06b6d4",
+                "#a855f7",
+                "#84cc16",
+                "#ef4444",
+                "#14b8a6",
+                "#f97316",
+            ];
+
+            const availableFallback = fallbackColors.find(
+                (fallback) =>
+                    contrastRatio(fallback, REFERENCE_BLUE) >=
+                        MIN_CONTRAST_WITH_REFERENCE &&
+                    !usedColors.some(
+                        (usedColor) =>
+                            colorDistance(fallback, usedColor) <
+                            MIN_COLOR_DISTANCE * 0.7
+                    )
+            );
+
+            if (availableFallback) {
+                selectedColor = availableFallback;
+            }
+        }
+
+        assignedColorsRef.current.set(telegramId, selectedColor);
+        return selectedColor;
+    }, []);
 
     const enqueueCodeEdit = useCallback((update: unknown) => {
         const appendUpdate = (payload: unknown) => {
@@ -240,7 +408,6 @@ export const useWebSocket = ({
             setCodeEdits([]);
             setIsJoinedRoom(true);
             setCompleted(eventData.completed);
-            setMyUserColor(eventData.userColor || "#FF6B6B");
             setIsTeacher(eventData.isTeacher);
             setLanguage(eventData.language);
             const initialRoomCode =
@@ -259,6 +426,8 @@ export const useWebSocket = ({
                 }
             }
 
+            setMyUserColor(getOrAssignUserColor(myTelegramIdRef.current));
+
             if (eventData.roomPermissions) {
                 setRoomPermissions(eventData.roomPermissions);
             }
@@ -271,7 +440,13 @@ export const useWebSocket = ({
                     new Map(
                         eventData.currentCursors
                             .filter((cursor: CursorData) => !isSelfId(cursor.telegramId))
-                            .map((cursor: CursorData) => [cursor.telegramId, cursor])
+                            .map((cursor: CursorData) => [
+                                cursor.telegramId,
+                                {
+                                    ...cursor,
+                                    userColor: getOrAssignUserColor(cursor.telegramId),
+                                },
+                            ])
                     )
                 );
             } else if (!cursorsEnabled) {
@@ -288,7 +463,7 @@ export const useWebSocket = ({
                             selectionStart: selection.selectionStart,
                             selectionEnd: selection.selectionEnd,
                             selectedText: selection.selectedText,
-                            userColor: selection.userColor || "#FF6B6B",
+                            userColor: getOrAssignUserColor(selection.telegramId),
                             username: selection.username,
                         });
                     }
@@ -302,7 +477,12 @@ export const useWebSocket = ({
             if (me && me.username) {
                 localStorage.setItem('innoprog-username', me.username);
             }
-            setRoomMembers(members);
+            setRoomMembers(
+                members.map((member: RoomMember) => ({
+                    ...member,
+                    userColor: getOrAssignUserColor(member.telegramId),
+                }))
+            );
         });
 
         socket.on("member-left", (eventData) => {
@@ -340,7 +520,7 @@ export const useWebSocket = ({
                     newCursors.set(eventData.telegramId, {
                         telegramId: eventData.telegramId,
                         position: eventData.position,
-                        userColor: eventData.userColor,
+                        userColor: getOrAssignUserColor(eventData.telegramId),
                         isYourself: eventData.isYourself,
                         username: eventData.username,
                     });
@@ -359,7 +539,7 @@ export const useWebSocket = ({
                         selectionStart: selection.selectionStart,
                         selectionEnd: selection.selectionEnd,
                         selectedText: selection.selectedText,
-                        userColor: selection.userColor || "#FF6B6B",
+                        userColor: getOrAssignUserColor(selection.telegramId),
                         username: selection.username,
                     });
                 }
@@ -443,7 +623,7 @@ export const useWebSocket = ({
         socket.on("join-room:error", (eventData) => {
             setConnectionError(eventData.message);
         });
-    }, [joinRoom, clearIntervals, isSelfId, enqueueCodeEdit]);
+    }, [joinRoom, clearIntervals, isSelfId, enqueueCodeEdit, getOrAssignUserColor]);
 
     useEffect(() => {
         if (
@@ -466,6 +646,7 @@ export const useWebSocket = ({
             if (!hasServerTelegramIdRef.current) {
                 myTelegramIdRef.current = myTelegramId;
             }
+            setMyUserColor(getOrAssignUserColor(myTelegramIdRef.current));
         }
         const wasRoomId = roomIdRef.current;
         roomIdRef.current = roomId;
@@ -473,11 +654,13 @@ export const useWebSocket = ({
         if (wasRoomId !== roomId) {
             setJoinedCode(undefined);
             setCodeEdits([]);
+            assignedColorsRef.current.clear();
             if (!roomId) {
                 shouldReconnectRef.current = false;
                 setIsConnected(false);
                 setIsJoinedRoom(false);
                 setConnectionError(null);
+                setMyUserColor("#FF6B6B");
                 if (reconnectTimeoutRef.current) {
                     clearTimeout(reconnectTimeoutRef.current);
                     reconnectTimeoutRef.current = null;
@@ -527,7 +710,7 @@ export const useWebSocket = ({
                 return;
             }
         }
-    }, [socketUrl, myTelegramId, roomId]);
+    }, [socketUrl, myTelegramId, roomId, getOrAssignUserColor]);
 
     useEffect(() => {
         shouldReconnectRef.current = true;
