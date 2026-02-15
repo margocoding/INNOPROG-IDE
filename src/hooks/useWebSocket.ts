@@ -222,7 +222,13 @@ export const useWebSocket = ({
             setMyUserColor(eventData.userColor || "#FF6B6B");
             setIsTeacher(eventData.isTeacher);
             setLanguage(eventData.language);
-            setJoinedCode(eventData.joinedCode);
+            const initialRoomCode =
+                typeof eventData.joinedCode === "string"
+                    ? eventData.joinedCode
+                    : typeof eventData.lastCode === "string"
+                    ? eventData.lastCode
+                    : undefined;
+            setJoinedCode(initialRoomCode);
             if (eventData.telegramId) {
                 localStorage.setItem('telegramId', eventData.telegramId);
                 selfIdsRef.current.add(eventData.telegramId);

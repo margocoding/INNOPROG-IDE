@@ -210,6 +210,27 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [codeSource, setCodeSource] = useState<"none" | "api" | "room">("none");
   const [roomCodeLoaded, setRoomCodeLoaded] = useState(false);
 
+  const extractEditableRoomCode = useCallback(
+    (roomCode: string) => {
+      let editableCode = roomCode;
+
+      if (task?.answers?.[0]) {
+        const codeBefore = task.answers[0].code_before || "";
+        const codeAfter = task.answers[0].code_after || "";
+
+        if (codeBefore && roomCode.startsWith(codeBefore)) {
+          editableCode = roomCode.slice(codeBefore.length);
+          if (codeAfter && editableCode.endsWith(codeAfter)) {
+            editableCode = editableCode.slice(0, -codeAfter.length);
+          }
+        }
+      }
+
+      return editableCode;
+    },
+    [task]
+  );
+
   useEffect(() => {
     roomStateAppliedRef.current = false;
     setCodeSource("none");
@@ -284,25 +305,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
       const { lastCode } = event.detail;
 
-      if (lastCode && lastCode.trim()) {
-        let editableCode = lastCode;
-
-        if (task?.answers?.[0]) {
-          const codeBefore = task.answers[0].code_before || "";
-          const codeAfter = task.answers[0].code_after || "";
-
-          // Если код содержит нередактируемые части, извлекаем только редактируемую часть
-          if (codeBefore && lastCode.startsWith(codeBefore)) {
-            editableCode = lastCode.slice(codeBefore.length);
-            if (codeAfter && editableCode.endsWith(codeAfter)) {
-              editableCode = editableCode.slice(0, -codeAfter.length);
-            }
-          }
-        }
-
-        setCode(editableCode);
+      if (typeof lastCode === "string") {
+        setCode(extractEditableRoomCode(lastCode));
         setCodeSource("room");
-      } else {
       }
       setRoomCodeLoaded(true);
     };
@@ -318,7 +323,46 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         handleRoomStateLoaded as EventListener
       );
     };
-  }, [roomId, task]);
+  }, [extractEditableRoomCode]);
+
+  useEffect(() => {
+    if (!roomId || roomStateAppliedRef.current) {
+      return;
+    }
+
+    if (typeof webSocketData?.joinedCode !== "string") {
+      return;
+    }
+
+    roomStateAppliedRef.current = true;
+    setCode(extractEditableRoomCode(webSocketData.joinedCode));
+    setCodeSource("room");
+    setRoomCodeLoaded(true);
+  }, [roomId, webSocketData?.joinedCode, extractEditableRoomCode]);
+
+  useEffect(() => {
+    if (!roomId || roomStateAppliedRef.current) {
+      return;
+    }
+
+    if (!webSocketData?.isJoinedRoom) {
+      return;
+    }
+
+    if (typeof webSocketData?.joinedCode === "string") {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (!roomStateAppliedRef.current) {
+        setRoomCodeLoaded(true);
+      }
+    }, 2500);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [roomId, webSocketData?.isJoinedRoom, webSocketData?.joinedCode]);
 
   const handleLanguageChange = useCallback(
     (lang: Language) => {
