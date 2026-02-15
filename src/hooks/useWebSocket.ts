@@ -70,8 +70,6 @@ export const useWebSocket = ({
     const roomIdRef = useRef(roomId);
     const joinAsGuestRef = useRef<boolean>(false);
     const guestJoinAttemptedRef = useRef<boolean>(false);
-    const isJoinedRoomRef = useRef<boolean>(false);
-    const lastJoinAttemptTimeRef = useRef<number>(0);
     const isConnectedRef = useRef<boolean>(false);
     const shouldReconnectRef = useRef<boolean>(true);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -100,16 +98,10 @@ export const useWebSocket = ({
         }
     }, []);
 
-    const emitJoinRoom = useCallback((force = false) => {
+    const emitJoinRoom = useCallback(() => {
         if (!roomIdRef.current || !socketRef.current?.connected) {
             return;
         }
-
-        const now = Date.now();
-        if (!force && now - lastJoinAttemptTimeRef.current < 800) {
-            return;
-        }
-        lastJoinAttemptTimeRef.current = now;
 
         const savedUsername = localStorage.getItem("innoprog-username");
         const payload: {
@@ -218,7 +210,6 @@ export const useWebSocket = ({
         socketRef.current?.on("disconnect", (reason) => {
             setIsConnected(false);
             setIsJoinedRoom(false);
-            isJoinedRoomRef.current = false;
             isConnectedRef.current = false;
             clearIntervals();
 
@@ -262,7 +253,6 @@ export const useWebSocket = ({
             const joinedAsGuest = joinAsGuestRef.current;
             setCodeEdits([]);
             setIsJoinedRoom(true);
-            isJoinedRoomRef.current = true;
             setCompleted(eventData.completed);
             setMyUserColor(eventData.userColor || "#FF6B6B");
             setIsTeacher(eventData.isTeacher);
@@ -475,24 +465,8 @@ export const useWebSocket = ({
                 typeof eventData?.message === "string"
                     ? eventData.message
                     : "Не удалось присоединиться к комнате";
-            const lowerMessage = message.toLowerCase();
-            const isAccessDeniedError =
-                lowerMessage.includes("owner") ||
-                lowerMessage.includes("not owner") ||
-                lowerMessage.includes("teacher") ||
-                lowerMessage.includes("invalid link") ||
-                lowerMessage.includes("wrong link") ||
-                lowerMessage.includes("неверная ссылка") ||
-                lowerMessage.includes("владел") ||
-                lowerMessage.includes("хозяин") ||
-                lowerMessage.includes("преподав");
-
-            if (isJoinedRoomRef.current) {
-                return;
-            }
 
             if (
-                isAccessDeniedError &&
                 !guestJoinAttemptedRef.current &&
                 !joinAsGuestRef.current &&
                 roomIdRef.current &&
@@ -500,17 +474,16 @@ export const useWebSocket = ({
             ) {
                 guestJoinAttemptedRef.current = true;
                 joinAsGuestRef.current = true;
-                lastJoinAttemptTimeRef.current = 0;
                 setConnectionError(null);
                 setTimeout(() => {
-                    emitJoinRoom(true);
+                    joinRoom();
                 }, 0);
                 return;
             }
 
             setConnectionError(message);
         });
-    }, [joinRoom, clearIntervals, isSelfId, enqueueCodeEdit, myTelegramId, emitJoinRoom]);
+    }, [joinRoom, clearIntervals, isSelfId, enqueueCodeEdit, myTelegramId]);
 
     useEffect(() => {
         if (
@@ -541,7 +514,6 @@ export const useWebSocket = ({
         if (wasRoomId !== roomId) {
             setJoinedCode(undefined);
             setCodeEdits([]);
-            isJoinedRoomRef.current = false;
             joinAsGuestRef.current = false;
             guestJoinAttemptedRef.current = false;
             if (!roomId) {
@@ -620,9 +592,7 @@ export const useWebSocket = ({
             if (socketRef.current?.connected) {
                 setConnectionError(null);
                 connectionAttempts.current = 0;
-                if (!isJoinedRoomRef.current) {
-                    joinRoom();
-                }
+                joinRoom();
                 return;
             }
 
