@@ -13,7 +13,12 @@ import { java } from "@codemirror/lang-java";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { sql } from "@codemirror/lang-sql";
-import { StreamLanguage, foldGutter, foldKeymap } from "@codemirror/language";
+import {
+  StreamLanguage,
+  foldGutter,
+  foldKeymap,
+  indentRange,
+} from "@codemirror/language";
 import { dart } from "@codemirror/legacy-modes/mode/clike";
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -738,6 +743,28 @@ const CodeEditor: React.FC<IProps> = React.memo(
           })
         : [];
 
+      const formatCode = (view: EditorView) => {
+        const state = view.state;
+        const docLength = state.doc.length;
+        const editableFrom = Math.min(codeBefore.length, docLength);
+        const editableTo = Math.max(editableFrom, docLength - codeAfter.length);
+        const hasExpectedBounds =
+          state.doc.sliceString(0, editableFrom) === codeBefore &&
+          state.doc.sliceString(editableTo, docLength) === codeAfter;
+        const from = hasExpectedBounds ? editableFrom : 0;
+        const to = hasExpectedBounds ? editableTo : docLength;
+        const changes = indentRange(state, from, to);
+
+        if (!changes.empty) {
+          view.dispatch({
+            changes,
+            userEvent: "input",
+          });
+        }
+
+        return true;
+      };
+
       const state = EditorState.create({
         doc: initialDoc,
         extensions: [
@@ -748,6 +775,11 @@ const CodeEditor: React.FC<IProps> = React.memo(
           indentGuidesField,
           keymap.of([
             ...yUndoManagerKeymap,
+            {
+              key: "Mod-Alt-l",
+              preventDefault: true,
+              run: formatCode,
+            },
             {
               key: "Enter",
               run: (view) => handleEnterBetweenBraces(view),
