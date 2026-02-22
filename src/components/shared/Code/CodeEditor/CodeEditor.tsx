@@ -769,6 +769,13 @@ const CodeEditor: React.FC<IProps> = React.memo(
         doc: initialDoc,
         extensions: [
           yCollab(ydoc.getText("codemirror"), awareness),
+          EditorState.languageData.of(() => [
+            {
+              closeBrackets: {
+                brackets: ["(", "[", "{", "<", "'", '"', "`"],
+              },
+            },
+          ]),
           languageSupport,
           oneDark,
           closeBrackets(),
