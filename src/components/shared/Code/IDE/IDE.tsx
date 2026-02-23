@@ -118,14 +118,47 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       status,
     });
 
-  const onModalRunCode = async () => {
+  const onModalRunCode = useCallback(async () => {
     if (!task?.answers?.length || !taskId) {
       setSubmitResult("no_data");
       onOpen();
     } else {
       await handleRunCode();
     }
-  };
+  }, [handleRunCode, onOpen, task?.answers?.length, taskId]);
+
+  const runPrimaryAction = useCallback(async () => {
+    if (isRunning || isOpen) {
+      return;
+    }
+
+    if (status === "success" && taskId) {
+      await onSendCheck();
+      return;
+    }
+
+    await onModalRunCode();
+  }, [isOpen, isRunning, onModalRunCode, onSendCheck, status, taskId]);
+
+  useEffect(() => {
+    const handleRunShortcut = (event: KeyboardEvent) => {
+      const isRunShortcut =
+        (event.ctrlKey || event.metaKey) && event.key === "Enter";
+
+      if (!isRunShortcut || event.repeat || event.defaultPrevented) {
+        return;
+      }
+
+      event.preventDefault();
+      void runPrimaryAction();
+    };
+
+    window.addEventListener("keydown", handleRunShortcut);
+
+    return () => {
+      window.removeEventListener("keydown", handleRunShortcut);
+    };
+  }, [runPrimaryAction]);
 
   useEffect(() => {
     if (webSocketData?.language) {

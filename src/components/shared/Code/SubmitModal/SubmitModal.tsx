@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useEffect } from "react";
 import {
 	Button,
 	Modal,
@@ -44,6 +44,42 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 	setIsOutputData,
 	onApply,
 }) => {
+	const handleConfirm = useCallback(async () => {
+		if (isRunning) {
+			return;
+		}
+
+		if (submitResult === "no_data") {
+			await onApply();
+		}
+
+		onClose();
+	}, [isRunning, onApply, onClose, submitResult]);
+
+	useEffect(() => {
+		if (!isOpen) {
+			return;
+		}
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			const isSubmitShortcut =
+				(event.ctrlKey || event.metaKey) && event.key === "Enter";
+
+			if (!isSubmitShortcut || event.isComposing || event.repeat) {
+				return;
+			}
+
+			event.preventDefault();
+			void handleConfirm();
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [handleConfirm, isOpen]);
+
 	return (
 		<Modal onOpenChange={onOpenChange} isOpen={isOpen}>
 			<ModalContent>
@@ -98,12 +134,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 					<Button
 						size="lg"
 						disabled={isRunning}
-						onPress={async () => {
-							if (submitResult === "no_data") {
-								await onApply();
-							}
-							onClose();
-						}}
+						onPress={handleConfirm}
 						className="w-full"
 						color={submitResult === "no_data" ? "secondary" : "danger"}
 					>
