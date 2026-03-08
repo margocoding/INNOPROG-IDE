@@ -100,13 +100,17 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const language = searchParams.get("lang") || "py";
   const answer_id = searchParams.get("answer_id");
   const roomId = searchParams.get("roomId");
+  const platform = searchParams.get("platform");
+  const platforma = searchParams.get("platforma");
   const isInIframe = useMemo(() => {
+    const isAppPlatform = platform === "app" || platforma === "app";
+
     try {
-      return window.self !== window.top;
+      return isAppPlatform || window.self !== window.top;
     } catch {
       return true;
     }
-  }, []);
+  }, [platform, platforma]);
 
   const { isRunning, handleRunCode, onSendCheck, setCurrentCode } =
     useCodeExecution({
