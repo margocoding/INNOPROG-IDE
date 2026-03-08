@@ -1,3 +1,5 @@
+export type TaskType = 'code' | 'paste';
+
 export interface Task {
   id: number;
   module?: string;
@@ -12,11 +14,11 @@ export interface Task {
   title?: string;
   description: string;
   points?: number;
-  type?: 'Дополнение кода' | 'Написание кода' | 'opt' | 'open' | 'code' | 'paste';
+  type?: TaskType;
   input_description?: string;
   output_description?: string;
   note?: string;
-  task_type?: 'opt' | 'open' | 'code' | 'paste';
+  task_type?: TaskType;
   examples?: Example[];
   initial_code?: string;
   tests?: Test[];
@@ -58,9 +60,9 @@ export interface CheckResult {
 }
 
 export interface TaskAnswerCheckRequest {
-  answer_id?: number;
-  answer?: string;
-  program?: string;
+  client_id: string;
+  answer_id: string;
+  program: string;
 }
 
 export interface TaskAnswerCheckResult {

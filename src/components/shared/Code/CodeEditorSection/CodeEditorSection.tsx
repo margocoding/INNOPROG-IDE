@@ -1,5 +1,6 @@
 import React, { Dispatch, SetStateAction } from "react";
 import { Answer, Language, Task } from "../../../../types/task";
+import { getTaskType } from "../../../../utils/taskType";
 import CodeEditor from "../CodeEditor/CodeEditor";
 
 interface CodeEditorSectionProps {
@@ -57,8 +58,6 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     setCurrentCode,
     width = 50,
   }) => {
-    console.log(webSocketData?.isConnected);
-
     return (
       <div
         className={`h-full min-w-0 p-4 ${
@@ -87,7 +86,7 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
             )
           }
           readOnly={
-            task?.type === "Дополнение кода" && task.answers!.length > 1
+            getTaskType(task) === "paste" && (task?.answers?.length || 0) > 1
               ? !currentAnswer
               : false
           }

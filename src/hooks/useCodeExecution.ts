@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../services/api";
-import { Answer, Task } from "../types/task";
+import { Answer, Task, TaskAnswerCheckRequest } from "../types/task";
 
 interface UseCodeExecutionProps {
 	currentAnswer: Answer | null;
@@ -10,6 +10,7 @@ interface UseCodeExecutionProps {
 	outputData: string;
 	taskId: string | null;
 	answer_id: string | null;
+	clientId: string;
 	language: string;
 	setOutput: (output: string) => void;
 	setStatus: (status: "idle" | "success" | "error") => void;
@@ -29,6 +30,7 @@ export const useCodeExecution = ({
 	outputData,
 	taskId,
 	answer_id,
+	clientId,
 	language,
 	setOutput,
 	setStatus,
@@ -45,27 +47,15 @@ export const useCodeExecution = ({
 	const getSubmittedCode = () =>
 		task?.answers && task.answers.length > 1
 			? code
-			: `${currentAnswer?.code_before ? currentAnswer.code_before : ""
-				}${code}${currentAnswer?.code_after ? currentAnswer.code_after : ""}`;
+				: `${currentAnswer?.code_before ? currentAnswer.code_before : ""
+					}${code}${currentAnswer?.code_after ? currentAnswer.code_after : ""}`;
 
-	const getIframeAnswerPayload = () => {
-		const taskType = task?.task_type || task?.type;
-		const normalizedTaskType =
-			typeof taskType === "string" ? taskType.toLowerCase() : "";
-
-		if (normalizedTaskType === "open") {
-			return { answer: code.trim() };
-		}
-
-		if (normalizedTaskType === "opt") {
-			if (answer_id) {
-				return { answer_id: Number(answer_id) };
-			}
-
-			return { answer: code.trim() };
-		}
-
-		return { program: getSubmittedCode() };
+	const getIframeAnswerPayload = (): TaskAnswerCheckRequest => {
+		return {
+			client_id: clientId,
+			answer_id: answer_id || "",
+			program: code,
+		};
 	};
 
 	const handleRunCode = async () => {

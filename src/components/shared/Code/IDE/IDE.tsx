@@ -99,6 +99,13 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const taskId = searchParams.get("task_id") || null;
   const language = searchParams.get("lang") || "py";
   const answer_id = searchParams.get("answer_id");
+  const clientId =
+      searchParams.get("telegramId") ||
+      searchParams.get("client_id") ||
+      telegramId ||
+      window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ||
+      localStorage.getItem("telegramId") ||
+      "";
   const roomId = searchParams.get("roomId");
   const platform = searchParams.get("platform");
   const platforma = searchParams.get("platforma");
@@ -121,6 +128,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       outputData,
       taskId,
       answer_id,
+      clientId,
       language,
       setOutput,
       setStatus,
