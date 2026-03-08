@@ -16,6 +16,10 @@ const Resizer: React.FC<ResizerProps> = ({
   const resizerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const preventSelection = (e: Event) => {
+      e.preventDefault();
+    };
+
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging || !resizerRef.current) return;
 
@@ -40,6 +44,7 @@ const Resizer: React.FC<ResizerProps> = ({
     if (isDragging) {
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("selectstart", preventSelection);
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     }
@@ -47,16 +52,30 @@ const Resizer: React.FC<ResizerProps> = ({
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("selectstart", preventSelection);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };
   }, [isDragging, onResize, minSize, maxSize]);
 
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    window.getSelection()?.removeAllRanges();
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    setIsDragging(true);
+  };
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
   return (
     <div
       ref={resizerRef}
       className={`resizer ${isDragging ? "resizer-active" : ""}`}
-      onMouseDown={() => setIsDragging(true)}
+      onMouseDown={handleMouseDown}
+      onDragStart={handleDragStart}
     >
       <div className="resizer-handle" />
     </div>
@@ -64,4 +83,3 @@ const Resizer: React.FC<ResizerProps> = ({
 };
 
 export default Resizer;
-
