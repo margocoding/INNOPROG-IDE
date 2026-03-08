@@ -49,7 +49,7 @@ export const api = {
 		data: TaskAnswerCheckRequest
 	): Promise<TaskAnswerCheckResult> {
 		const response = await BASE_API.post(
-			`https://api.innoprog.ru/task/${taskId}/check-answer`,
+			`/task/${taskId}/check-answer`,
 			data,
 			{
 				headers: {
