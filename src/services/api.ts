@@ -4,6 +4,8 @@ import {
 	CheckResult,
 	CodeCheckRequest,
 	SubmitRequest,
+	TaskAnswerCheckRequest,
+	TaskAnswerCheckResult,
 } from "../types/task";
 
 const API_URL = "https://bot.innoprog.ru:8443";
@@ -40,6 +42,28 @@ export const api = {
 	async submitCode(data: SubmitRequest) {
 		const response = await BASE_API.post(`/answer/code`, data);
 		return response.data;
+	},
+
+	async checkTaskAnswer(
+		taskId: number,
+		data: TaskAnswerCheckRequest
+	): Promise<TaskAnswerCheckResult> {
+		const response = await BASE_API.post(
+			`https://api.innoprog.ru/task/${taskId}/check-answer`,
+			data,
+			{
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: "Bearer bot",
+				},
+				validateStatus: (status) => status < 500,
+			}
+		);
+
+		return {
+			...response.data,
+			status: response.status,
+		};
 	},
 
 	async getSubmitCode(answer_id: string, user_id: number, task_id: number) {

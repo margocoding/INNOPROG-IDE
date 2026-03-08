@@ -17,6 +17,8 @@ interface UseCodeExecutionProps {
 	setSubmitResult: (result: "success" | "error" | "no_data") => void;
 	onOpen: () => void;
 	status: "idle" | "success" | "error";
+	isInIframe: boolean;
+	setSubmitMessage: (message: string) => void;
 }
 
 export const useCodeExecution = ({
@@ -34,9 +36,37 @@ export const useCodeExecution = ({
 	setSubmitResult,
 	onOpen,
 	status,
+	isInIframe,
+	setSubmitMessage,
 }: UseCodeExecutionProps) => {
 	const [isRunning, setIsRunning] = useState<boolean>(false);
 	const [currentCode, setCurrentCode] = useState<string>('');
+
+	const getSubmittedCode = () =>
+		task?.answers && task.answers.length > 1
+			? code
+			: `${currentAnswer?.code_before ? currentAnswer.code_before : ""
+				}${code}${currentAnswer?.code_after ? currentAnswer.code_after : ""}`;
+
+	const getIframeAnswerPayload = () => {
+		const taskType = task?.task_type || task?.type;
+		const normalizedTaskType =
+			typeof taskType === "string" ? taskType.toLowerCase() : "";
+
+		if (normalizedTaskType === "open") {
+			return { answer: code.trim() };
+		}
+
+		if (normalizedTaskType === "opt") {
+			if (answer_id) {
+				return { answer_id: Number(answer_id) };
+			}
+
+			return { answer: code.trim() };
+		}
+
+		return { program: getSubmittedCode() };
+	};
 
 	const handleRunCode = async () => {
 		if (status === "success" && taskId) {
@@ -102,27 +132,75 @@ export const useCodeExecution = ({
 
 	const onSendCheck = async () => {
 		setIsRunning(true);
-		const submittedCode =
-			task?.answers && task.answers.length > 1
-				? code
-				: `${currentAnswer?.code_before ? currentAnswer.code_before : ""
-				}${code}${currentAnswer?.code_after ? currentAnswer.code_after : ""}`;
+		let shouldOpenModal = false;
+
 		try {
+			if (isInIframe && taskId) {
+				const result = await api.checkTaskAnswer(
+					Number(taskId),
+					getIframeAnswerPayload()
+				);
+
+				setSubmitMessage(result.message);
+				shouldOpenModal = true;
+
+				if (result.result) {
+					setSubmitResult("success");
+					window.parent.postMessage(
+						{
+							source: "innoprog-ide",
+							type: "task-completed",
+							event: "check-answer-success",
+							taskId: Number(taskId),
+							result: true,
+							checked: true,
+							completed: true,
+							taskCompleted: true,
+							status: "success",
+							message: result.message,
+						},
+						"*"
+					);
+					return;
+				}
+
+				setSubmitResult("error");
+				setStatus("idle");
+				return;
+			}
+
 			await api.submitCode({
-				program: submittedCode,
+				program: getSubmittedCode(),
 				user_id: window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 429272623,
 				answer_id: Number(answer_id) || 123,
 				task_id: Number(taskId),
 			});
+			setSubmitMessage("");
 			setSubmitResult("success");
+			shouldOpenModal = true;
 		} catch {
+			setSubmitMessage(
+				isInIframe
+					? "Не удалось проверить решение. Попробуйте еще раз."
+					: ""
+			);
 			setSubmitResult("error");
 			setStatus("idle");
-		}
-		onOpen();
+			shouldOpenModal = true;
+		} finally {
+			if (shouldOpenModal) {
+				onOpen();
+			}
+			setIsRunning(false);
 
-		setIsRunning(false);
-		await window.Telegram.WebApp.close();
+			if (!isInIframe) {
+				try {
+					window.Telegram?.WebApp?.close?.();
+				} catch (error) {
+					console.error("Failed to close Telegram WebApp:", error);
+				}
+			}
+		}
 	};
 
 	return {

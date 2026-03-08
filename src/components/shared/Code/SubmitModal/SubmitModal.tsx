@@ -16,6 +16,7 @@ interface SubmitModalProps {
 	onOpenChange: () => void;
 	onClose: () => void;
 	submitResult: "success" | "error" | "no_data";
+	submitMessage?: string;
 	isRunning: boolean;
 	inputData: string;
 	setInputData: (data: string) => void;
@@ -33,6 +34,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 	onOpenChange,
 	onClose,
 	submitResult,
+	submitMessage,
 	isRunning,
 	inputData,
 	setInputData,
@@ -89,9 +91,9 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 				<ModalBody>
 					<div className="text-center text-3xl">
 						{submitResult === "success" ? (
-							"✅Все тесты прошли успешно!"
+							submitMessage || "✅Все тесты прошли успешно!"
 						) : submitResult === "error" ? (
-							"❌Неверное решение."
+							submitMessage || "❌Неверное решение."
 						) : (
 							<div className="flex flex-col gap-2">
 								<div className="text-[15px] flex items-center gap-2">

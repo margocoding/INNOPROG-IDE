@@ -12,10 +12,11 @@ export interface Task {
   title?: string;
   description: string;
   points?: number;
-  type?: 'Дополнение кода' | 'Написание кода';
+  type?: 'Дополнение кода' | 'Написание кода' | 'opt' | 'open' | 'code' | 'paste';
   input_description?: string;
   output_description?: string;
   note?: string;
+  task_type?: 'opt' | 'open' | 'code' | 'paste';
   examples?: Example[];
   initial_code?: string;
   tests?: Test[];
@@ -54,6 +55,18 @@ export interface CheckResult {
   output?: string;
   comment?: string;
   expected?: string;
+}
+
+export interface TaskAnswerCheckRequest {
+  answer_id?: number;
+  answer?: string;
+  program?: string;
+}
+
+export interface TaskAnswerCheckResult {
+  result: boolean;
+  message: string;
+  status: number;
 }
 
 export interface Answer {

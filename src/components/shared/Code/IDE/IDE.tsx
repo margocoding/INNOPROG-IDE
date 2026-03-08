@@ -79,6 +79,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [submitResult, setSubmitResult] = useState<
     "success" | "error" | "no_data"
   >("success");
+  const [submitMessage, setSubmitMessage] = useState<string>("");
   const [inputData, setInputData] = useState<string>("");
   const [outputData, setOutputData] = useState<string>("");
   const [isOutputData, setIsOutputData] = useState<boolean>(false);
@@ -99,6 +100,13 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const language = searchParams.get("lang") || "py";
   const answer_id = searchParams.get("answer_id");
   const roomId = searchParams.get("roomId");
+  const isInIframe = useMemo(() => {
+    try {
+      return window.self !== window.top;
+    } catch {
+      return true;
+    }
+  }, []);
 
   const { isRunning, handleRunCode, onSendCheck, setCurrentCode } =
     useCodeExecution({
@@ -116,6 +124,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       setSubmitResult,
       onOpen,
       status,
+      isInIframe,
+      setSubmitMessage,
     });
 
   const onModalRunCode = useCallback(async () => {
@@ -480,6 +490,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         onOpenChange={onOpenChange}
         onClose={onClose}
         submitResult={submitResult}
+        submitMessage={submitMessage}
         isRunning={isRunning}
         inputData={inputData}
         setInputData={setInputData}
@@ -506,19 +517,21 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           />
         )}
 
-      <Header
-        completedSession={webSocketData?.completed}
-        onCompleteSession={webSocketData?.completeSession}
-        members={webSocketData?.roomMembers}
-        onEditMember={webSocketData?.sendEditMember}
-        myTelegramId={telegramId}
-        roomPermissions={webSocketData?.roomPermissions}
-        isTeacher={webSocketData?.isTeacher || false}
-        onPermissionsChange={webSocketData?.sendRoomPermissions}
-        roomId={roomId}
-      />
+      {!isInIframe && (
+        <Header
+          completedSession={webSocketData?.completed}
+          onCompleteSession={webSocketData?.completeSession}
+          members={webSocketData?.roomMembers}
+          onEditMember={webSocketData?.sendEditMember}
+          myTelegramId={telegramId}
+          roomPermissions={webSocketData?.roomPermissions}
+          isTeacher={webSocketData?.isTeacher || false}
+          onPermissionsChange={webSocketData?.sendRoomPermissions}
+          roomId={roomId}
+        />
+      )}
 
-      <TaskDescription task={task} />
+      <TaskDescription task={task} hideTopSpacing={isInIframe} />
 
       <main className="flex-1 overflow-hidden">
         <div className="h-full flex flex-col md:flex-row">

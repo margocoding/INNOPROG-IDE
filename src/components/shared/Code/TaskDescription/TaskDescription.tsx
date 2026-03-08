@@ -5,31 +5,56 @@ import "./TaskDescription.css";
 
 interface TaskDescriptionProps {
 	task: Task | null;
+	hideTopSpacing?: boolean;
 }
 
-const TaskDescription: React.FC<TaskDescriptionProps> = ({ task }) => {
+const TaskDescription: React.FC<TaskDescriptionProps> = ({
+	task,
+	hideTopSpacing = false,
+}) => {
 	const [height, setHeight] = useState(200);
 	const isResizing = useRef(false);
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const startTouchY = useRef(0);
 	const windowHeight = window.innerHeight;
 
+	const preventSelection = (event: Event) => {
+		event.preventDefault();
+	};
+
+	const startResize = () => {
+		document.addEventListener("selectstart", preventSelection);
+		document.body.style.overflow = "hidden";
+		document.body.style.userSelect = "none";
+		document.body.style.cursor = "row-resize";
+		window.getSelection()?.removeAllRanges();
+	};
+
+	const stopResize = () => {
+		document.removeEventListener("selectstart", preventSelection);
+		document.body.style.overflow = "";
+		document.body.style.userSelect = "";
+		document.body.style.cursor = "";
+	};
+
 	const handleMouseDown = (event: React.MouseEvent) => {
+		event.preventDefault();
 		isResizing.current = true;
 		document.addEventListener("mousemove", handleMouseMove);
 		document.addEventListener("mouseup", handleMouseUp);
-		document.body.style.overflow = "hidden";
+		startResize();
 	};
 
 	const handleTouchStart = (event: React.TouchEvent) => {
 		if (event.touches.length === 1) {
+			event.preventDefault();
 			isResizing.current = true;
 			startTouchY.current = event.touches[0].clientY;
 			document.addEventListener("touchmove", handleTouchMove, {
 				passive: false,
 			});
 			document.addEventListener("touchend", handleTouchEnd);
-			document.body.style.overflow = "hidden";
+			startResize();
 		}
 	};
 
@@ -65,14 +90,14 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({ task }) => {
 		isResizing.current = false;
 		document.removeEventListener("mousemove", handleMouseMove);
 		document.removeEventListener("mouseup", handleMouseUp);
-		document.body.style.overflow = "";
+		stopResize();
 	};
 
 	const handleTouchEnd = () => {
 		isResizing.current = false;
 		document.removeEventListener("touchmove", handleTouchMove);
 		document.removeEventListener("touchend", handleTouchEnd);
-		document.body.style.overflow = "";
+		stopResize();
 	};
 
 	if (!task) return null;
@@ -122,7 +147,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({ task }) => {
 	};
 
 	return (
-		<div className={`${!isDesktop() ? "mt-[25px]" : ""}`}>
+		<div className={`${!hideTopSpacing && !isDesktop() ? "mt-[25px]" : ""}`}>
 			<div
 				ref={containerRef}
 				style={{
@@ -167,10 +192,12 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({ task }) => {
 						right: 0,
 						height: "8px",
 						cursor: "row-resize",
+						touchAction: "none",
 						userSelect: "none",
 					}}
 					onMouseDown={handleMouseDown}
 					onTouchStart={handleTouchStart}
+					onDragStart={(event) => event.preventDefault()}
 				>
 					<div
 						style={{
