@@ -102,13 +102,13 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const roomId = searchParams.get("roomId");
   const platform = searchParams.get("platform");
   const platforma = searchParams.get("platforma");
-  const isInIframe = useMemo(() => {
+  const isEmbeddedApp = useMemo(() => {
     const isAppPlatform = platform === "app" || platforma === "app";
 
     try {
-      return isAppPlatform || window.self !== window.top;
+      return isAppPlatform && window.self !== window.top;
     } catch {
-      return true;
+      return isAppPlatform;
     }
   }, [platform, platforma]);
 
@@ -128,7 +128,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       setSubmitResult,
       onOpen,
       status,
-      isInIframe,
+      isInIframe: isEmbeddedApp,
       setSubmitMessage,
     });
 
@@ -521,7 +521,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           />
         )}
 
-      {!isInIframe && (
+      {!isEmbeddedApp && (
         <Header
           completedSession={webSocketData?.completed}
           onCompleteSession={webSocketData?.completeSession}
@@ -535,7 +535,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         />
       )}
 
-      <TaskDescription task={task} hideTopSpacing={isInIframe} />
+      <TaskDescription task={task} hideTopSpacing={isEmbeddedApp} />
 
       <main className="flex-1 overflow-hidden">
         <div className="h-full flex flex-col md:flex-row">
