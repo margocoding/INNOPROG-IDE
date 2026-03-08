@@ -85,15 +85,51 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 	return (
 		<Modal onOpenChange={onOpenChange} isOpen={isOpen}>
 			<ModalContent>
-				{submitResult === "no_data" && (
-					<ModalHeader>Введите данные</ModalHeader>
-				)}
+				{submitResult === "no_data" ? <ModalHeader>Введите данные</ModalHeader> : <ModalHeader />}
 				<ModalBody>
 					<div className="text-center text-3xl">
 						{submitResult === "success" ? (
-							submitMessage || "✅Все тесты прошли успешно!"
+							<div className="flex flex-col items-center gap-4 py-2">
+								<div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/15 text-green-500">
+									<svg
+										className="h-9 w-9"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2.5"
+									>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											d="M5 13l4 4L19 7"
+										/>
+									</svg>
+								</div>
+								<div className="text-base font-medium leading-6">
+									{submitMessage || "Все тесты прошли успешно!"}
+								</div>
+							</div>
 						) : submitResult === "error" ? (
-							submitMessage || "❌Неверное решение."
+							<div className="flex flex-col items-center gap-4 py-2">
+								<div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/15 text-red-500">
+									<svg
+										className="h-9 w-9"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2.5"
+									>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											d="M6 6l12 12M18 6L6 18"
+										/>
+									</svg>
+								</div>
+								<div className="text-base font-medium leading-6">
+									{submitMessage || "Неверное решение."}
+								</div>
+							</div>
 						) : (
 							<div className="flex flex-col gap-2">
 								<div className="text-[15px] flex items-center gap-2">
@@ -129,27 +165,24 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 									/>
 								)}{" "}
 							</div>
-						)}
+							)}
 					</div>
 				</ModalBody>
-				<ModalFooter className="flex justify-center w-full">
-					<Button
-						size="lg"
-						disabled={isRunning}
-						onPress={handleConfirm}
-						className="w-full"
-						color={submitResult === "no_data" ? "secondary" : "danger"}
-					>
-						{" "}
-						{submitResult === "no_data" ? (
+				{submitResult === "no_data" && (
+					<ModalFooter className="flex justify-center w-full">
+						<Button
+							size="lg"
+							disabled={isRunning}
+							onPress={handleConfirm}
+							className="w-full"
+							color="secondary"
+						>
 							<div className="flex gap-2 items-center">
 								{isRunning && <Spinner />} Применить
 							</div>
-						) : (
-							"Закрыть"
-						)}
-					</Button>
-				</ModalFooter>
+						</Button>
+					</ModalFooter>
+				)}
 			</ModalContent>
 		</Modal>
 	);
