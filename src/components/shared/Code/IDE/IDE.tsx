@@ -330,7 +330,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         try {
           const data = await api.getSubmitCode(
             answer_id,
-            window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 429272623,
+            clientId,
             Number(taskId)
           );
 
@@ -349,7 +349,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     };
 
     loadCode();
-  }, [taskId, answer_id, roomId, roomCodeLoaded, codeSource]);
+  }, [taskId, answer_id, roomId, roomCodeLoaded, codeSource, clientId]);
 
   useEffect(() => {
     const handleRoomStateLoaded = (event: CustomEvent) => {

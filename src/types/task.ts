@@ -45,10 +45,10 @@ export interface CodeCheckRequest {
 }
 
 export interface SubmitRequest {
-  user_id: number;
+  user_id: string;
   task_id: number;
   program: string;
-  answer_id: number;
+  answer_id: string;
 }
 
 export interface CheckResult {

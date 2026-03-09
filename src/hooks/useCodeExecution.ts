@@ -123,6 +123,8 @@ export const useCodeExecution = ({
 	const onSendCheck = async () => {
 		setIsRunning(true);
 		let shouldOpenModal = false;
+		const resolvedAnswerId = answer_id || "";
+		const resolvedTaskId = Number(taskId);
 
 		try {
 			if (isInIframe && taskId) {
@@ -161,9 +163,9 @@ export const useCodeExecution = ({
 
 			await api.submitCode({
 				program: getSubmittedCode(),
-				user_id: window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 429272623,
-				answer_id: Number(answer_id) || 123,
-				task_id: Number(taskId),
+				user_id: clientId,
+				answer_id: resolvedAnswerId,
+				task_id: resolvedTaskId,
 			});
 			setSubmitMessage("");
 			setSubmitResult("success");
