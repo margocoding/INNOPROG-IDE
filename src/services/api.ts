@@ -66,7 +66,7 @@ export const api = {
 		};
 	},
 
-	async getSubmitCode(answer_id: string, user_id: string, task_id: number) {
+	async getSubmitCode(answer_id: string, user_id: number, task_id: number) {
 		const response = await fetch(
 			`https://bot.innoprog.ru:8443/answer/code?answer_id=${answer_id}&user_id=${user_id}&task_id=${task_id}`
 		);

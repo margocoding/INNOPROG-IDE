@@ -106,6 +106,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ||
       localStorage.getItem("telegramId") ||
       "";
+  const userId = Number.parseInt(clientId, 10) || 0;
   const roomId = searchParams.get("roomId");
   const platform = searchParams.get("platform");
   const platforma = searchParams.get("platforma");
@@ -330,7 +331,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         try {
           const data = await api.getSubmitCode(
             answer_id,
-            clientId,
+            userId,
             Number(taskId)
           );
 
@@ -349,7 +350,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     };
 
     loadCode();
-  }, [taskId, answer_id, roomId, roomCodeLoaded, codeSource, clientId]);
+  }, [taskId, answer_id, roomId, roomCodeLoaded, codeSource, userId]);
 
   useEffect(() => {
     const handleRoomStateLoaded = (event: CustomEvent) => {

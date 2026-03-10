@@ -125,6 +125,7 @@ export const useCodeExecution = ({
 		let shouldOpenModal = false;
 		const resolvedAnswerId = answer_id || "";
 		const resolvedTaskId = Number(taskId);
+		const resolvedUserId = Number.parseInt(clientId, 10) || 0;
 
 		try {
 			if (isInIframe && taskId) {
@@ -163,7 +164,7 @@ export const useCodeExecution = ({
 
 			await api.submitCode({
 				program: getSubmittedCode(),
-				user_id: clientId,
+				user_id: resolvedUserId,
 				answer_id: resolvedAnswerId,
 				task_id: resolvedTaskId,
 			});

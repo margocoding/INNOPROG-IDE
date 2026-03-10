@@ -45,7 +45,7 @@ export interface CodeCheckRequest {
 }
 
 export interface SubmitRequest {
-  user_id: string;
+  user_id: number;
   task_id: number;
   program: string;
   answer_id: string;
