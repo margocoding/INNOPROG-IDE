@@ -162,12 +162,7 @@ function createIndentGuides(state: EditorState): DecorationSet {
   for (let i = 1; i <= doc.lines; i++) {
     const line = doc.line(i);
     const lineText = line.text;
-    
-    // Пропускаем пустые строки (даже если есть табуляции/пробелы)
-    if (lineText.trim().length === 0) {
-      continue;
-    }
-    
+
     let indentCount = 0;
     for (let j = 0; j < lineText.length; j++) {
       if (lineText[j] === " ") {
@@ -181,21 +176,19 @@ function createIndentGuides(state: EditorState): DecorationSet {
 
     const indentLevel = Math.floor(indentCount / tabSize);
     
-    if (indentLevel > 1) {
-      const levels: number[] = [];
-      for (let level = 1; level < Math.min(indentLevel, maxIndentLevel + 1); level++) {
-        levels.push(level);
-      }
-      
-      if (levels.length > 0) {
-        const guideDecoration = Decoration.widget({
-          widget: new IndentGuideWidget(levels, tabSize),
-          side: -1,
-          block: false,
-        });
+    const levels: number[] = [0];
+    for (let level = 1; level < Math.min(indentLevel, maxIndentLevel + 1); level++) {
+      levels.push(level);
+    }
+    
+    if (levels.length > 0) {
+      const guideDecoration = Decoration.widget({
+        widget: new IndentGuideWidget(levels, tabSize),
+        side: -1,
+        block: false,
+      });
 
-        decorations.push(guideDecoration.range(line.from));
-      }
+      decorations.push(guideDecoration.range(line.from));
     }
   }
 
@@ -765,6 +758,60 @@ const CodeEditor: React.FC<IProps> = React.memo(
         return true;
       };
 
+      const wrapSelectionWithQuotes = (
+        view: EditorView,
+        quote: '"' | "'" | "`"
+      ) => {
+        const { state } = view;
+        const selection = state.selection.main;
+
+        if (selection.empty) {
+          return false;
+        }
+
+        const docLength = state.doc.length;
+        const editableFrom = Math.min(codeBefore.length, docLength);
+        const editableTo = Math.max(editableFrom, docLength - codeAfter.length);
+
+        if (selection.from < editableFrom || selection.to > editableTo) {
+          return false;
+        }
+
+        const selectedText = state.doc.sliceString(selection.from, selection.to);
+
+        view.dispatch({
+          changes: {
+            from: selection.from,
+            to: selection.to,
+            insert: `${quote}${selectedText}${quote}`,
+          },
+          selection: {
+            anchor: selection.from + 1,
+            head: selection.to + 1,
+          },
+          userEvent: "input",
+        });
+
+        return true;
+      };
+
+      const quoteWrapHandler = EditorView.domEventHandlers({
+        keydown: (event, view) => {
+          const quote = event.key;
+
+          if (quote !== '"' && quote !== "'" && quote !== "`") {
+            return false;
+          }
+
+          if (!wrapSelectionWithQuotes(view, quote)) {
+            return false;
+          }
+
+          event.preventDefault();
+          return true;
+        },
+      });
+
       const state = EditorState.create({
         doc: initialDoc,
         extensions: [
@@ -789,6 +836,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
             ...foldKeymap,
             indentWithTab,
           ]),
+          quoteWrapHandler,
           iosEnterHandler,
           iosKeydownHandler,
           selectionHighlightField,
