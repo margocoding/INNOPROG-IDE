@@ -4,6 +4,8 @@ interface OutputSectionProps {
 	output: string;
 	status: "idle" | "success" | "error";
 	activeTab: "editor" | "output";
+	language?: string;
+	htmlPreview?: string;
 	width?: number;
 }
 
@@ -11,9 +13,12 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 	output,
 	status,
 	activeTab,
+	language,
+	htmlPreview,
 	width = 50,
 }) => {
 	const outputRef = useRef<HTMLPreElement>(null);
+	const isHtmlMode = language === "html";
 
 	const getStatusIcon = () => {
 		switch (status) {
@@ -57,10 +62,16 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 	return (
 		<div
 			className={`h-full min-w-0 ${
-				activeTab === "output" ? "block" : "hidden md:block"
+				isHtmlMode
+					? "block"
+					: activeTab === "output"
+					? "block"
+					: "hidden md:block"
 			}`}
 			style={
-				activeTab === "output"
+				isHtmlMode
+					? { width: "100%", flex: `0 0 ${width}%`, minWidth: 0 }
+					: activeTab === "output"
 					? { width: "100%" }
 					: { flex: `0 0 ${width}%`, minWidth: 0 }
 			}
@@ -68,23 +79,36 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 			<div className="h-full p-4">
 				<div className="flex flex-col h-full bg-ide-editor rounded-lg overflow-hidden">
 					<div className="bg-ide-secondary px-3 py-2 border-b border-ide-border flex items-center justify-between">
-						<span className="text-ide-text-secondary text-sm">Output</span>
-						{getStatusIcon()}
+						<span className="text-ide-text-secondary text-sm">
+							{isHtmlMode ? "HTML Preview" : "Output"}
+						</span>
+						{!isHtmlMode && getStatusIcon()}
 					</div>
-					<div className="flex-1 p-4 overflow-auto">
-						<pre
-							ref={outputRef}
-							className={`font-mono text-sm md:text-base whitespace-pre-wrap break-words ${
-								status === "error"
-									? "error-output"
-									: status === "success"
-									? "text-green-500"
-									: ""
-							}`}
-						>
-							{output || "Нет результата"}
-						</pre>
-					</div>
+					{isHtmlMode ? (
+						<div className="flex-1 bg-white">
+							<iframe
+								title="HTML Preview"
+								srcDoc={htmlPreview || ""}
+								sandbox="allow-scripts"
+								className="h-full w-full border-0"
+							/>
+						</div>
+					) : (
+						<div className="flex-1 p-4 overflow-auto">
+							<pre
+								ref={outputRef}
+								className={`font-mono text-sm md:text-base whitespace-pre-wrap break-words ${
+									status === "error"
+										? "error-output"
+										: status === "success"
+										? "text-green-500"
+										: ""
+								}`}
+							>
+								{output || "Нет результата"}
+							</pre>
+						</div>
+					)}
 				</div>
 			</div>
 		</div>

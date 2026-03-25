@@ -99,6 +99,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const taskId = searchParams.get("task_id") || null;
   const language = searchParams.get("lang") || "py";
   const answer_id = searchParams.get("answer_id");
+  const isHtmlMode = language === Language.HTML;
   const clientId =
       searchParams.get("telegramId") ||
       searchParams.get("client_id") ||
@@ -151,6 +152,10 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   }, [handleRunCode, onOpen, task?.answers?.length, taskId]);
 
   const runPrimaryAction = useCallback(async () => {
+    if (isHtmlMode) {
+      return;
+    }
+
     if (isRunning || isOpen) {
       return;
     }
@@ -161,7 +166,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
 
     await onModalRunCode();
-  }, [isOpen, isRunning, onModalRunCode, onSendCheck, status, taskId]);
+  }, [isHtmlMode, isOpen, isRunning, onModalRunCode, onSendCheck, status, taskId]);
 
   useEffect(() => {
     const handleRunShortcut = (event: KeyboardEvent) => {
@@ -561,16 +566,20 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
             width={editorWidth}
           />
 
-          <Resizer
-            onResize={handleResize}
-            minSize={20}
-            maxSize={80}
-          />
+          {!isHtmlMode && (
+            <Resizer
+              onResize={handleResize}
+              minSize={20}
+              maxSize={80}
+            />
+          )}
 
           <OutputSection
             output={output}
             status={status}
             activeTab={activeTab}
+            language={language}
+            htmlPreview={code}
             width={100 - editorWidth}
           />
         </div>
@@ -581,6 +590,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         taskId={taskId}
         isRunning={isRunning}
         activeTab={activeTab}
+        language={language}
         onRunCode={onModalRunCode}
         onSubmitCheck={onSendCheck}
         setActiveTab={setActiveTab}

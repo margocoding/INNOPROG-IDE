@@ -87,5 +87,6 @@ export enum Language {
   CPP = 'cpp',
   SQL = 'SQL',
   PY = 'py',
-  DART = 'dart'
+  DART = 'dart',
+  HTML = 'html'
 }

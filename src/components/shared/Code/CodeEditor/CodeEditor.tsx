@@ -571,6 +571,8 @@ const CodeEditor: React.FC<IProps> = React.memo(
             return sql();
           case Language.DART:
             return StreamLanguage.define(dart);
+          case Language.HTML:
+            return [];
           default:
             return python();
         }
@@ -1204,6 +1206,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
             <SelectItem key={"java"}>Java</SelectItem>
             <SelectItem key={"sql"}>SQL</SelectItem>
             <SelectItem key={"dart"}>Dart</SelectItem>
+            <SelectItem key={"html"}>HTML</SelectItem>
           </Select>
         </div>
         <div
