@@ -68,6 +68,25 @@ interface IDEProps {
   telegramId: string;
 }
 
+const DEFAULT_HTML_TEMPLATE = `<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Привет, HTML!</h1>
+    <p>Начните редактировать код слева.</p>
+  </body>
+</html>`;
+
 const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [task, setTask] = useState<Task | null>(null);
@@ -485,6 +504,26 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     localStorage.setItem("innoprog-editor-width", newWidth.toString());
   };
 
+  const htmlPreviewContent = useMemo(() => {
+    if (!isHtmlMode) {
+      return "";
+    }
+
+    return code.trim().length > 0 ? code : DEFAULT_HTML_TEMPLATE;
+  }, [code, isHtmlMode]);
+
+  useEffect(() => {
+    if (!isHtmlMode) {
+      return;
+    }
+
+    if (code.trim().length > 0) {
+      return;
+    }
+
+    setCode(DEFAULT_HTML_TEMPLATE);
+  }, [code, isHtmlMode]);
+
   return (
     <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden">
       {roomId &&
@@ -579,7 +618,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
             status={status}
             activeTab={activeTab}
             language={language}
-            htmlPreview={code}
+            htmlPreview={htmlPreviewContent}
             width={100 - editorWidth}
           />
         </div>

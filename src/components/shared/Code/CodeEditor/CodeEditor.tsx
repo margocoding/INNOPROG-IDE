@@ -9,6 +9,7 @@ import {
 } from "@codemirror/commands";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { cpp } from "@codemirror/lang-cpp";
+import { html } from "@codemirror/lang-html";
 import { java } from "@codemirror/lang-java";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
@@ -572,7 +573,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
           case Language.DART:
             return StreamLanguage.define(dart);
           case Language.HTML:
-            return [];
+            return html({
+              autoCloseTags: true,
+              selfClosingTags: true,
+            });
           default:
             return python();
         }
