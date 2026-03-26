@@ -44,32 +44,11 @@ export const useCodeExecution = ({
 	const [isRunning, setIsRunning] = useState<boolean>(false);
 	const [currentCode, setCurrentCode] = useState<string>('');
 
-	const getSubmittedCode = () => {
-		const codeBefore =
-			currentAnswer?.code_before ?? task?.answers?.[0]?.code_before ?? "";
-		const codeAfter =
-			currentAnswer?.code_after ?? task?.answers?.[0]?.code_after ?? "";
-
-		if (codeBefore && codeAfter) {
-			return `${codeBefore}\n\n${code}\n\n${codeAfter}`;
-		}
-
-		if (codeBefore) {
-			return `${codeBefore}\n\n${code}`;
-		}
-
-		if (codeAfter) {
-			return `${code}\n\n${codeAfter}`;
-		}
-
-		return code;
-	};
-
 	const getIframeAnswerPayload = (): TaskAnswerCheckRequest => {
 		return {
 			client_id: clientId,
 			answer_id: answer_id || "",
-			program: getSubmittedCode(),
+			program: code,
 		};
 	};
 
@@ -178,7 +157,7 @@ export const useCodeExecution = ({
 			}
 
 			await api.submitCode({
-				program: getSubmittedCode(),
+				program: code,
 				user_id: resolvedUserId,
 				answer_id: resolvedAnswerId,
 				task_id: resolvedTaskId,
