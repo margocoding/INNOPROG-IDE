@@ -41,7 +41,7 @@ const Footer: React.FC<FooterProps> = ({
     }
   };
 
-  if (!hasTask) {
+  if (isHtmlMode && !hasTask) {
     return null;
   }
 
