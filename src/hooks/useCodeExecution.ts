@@ -62,7 +62,8 @@ export const useCodeExecution = ({
 		setOutput("");
 
 		try {
-			const runLanguage = taskId ? Language.PY : language;
+			const runLanguage =
+				taskId && language !== Language.CPP ? Language.PY : language;
 			const fullCode = `${currentAnswer?.code_before || task?.answers![0].code_before
 				? task?.answers![0].code_before
 				: ""
