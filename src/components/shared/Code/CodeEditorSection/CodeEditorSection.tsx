@@ -59,7 +59,11 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     width = 50,
   }) => {
     const selectedAnswer = currentAnswer ?? task?.answers?.[0] ?? null;
-    const visualCodeAfter = selectedAnswer?.code_after
+    const hasMultipleAnswers = (task?.answers?.length || 0) > 1;
+    const visualCodeBefore = hasMultipleAnswers
+      ? selectedAnswer?.code_before || ""
+      : "";
+    const visualCodeAfter = hasMultipleAnswers && selectedAnswer?.code_after
       ? `${selectedAnswer.code_after}\n\n`
       : "";
 
@@ -78,7 +82,7 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
           value={code}
           onChange={setCode}
           language={language}
-          codeBefore={selectedAnswer?.code_before || ""}
+          codeBefore={visualCodeBefore}
           codeAfter={visualCodeAfter}
           setCurrentCode={setCurrentCode}
           handleLanguageChange={handleLanguageChange}
