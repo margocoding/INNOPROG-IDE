@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { isDesktop } from "../../../../index";
 import { Task } from "../../../../types/task";
+import { getTaskType } from "../../../../utils/taskType";
 import "./TaskDescription.css";
 
 interface TaskDescriptionProps {
@@ -102,6 +103,24 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 
 	if (!task) return null;
 
+	const isPasteTaskWithMultipleAnswers =
+		getTaskType(task) === "paste" && (task.answers?.length || 0) > 1;
+	const taskAnswer = task.answers?.[0];
+	const taskInput = isPasteTaskWithMultipleAnswers
+		? taskAnswer?.code_before?.trim()
+		: taskAnswer?.input?.trim();
+
+	const capitalizeFirstTextCharacter = (text: string): string => {
+		const match = text.match(/^(\s*)(\S)([\s\S]*)$/);
+
+		if (!match) {
+			return text;
+		}
+
+		const [, leadingWhitespace, firstCharacter, rest] = match;
+		return `${leadingWhitespace}${firstCharacter.toLocaleUpperCase()}${rest}`;
+	};
+
 	const processDescription = (html: string): string => {
 		if (!html) return "";
 		
@@ -136,10 +155,20 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 			});
 		}
 		
+		let hasCapitalizedFirstTextCharacter = false;
+
 		return parts
 			.map((part) => {
 				if (part.type === "text") {
-					return part.content.replace(/\n/g, "<br>");
+					const normalizedText = hasCapitalizedFirstTextCharacter
+						? part.content
+						: capitalizeFirstTextCharacter(part.content);
+
+					if (normalizedText.trim()) {
+						hasCapitalizedFirstTextCharacter = true;
+					}
+
+					return normalizedText.replace(/\n/g, "<br>");
 				}
 				return part.content;
 			})
@@ -170,14 +199,14 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 							/>
 							{task.answers && task.answers.length > 1 && (
 								<>
-									{task.answers[0].input && (
+									{taskInput && (
 										<>
 											<div>Входные данные:</div>
-											<pre>{task.answers[0].input}</pre>
+											<pre>{taskInput}</pre>
 										</>
 									)}
 									<div className="mt-3">Выходные данные:</div>
-									<pre>{task.answers[0].output}</pre>
+									<pre>{taskAnswer?.output}</pre>
 								</>
 							)}
 						</div>
