@@ -59,6 +59,9 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     width = 50,
   }) => {
     const selectedAnswer = currentAnswer ?? task?.answers?.[0] ?? null;
+    const visualCodeAfter = selectedAnswer?.code_after
+      ? `${selectedAnswer.code_after}\n\n`
+      : "";
 
     return (
       <div
@@ -76,7 +79,7 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
           onChange={setCode}
           language={language}
           codeBefore={selectedAnswer?.code_before || ""}
-          codeAfter={selectedAnswer?.code_after || ""}
+          codeAfter={visualCodeAfter}
           setCurrentCode={setCurrentCode}
           handleLanguageChange={handleLanguageChange}
           disabled={
