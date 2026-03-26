@@ -54,7 +54,7 @@ export const useCodeExecution = ({
 		return {
 			client_id: clientId,
 			answer_id: answer_id || "",
-			program: code,
+			program: getSubmittedCode(),
 		};
 	};
 
