@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../services/api";
-import { Answer, Task, TaskAnswerCheckRequest } from "../types/task";
+import { Answer, Language, Task, TaskAnswerCheckRequest } from "../types/task";
 
 interface UseCodeExecutionProps {
 	currentAnswer: Answer | null;
@@ -62,6 +62,7 @@ export const useCodeExecution = ({
 		setOutput("");
 
 		try {
+			const runLanguage = taskId ? Language.PY : language;
 			const fullCode = `${currentAnswer?.code_before || task?.answers![0].code_before
 				? task?.answers![0].code_before
 				: ""
@@ -79,7 +80,7 @@ export const useCodeExecution = ({
 				timeout: currentAnswer?.timeout || 30,
 			};
 
-			const result = await api.checkCode(checkData, language);
+			const result = await api.checkCode(checkData, runLanguage);
 
 			if (result.result) {
 				if (!outputData && !taskId) {

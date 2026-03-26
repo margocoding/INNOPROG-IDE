@@ -504,25 +504,19 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     localStorage.setItem("innoprog-editor-width", newWidth.toString());
   };
 
+  const shouldUseDefaultHtmlTemplate = isHtmlMode && !taskId;
+
   const htmlPreviewContent = useMemo(() => {
     if (!isHtmlMode) {
       return "";
     }
 
-    return code.trim().length > 0 ? code : DEFAULT_HTML_TEMPLATE;
-  }, [code, isHtmlMode]);
-
-  useEffect(() => {
-    if (!isHtmlMode) {
-      return;
-    }
-
     if (code.trim().length > 0) {
-      return;
+      return code;
     }
 
-    setCode(DEFAULT_HTML_TEMPLATE);
-  }, [code, isHtmlMode]);
+    return shouldUseDefaultHtmlTemplate ? DEFAULT_HTML_TEMPLATE : "";
+  }, [code, isHtmlMode, shouldUseDefaultHtmlTemplate]);
 
   return (
     <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden">
