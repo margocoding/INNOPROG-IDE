@@ -1145,47 +1145,49 @@ const CodeEditor: React.FC<IProps> = React.memo(
     }, [language, effectiveReadOnly, codeBefore, codeAfter, ydoc]);
 
     useEffect(() => {
-      if (editor.current && value !== prevValue.current) {
-        try {
-          if (isWebSocketRef.current) {
-            prevValue.current = value;
-            return;
-          }
+      if (!editor.current) {
+        return;
+      }
 
-          const selection = editor.current.state.selection;
-          const cursorPos = selection.main.head;
-          const relativeCursorPos = Math.max(
-            codeBefore.length,
-            Math.min(
-              cursorPos,
-              editor.current.state.doc.length - codeAfter.length
-            )
-          );
-
-          const fullContent = `${codeBefore}${value}${codeAfter}`;
-
-          if (editor.current.state.doc.toString() === fullContent) {
-            prevValue.current = value;
-            return;
-          }
-
-          const newCursorPos = Math.min(
-            relativeCursorPos,
-            fullContent.length - codeAfter.length
-          );
-
-          editor.current.dispatch({
-            changes: {
-              from: 0,
-              to: editor.current.state.doc.length,
-              insert: fullContent,
-            },
-            selection: { anchor: newCursorPos, head: newCursorPos },
-          });
+      try {
+        if (isWebSocketRef.current) {
           prevValue.current = value;
-        } catch (error) {
-          console.error("Error updating editor content:", error);
+          return;
         }
+
+        const selection = editor.current.state.selection;
+        const cursorPos = selection.main.head;
+        const relativeCursorPos = Math.max(
+          codeBefore.length,
+          Math.min(
+            cursorPos,
+            editor.current.state.doc.length - codeAfter.length
+          )
+        );
+
+        const fullContent = `${codeBefore}${value}${codeAfter}`;
+
+        if (editor.current.state.doc.toString() === fullContent) {
+          prevValue.current = value;
+          return;
+        }
+
+        const newCursorPos = Math.min(
+          relativeCursorPos,
+          fullContent.length - codeAfter.length
+        );
+
+        editor.current.dispatch({
+          changes: {
+            from: 0,
+            to: editor.current.state.doc.length,
+            insert: fullContent,
+          },
+          selection: { anchor: newCursorPos, head: newCursorPos },
+        });
+        prevValue.current = value;
+      } catch (error) {
+        console.error("Error updating editor content:", error);
       }
     }, [value, codeBefore, codeAfter]);
 

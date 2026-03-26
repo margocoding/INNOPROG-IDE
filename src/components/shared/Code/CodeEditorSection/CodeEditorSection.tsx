@@ -58,6 +58,8 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     setCurrentCode,
     width = 50,
   }) => {
+    const selectedAnswer = currentAnswer ?? task?.answers?.[0] ?? null;
+
     return (
       <div
         className={`h-full min-w-0 p-4 ${
@@ -73,8 +75,8 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
           value={code}
           onChange={setCode}
           language={language}
-          codeBefore={currentAnswer?.code_before || ""}
-          codeAfter={currentAnswer?.code_after || ""}
+          codeBefore={selectedAnswer?.code_before || ""}
+          codeAfter={selectedAnswer?.code_after || ""}
           setCurrentCode={setCurrentCode}
           handleLanguageChange={handleLanguageChange}
           disabled={
@@ -87,7 +89,7 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
           }
           readOnly={
             getTaskType(task) === "paste" && (task?.answers?.length || 0) > 1
-              ? !currentAnswer
+              ? !selectedAnswer
               : false
           }
           sendSelection={webSocketData?.sendSelection}
