@@ -121,10 +121,32 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 		return `${leadingWhitespace}${firstCharacter.toLocaleUpperCase()}${rest}`;
 	};
 
+	const decodeHtmlEntities = (text: string): string => {
+		let decoded = text;
+
+		for (let i = 0; i < 3; i += 1) {
+			const next = decoded
+				.replace(/&lt;/g, "<")
+				.replace(/&gt;/g, ">")
+				.replace(/&quot;/g, '"')
+				.replace(/&#39;/g, "'")
+				.replace(/&nbsp;/g, " ")
+				.replace(/&amp;/g, "&");
+
+			if (next === decoded) {
+				break;
+			}
+
+			decoded = next;
+		}
+
+		return decoded;
+	};
+
 	const processDescription = (html: string): string => {
 		if (!html) return "";
 		
-		let processed = html;
+		let processed = decodeHtmlEntities(html);
 		
 		processed = processed.replace(/\r\n/g, "\n");
 		processed = processed.replace(/\r/g, "\n");

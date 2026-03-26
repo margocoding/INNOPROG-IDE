@@ -140,20 +140,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
   }, [platform, platforma]);
 
-  const forcedTaskLanguage = useMemo(() => {
-    const rawTaskType = (task?.task_type || task?.type) as string | undefined;
-    const isPasteTask =
-      rawTaskType === "paste" || rawTaskType === "Дополнение кода";
-
-    if (!isPasteTask || !taskId) {
-      return null;
-    }
-
-    return taskId.startsWith("160") ? Language.CPP : Language.PY;
-  }, [task?.task_type, task?.type, taskId]);
-
-  const effectiveLanguage = forcedTaskLanguage || language;
-
   const { isRunning, handleRunCode, onSendCheck, setCurrentCode } =
     useCodeExecution({
       currentAnswer,
@@ -164,7 +150,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       taskId,
       answer_id,
       clientId,
-      language: effectiveLanguage,
+      language,
       setOutput,
       setStatus,
       setActiveTab,
@@ -231,17 +217,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       });
     }
   }, [setSearchParams, webSocketData?.language]);
-
-  useEffect(() => {
-    if (!forcedTaskLanguage || language === forcedTaskLanguage) {
-      return;
-    }
-
-    setSearchParams((prev) => {
-      prev.set("lang", forcedTaskLanguage);
-      return prev;
-    });
-  }, [forcedTaskLanguage, language, setSearchParams]);
 
   useEffect(() => {
     if (webSocketData?.isJoinedRoom) {
@@ -471,16 +446,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   const handleLanguageChange = useCallback(
     (lang: Language) => {
-      if (forcedTaskLanguage) {
-        if (language !== forcedTaskLanguage) {
-          setSearchParams((prev) => {
-            prev.set("lang", forcedTaskLanguage);
-            return prev;
-          });
-        }
-        return;
-      }
-
       setSearchParams((prev) => {
         prev.set("lang", lang);
         return prev;
@@ -489,7 +454,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         webSocketData.sendChangeLanguage(lang);
       }
     },
-    [forcedTaskLanguage, language, setSearchParams, webSocketData]
+    [setSearchParams, webSocketData]
   );
 
   const memoizedWebSocketData = useMemo(() => {
