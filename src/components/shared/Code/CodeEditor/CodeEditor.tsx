@@ -219,6 +219,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
   }) => {
     const editor = useRef<EditorView>();
     const editorContainer = useRef<HTMLDivElement>(null);
+    const fileExtension = language === Language.BASH ? "sh" : language;
     const prevValue = useRef(value);
     const lastLanguageRef = useRef<string>(language);
 
@@ -1198,7 +1199,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
       <div className="relative h-full rounded-lg overflow-hidden bg-ide-editor">
         <div className="px-3 py-2 border-b border-ide-border bg-ide-secondary flex justify-between items-center">
           <span className="text-ide-text-secondary text-sm">
-            {`script.${language}`}
+            {`script.${fileExtension}`}
           </span>
           <Select
             selectedKeys={[language]}

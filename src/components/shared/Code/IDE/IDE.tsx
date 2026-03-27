@@ -86,6 +86,7 @@ const DEFAULT_HTML_TEMPLATE = `<!DOCTYPE html>
     <p>Начните редактировать код слева.</p>
   </body>
 </html>`;
+const DEFAULT_BASH_TEMPLATE = "#!/bin/bash";
 
 const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -108,9 +109,12 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [showBlockingLoader, setShowBlockingLoader] = useState<boolean>(true);
   const [isAutoHtmlTemplateActive, setIsAutoHtmlTemplateActive] =
     useState(false);
+  const [isAutoBashTemplateActive, setIsAutoBashTemplateActive] =
+    useState(false);
   const loaderTimeoutRef = useRef<number | null>(null);
   const roomStateAppliedRef = useRef<boolean>(false);
   const wasHtmlModeRef = useRef(false);
+  const wasBashModeRef = useRef(false);
   const [editorWidth, setEditorWidth] = useState<number>(() => {
     const saved = localStorage.getItem("innoprog-editor-width");
     return saved ? parseFloat(saved) : 50;
@@ -123,6 +127,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const answer_id = searchParams.get("answer_id");
   const roomId = searchParams.get("roomId");
   const isHtmlMode = language === Language.HTML;
+  const isBashMode = language === Language.BASH;
   const telegramWebAppUserId = roomId
     ? null
     : window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString();
@@ -523,15 +528,32 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     wasHtmlModeRef.current = isHtmlMode;
   }, [isHtmlMode, taskId]);
 
+  useEffect(() => {
+    const wasBashMode = wasBashModeRef.current;
+
+    if (isBashMode && !taskId && !wasBashMode) {
+      setCode(DEFAULT_BASH_TEMPLATE);
+      setIsAutoBashTemplateActive(true);
+    } else if (!isBashMode || taskId) {
+      setIsAutoBashTemplateActive(false);
+    }
+
+    wasBashModeRef.current = isBashMode;
+  }, [isBashMode, taskId]);
+
   const handleCodeChange = useCallback(
     (nextCode: string) => {
       if (isHtmlMode && !taskId && isAutoHtmlTemplateActive) {
         setIsAutoHtmlTemplateActive(false);
       }
 
+      if (isBashMode && !taskId && isAutoBashTemplateActive) {
+        setIsAutoBashTemplateActive(false);
+      }
+
       setCode(nextCode);
     },
-    [isAutoHtmlTemplateActive, isHtmlMode, taskId]
+    [isAutoBashTemplateActive, isAutoHtmlTemplateActive, isBashMode, isHtmlMode, taskId]
   );
 
   const htmlPreviewContent = useMemo(() => {
