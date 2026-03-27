@@ -121,16 +121,19 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const taskId = searchParams.get("task_id") || null;
   const language = searchParams.get("lang") || "py";
   const answer_id = searchParams.get("answer_id");
+  const roomId = searchParams.get("roomId");
   const isHtmlMode = language === Language.HTML;
+  const telegramWebAppUserId = roomId
+    ? null
+    : window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString();
   const clientId =
       searchParams.get("telegramId") ||
       searchParams.get("client_id") ||
       telegramId ||
-      window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ||
+      telegramWebAppUserId ||
       localStorage.getItem("telegramId") ||
       "";
   const userId = Number.parseInt(clientId, 10) || 0;
-  const roomId = searchParams.get("roomId");
   const platform = searchParams.get("platform");
   const platforma = searchParams.get("platforma");
   const isEmbeddedApp = useMemo(() => {

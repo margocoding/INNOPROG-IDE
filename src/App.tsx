@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import "./App.css";
 import Cursor from "./components/shared/Room/Cursor/Cursor";
@@ -8,10 +8,44 @@ import { useWebSocket } from "./hooks/useWebSocket";
 const App = React.memo(() => {
   const [searchParams] = useSearchParams();
   const roomId = searchParams.get("roomId");
+  const telegramWebAppUserId = roomId
+    ? null
+    : window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString();
   const telegramId =
     searchParams.get("telegramId") ||
-    window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ||
+    telegramWebAppUserId ||
     localStorage.getItem("telegramId");
+
+  useEffect(() => {
+    if (roomId || window.Telegram?.WebApp) {
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://telegram.org/js/telegram-web-app.js";
+    script.async = true;
+
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      script.onload = null;
+      script.onerror = null;
+    };
+
+    script.onload = cleanup;
+    script.onerror = cleanup;
+
+    const timeoutId = window.setTimeout(() => {
+      cleanup();
+      script.remove();
+    }, 1500);
+
+    document.head.appendChild(script);
+
+    return () => {
+      cleanup();
+      script.remove();
+    };
+  }, [roomId]);
 
   const webSocketParams = useMemo(
     () => ({

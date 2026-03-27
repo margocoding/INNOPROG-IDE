@@ -75,13 +75,16 @@ const Header: React.FC<IProps> = ({
   const onlineMembers = sortedMembers.filter((member) => member.online);
   const visibleMembers = onlineMembers.slice(0, 3);
   const hasMoreMembers = sortedMembers.length > 3;
+  const telegramInitData = roomId
+    ? undefined
+    : window.Telegram?.WebApp?.initDataUnsafe;
 
-    if (!isDesktop() && Object.entries(window?.Telegram?.WebApp.initDataUnsafe).length) {
-        console.log(window?.Telegram?.WebApp.initDataUnsafe);
+    if (!isDesktop() && telegramInitData && Object.keys(telegramInitData).length) {
+        console.log(telegramInitData);
         try {
-            window.Telegram.WebApp.expand();
-            window.Telegram.WebApp.requestFullscreen();
-            window.Telegram.WebApp.disableVerticalSwipes();
+            window.Telegram?.WebApp?.expand?.();
+            window.Telegram?.WebApp?.requestFullscreen?.();
+            window.Telegram?.WebApp?.disableVerticalSwipes?.();
         } catch (e) {
             console.error(e);
         }
