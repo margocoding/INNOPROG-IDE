@@ -64,10 +64,29 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 		}
 
 		const handleKeyDown = (event: KeyboardEvent) => {
+			const activeElement = document.activeElement as HTMLElement | null;
+			const isTypingTarget = Boolean(
+				activeElement &&
+				(activeElement.tagName === "INPUT" ||
+					activeElement.tagName === "TEXTAREA" ||
+					activeElement.isContentEditable)
+			);
 			const isSubmitShortcut =
 				(event.ctrlKey || event.metaKey) && event.key === "Enter";
+			const isApplyFromNoDataState =
+				submitResult === "no_data" &&
+				event.key === "Enter" &&
+				!event.ctrlKey &&
+				!event.metaKey &&
+				!event.altKey &&
+				!event.shiftKey &&
+				!isTypingTarget;
 
-			if (!isSubmitShortcut || event.isComposing || event.repeat) {
+			if (
+				(!isSubmitShortcut && !isApplyFromNoDataState) ||
+				event.isComposing ||
+				event.repeat
+			) {
 				return;
 			}
 
@@ -80,7 +99,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [handleConfirm, isOpen]);
+	}, [handleConfirm, isOpen, submitResult]);
 
 	return (
 		<Modal onOpenChange={onOpenChange} isOpen={isOpen}>

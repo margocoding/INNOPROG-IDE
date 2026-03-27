@@ -106,6 +106,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [showStartModal, setShowStartModal] = useState<boolean>(false);
   const [hasJoinedOnce, setHasJoinedOnce] = useState<boolean>(false);
   const [showBlockingLoader, setShowBlockingLoader] = useState<boolean>(true);
+  const [isAutoHtmlTemplateActive, setIsAutoHtmlTemplateActive] =
+    useState(false);
   const loaderTimeoutRef = useRef<number | null>(null);
   const roomStateAppliedRef = useRef<boolean>(false);
   const [editorWidth, setEditorWidth] = useState<number>(() => {
@@ -504,7 +506,28 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     localStorage.setItem("innoprog-editor-width", newWidth.toString());
   };
 
-  const shouldUseDefaultHtmlTemplate = isHtmlMode && !taskId;
+  useEffect(() => {
+    if (!isHtmlMode || taskId) {
+      setIsAutoHtmlTemplateActive(false);
+      return;
+    }
+
+    if (code.trim().length === 0) {
+      setCode(DEFAULT_HTML_TEMPLATE);
+      setIsAutoHtmlTemplateActive(true);
+    }
+  }, [code, isHtmlMode, taskId]);
+
+  const handleCodeChange = useCallback(
+    (nextCode: string) => {
+      if (isHtmlMode && !taskId && isAutoHtmlTemplateActive) {
+        setIsAutoHtmlTemplateActive(false);
+      }
+
+      setCode(nextCode);
+    },
+    [isAutoHtmlTemplateActive, isHtmlMode, taskId]
+  );
 
   const htmlPreviewContent = useMemo(() => {
     if (!isHtmlMode) {
@@ -515,8 +538,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       return code;
     }
 
-    return shouldUseDefaultHtmlTemplate ? DEFAULT_HTML_TEMPLATE : "";
-  }, [code, isHtmlMode, shouldUseDefaultHtmlTemplate]);
+    return isAutoHtmlTemplateActive ? DEFAULT_HTML_TEMPLATE : "";
+  }, [code, isAutoHtmlTemplateActive, isHtmlMode]);
 
   return (
     <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden">
@@ -586,12 +609,12 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
       <main className="flex-1 overflow-hidden">
         <div className="h-full flex flex-col md:flex-row">
-          <CodeEditorSection
-            code={code}
-            setCode={setCode}
-            language={language}
-            currentAnswer={currentAnswer}
-            task={task}
+        <CodeEditorSection
+          code={code}
+          setCode={handleCodeChange}
+          language={language}
+          currentAnswer={currentAnswer}
+          task={task}
             setCurrentCode={setCurrentCode}
             activeTab={activeTab}
             webSocketData={memoizedWebSocketData}
