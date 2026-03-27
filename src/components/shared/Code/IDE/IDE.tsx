@@ -110,6 +110,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     useState(false);
   const loaderTimeoutRef = useRef<number | null>(null);
   const roomStateAppliedRef = useRef<boolean>(false);
+  const wasHtmlModeRef = useRef(false);
   const [editorWidth, setEditorWidth] = useState<number>(() => {
     const saved = localStorage.getItem("innoprog-editor-width");
     return saved ? parseFloat(saved) : 50;
@@ -507,16 +508,17 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   };
 
   useEffect(() => {
-    if (!isHtmlMode || taskId) {
-      setIsAutoHtmlTemplateActive(false);
-      return;
-    }
+    const wasHtmlMode = wasHtmlModeRef.current;
 
-    if (code.trim().length === 0) {
+    if (isHtmlMode && !taskId && !wasHtmlMode) {
       setCode(DEFAULT_HTML_TEMPLATE);
       setIsAutoHtmlTemplateActive(true);
+    } else if (!isHtmlMode || taskId) {
+      setIsAutoHtmlTemplateActive(false);
     }
-  }, [code, isHtmlMode, taskId]);
+
+    wasHtmlModeRef.current = isHtmlMode;
+  }, [isHtmlMode, taskId]);
 
   const handleCodeChange = useCallback(
     (nextCode: string) => {
