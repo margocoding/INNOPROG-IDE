@@ -21,6 +21,7 @@ import {
   indentRange,
 } from "@codemirror/language";
 import { dart } from "@codemirror/legacy-modes/mode/clike";
+import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import {
@@ -564,6 +565,8 @@ const CodeEditor: React.FC<IProps> = React.memo(
             return python();
           case Language.JS:
             return javascript();
+          case Language.BASH:
+            return StreamLanguage.define(shell);
           case Language.CPP:
             return cpp();
           case Language.JAVA:
@@ -1207,6 +1210,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
             placeholder={"Язык программирования"}
           >
             <SelectItem key={"js"}>JS</SelectItem>
+            <SelectItem key={"bash"}>Bash</SelectItem>
             <SelectItem key={"cpp"}>C++</SelectItem>
             <SelectItem key={"py"}>Python</SelectItem>
             <SelectItem key={"java"}>Java</SelectItem>

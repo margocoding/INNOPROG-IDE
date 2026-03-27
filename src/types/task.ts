@@ -84,6 +84,7 @@ export interface Answer {
 export enum Language {
   JAVA = 'java',
   JS = 'js',
+  BASH = 'bash',
   CPP = 'cpp',
   SQL = 'SQL',
   PY = 'py',
