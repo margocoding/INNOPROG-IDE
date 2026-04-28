@@ -22,6 +22,7 @@ type DescriptionTagToken = {
 	isClosing: boolean;
 	isSelfClosing: boolean;
 	shouldRender: boolean;
+	matchingTagIndex?: number;
 };
 
 type DescriptionToken = DescriptionTextToken | DescriptionTagToken;
@@ -289,9 +290,58 @@ const markBalancedTags = (tokens: DescriptionToken[]): void => {
 		) {
 			previousOpenTag.shouldRender = true;
 			token.shouldRender = true;
+			previousOpenTag.matchingTagIndex = index;
+			token.matchingTagIndex = previousOpenTagIndex;
 			openTagIndexes.pop();
 		}
 	});
+};
+
+const getRawTokenContent = (token: DescriptionToken): string => token.content;
+
+const getTokensContent = (tokens: DescriptionToken[]): string =>
+	tokens.map(getRawTokenContent).join("");
+
+const trimOuterCodeBlockLines = (code: string): string =>
+	code.replace(/^\n/, "").replace(/\n$/, "");
+
+const inferCodeLanguage = (code: string): string => {
+	const normalizedCode = code.trim();
+
+	if (!normalizedCode) {
+		return "text";
+	}
+
+	if (/&lt;\/?[a-z][\s\S]*?&gt;/i.test(normalizedCode)) {
+		return "html";
+	}
+
+	if (
+		/\b(console\.log|let|const|var|function|for\s*\(|while\s*\(|document\.|window\.|=>)\b/.test(
+			normalizedCode
+		)
+	) {
+		return "javascript";
+	}
+
+	if (/\b(print|def|import|from|range)\s*(\(|[a-zA-Z_])/.test(normalizedCode)) {
+		return "python";
+	}
+
+	if (/#include\s*<|std::|cout\s*<</.test(normalizedCode)) {
+		return "cpp";
+	}
+
+	return "text";
+};
+
+const renderCodeBlock = (tokens: DescriptionToken[]): string => {
+	const code = trimOuterCodeBlockLines(getTokensContent(tokens));
+	const language = inferCodeLanguage(code);
+
+	return `<pre class="task-description-code-block"><code class="language-${language}">${escapeText(
+		code
+	)}</code></pre>`;
 };
 
 const renderTag = (token: DescriptionTagToken): string => {
@@ -321,27 +371,49 @@ export const processTaskDescription = (description: string): string => {
 
 	let hasCapitalizedFirstTextCharacter = false;
 
-	return tokens
-		.map((token) => {
-			if (token.type === "tag") {
-				const renderedTag = renderTag(token);
+	const renderedParts: string[] = [];
 
-				if (!token.shouldRender && renderedTag.trim()) {
-					hasCapitalizedFirstTextCharacter = true;
-				}
+	for (let index = 0; index < tokens.length; index += 1) {
+		const token = tokens[index];
 
-				return renderedTag;
+		if (
+			token.type === "tag" &&
+			token.tagName === "code" &&
+			token.shouldRender &&
+			!token.isClosing &&
+			typeof token.matchingTagIndex === "number"
+		) {
+			const codeTokens = tokens.slice(index + 1, token.matchingTagIndex);
+			const codeContent = trimOuterCodeBlockLines(getTokensContent(codeTokens));
+
+			if (codeContent.includes("\n")) {
+				renderedParts.push(renderCodeBlock(codeTokens));
+				index = token.matchingTagIndex;
+				continue;
 			}
+		}
 
-			const normalizedText = hasCapitalizedFirstTextCharacter
-				? token.content
-				: capitalizeFirstTextCharacter(token.content);
+		if (token.type === "tag") {
+			const renderedTag = renderTag(token);
 
-			if (normalizedText.trim()) {
+			if (!token.shouldRender && renderedTag.trim()) {
 				hasCapitalizedFirstTextCharacter = true;
 			}
 
-			return escapeText(normalizedText).replace(/\n/g, "<br>");
-		})
-		.join("");
+			renderedParts.push(renderedTag);
+			continue;
+		}
+
+		const normalizedText = hasCapitalizedFirstTextCharacter
+			? token.content
+			: capitalizeFirstTextCharacter(token.content);
+
+		if (normalizedText.trim()) {
+			hasCapitalizedFirstTextCharacter = true;
+		}
+
+		renderedParts.push(escapeText(normalizedText).replace(/\n/g, "<br>"));
+	}
+
+	return renderedParts.join("");
 };

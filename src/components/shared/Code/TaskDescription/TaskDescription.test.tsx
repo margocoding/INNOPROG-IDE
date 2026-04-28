@@ -41,6 +41,40 @@ describe("processTaskDescription", () => {
 		);
 	});
 
+	it("keeps one-line code as inline monospace code", () => {
+		const description = "используйте <code>while</code>";
+		const container = document.createElement("div");
+
+		container.innerHTML = processTaskDescription(description);
+
+		expect(container.textContent).toBe("Используйте while");
+		expect(container.querySelector("pre")).not.toBeInTheDocument();
+		expect(container.querySelector("code")).toHaveTextContent("while");
+	});
+
+	it("renders multiline code as a code block and preserves indentation", () => {
+		const description = `имеется код:
+<code>
+for (i = 0; i &lt; 10; i++) {
+    console.log(i)
+}
+</code>
+перепишите код`;
+		const container = document.createElement("div");
+
+		container.innerHTML = processTaskDescription(description);
+
+		const pre = container.querySelector("pre");
+		const code = container.querySelector("pre code");
+
+		expect(pre).not.toBeNull();
+		expect(code).toHaveClass("language-javascript");
+		expect(code?.textContent).toBe(
+			"for (i = 0; i < 10; i++) {\n    console.log(i)\n}"
+		);
+		expect(pre?.innerHTML).not.toContain("<br>");
+	});
+
 	it("keeps unpaired tags visible as text", () => {
 		const description = "используйте тег <script>";
 		const container = document.createElement("div");

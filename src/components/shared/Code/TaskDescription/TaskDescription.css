@@ -17,3 +17,46 @@
 .task-description-content br {
   line-height: 1.6;
 }
+
+.task-description-content code::before,
+.task-description-content code::after {
+  content: none;
+}
+
+.task-description-content :not(pre) > code {
+  display: inline;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-size: 0.95em;
+  font-weight: 600;
+  white-space: pre-wrap;
+}
+
+.task-description-content pre.task-description-code-block {
+  margin: 12px 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.24);
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.task-description-content pre.task-description-code-block code {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-size: 0.95em;
+  font-weight: 600;
+  line-height: inherit;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
