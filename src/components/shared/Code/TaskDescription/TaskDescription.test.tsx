@@ -72,6 +72,12 @@ for (i = 0; i &lt; 10; i++) {
 		expect(code?.textContent).toBe(
 			"for (i = 0; i < 10; i++) {\n    console.log(i)\n}"
 		);
+		expect(code?.querySelector(".token.keyword")).toHaveTextContent("for");
+		expect(
+			Array.from(code?.querySelectorAll(".token.operator") || []).some(
+				(token) => token.textContent === "<"
+			)
+		).toBe(true);
 		expect(pre?.innerHTML).not.toContain("<br>");
 	});
 

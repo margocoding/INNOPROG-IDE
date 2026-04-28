@@ -1,3 +1,10 @@
+import Prism from "prismjs";
+import "prismjs/components/prism-c";
+import "prismjs/components/prism-cpp";
+import "prismjs/components/prism-javascript";
+import "prismjs/components/prism-markup";
+import "prismjs/components/prism-python";
+
 const capitalizeFirstTextCharacter = (text: string): string => {
 	const match = text.match(/^(\s*)(\S)([\s\S]*)$/);
 
@@ -87,6 +94,9 @@ const decodeHtmlEntities = (text: string): string => {
 
 const escapeText = (text: string): string =>
 	text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const escapeCode = (text: string): string =>
+	text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const escapeAttribute = (text: string): string =>
 	text
@@ -305,6 +315,14 @@ const getTokensContent = (tokens: DescriptionToken[]): string =>
 const trimOuterCodeBlockLines = (code: string): string =>
 	code.replace(/^\n/, "").replace(/\n$/, "");
 
+const decodeCodeEntities = (code: string): string =>
+	code
+		.replace(/&lt;/g, "<")
+		.replace(/&gt;/g, ">")
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;/g, "'")
+		.replace(/&amp;/g, "&");
+
 const inferCodeLanguage = (code: string): string => {
 	const normalizedCode = code.trim();
 
@@ -312,7 +330,7 @@ const inferCodeLanguage = (code: string): string => {
 		return "text";
 	}
 
-	if (/&lt;\/?[a-z][\s\S]*?&gt;/i.test(normalizedCode)) {
+	if (/<\/?[a-z][\s\S]*?>/i.test(normalizedCode)) {
 		return "html";
 	}
 
@@ -336,12 +354,14 @@ const inferCodeLanguage = (code: string): string => {
 };
 
 const renderCodeBlock = (tokens: DescriptionToken[]): string => {
-	const code = trimOuterCodeBlockLines(getTokensContent(tokens));
+	const code = decodeCodeEntities(trimOuterCodeBlockLines(getTokensContent(tokens)));
 	const language = inferCodeLanguage(code);
+	const grammar = Prism.languages[language];
+	const highlightedCode = grammar
+		? Prism.highlight(code, grammar, language)
+		: escapeCode(code);
 
-	return `<pre class="task-description-code-block"><code class="language-${language}">${escapeText(
-		code
-	)}</code></pre>`;
+	return `<pre class="task-description-code-block language-${language}"><code class="language-${language}">${highlightedCode}</code></pre>`;
 };
 
 const renderTag = (token: DescriptionTagToken): string => {
