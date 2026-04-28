@@ -81,7 +81,7 @@ textarea::selection {
   background-color: rgba(255, 255, 255, 0.06);
 }
 
-.code-file-upload-button {
+.code-file-action-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -95,15 +95,15 @@ textarea::selection {
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.code-file-upload-button:hover:not(:disabled),
-.code-file-upload-button:focus-visible:not(:disabled) {
+.code-file-action-button:hover:not(:disabled),
+.code-file-action-button:focus-visible:not(:disabled) {
   border-color: rgba(167, 139, 250, 0.8);
   background: rgba(167, 139, 250, 0.18);
   color: #ffffff;
   outline: none;
 }
 
-.code-file-upload-button:disabled {
+.code-file-action-button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }

@@ -69,6 +69,9 @@ export const getLanguageFromFileName = (fileName: string): Language | null => {
 export const normalizeImportedCode = (code: string): string =>
   code.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
+const ensureTrailingEditorLine = (code: string): string =>
+  code.endsWith("\n") ? code : `${code}\n`;
+
 const isCommentLine = (line: string): boolean => {
   const trimmedLine = line.trim();
 
@@ -110,7 +113,9 @@ export const mergeImportedCode = (
   importedCode: string
 ): ImportedCodeMergeResult => {
   const normalizedCurrentCode = normalizeImportedCode(currentCode);
-  const normalizedImportedCode = normalizeImportedCode(importedCode);
+  const normalizedImportedCode = ensureTrailingEditorLine(
+    normalizeImportedCode(importedCode)
+  );
 
   if (shouldReplaceCurrentCodeOnImport(normalizedCurrentCode)) {
     return {

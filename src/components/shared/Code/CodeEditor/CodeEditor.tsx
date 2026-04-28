@@ -30,6 +30,7 @@ import {
   EditorView,
   keymap,
   lineNumbers,
+  scrollPastEnd,
   WidgetType,
 } from "@codemirror/view";
 import { Select, SelectItem } from "@heroui/react";
@@ -870,6 +871,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
           selectionHighlightField,
           lineNumbers(),
           foldGutter(),
+          scrollPastEnd(),
           EditorState.tabSize.of(2),
           EditorView.updateListener.of((update) => {
             const hasUserEdit = update.transactions.some(
@@ -1318,13 +1320,50 @@ const CodeEditor: React.FC<IProps> = React.memo(
       [handleLanguageChange, insertImportedCode, isTeacher, language]
     );
 
+    const getEditableCodeFromEditor = useCallback(() => {
+      const view = editor.current;
+      const currentDoc =
+        view?.state.doc.toString() || `${codeBefore}${value}${codeAfter}`;
+
+      if (currentDoc.startsWith(codeBefore) && currentDoc.endsWith(codeAfter)) {
+        return currentDoc.slice(
+          codeBefore.length,
+          currentDoc.length - codeAfter.length
+        );
+      }
+
+      return value;
+    }, [codeAfter, codeBefore, value]);
+
+    const handleDownloadClick = useCallback(() => {
+      const codeToDownload = getEditableCodeFromEditor();
+
+      if (!codeToDownload.trim()) {
+        window.alert("Нет кода для скачивания.");
+        return;
+      }
+
+      const blob = new Blob([codeToDownload], {
+        type: "text/plain;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `script.${fileExtension}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }, [fileExtension, getEditableCodeFromEditor]);
+
     return (
       <div className="relative h-full rounded-lg overflow-hidden bg-ide-editor">
         <div className="px-3 py-2 border-b border-ide-border bg-ide-secondary flex justify-between items-center">
           <span className="text-ide-text-secondary text-sm">
             {`script.${fileExtension}`}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <input
               ref={fileInputRef}
               type="file"
@@ -1332,30 +1371,55 @@ const CodeEditor: React.FC<IProps> = React.memo(
               className="hidden"
               onChange={handleCodeFileChange}
             />
-            <button
-              type="button"
-              className="code-file-upload-button"
-              onClick={handleUploadClick}
-              disabled={effectiveReadOnly}
-              title="Загрузить файл с кодом"
-              aria-label="Загрузить файл с кодом"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="code-file-action-button"
+                onClick={handleUploadClick}
+                disabled={effectiveReadOnly}
+                title="Загрузить файл с кодом"
+                aria-label="Загрузить файл с кодом"
               >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <path d="M17 8 12 3 7 8" />
-                <path d="M12 3v12" />
-              </svg>
-            </button>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <path d="M17 8 12 3 7 8" />
+                  <path d="M12 3v12" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="code-file-action-button"
+                onClick={handleDownloadClick}
+                title="Скачать код"
+                aria-label="Скачать код"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <path d="M7 10l5 5 5-5" />
+                  <path d="M12 15V3" />
+                </svg>
+              </button>
+            </div>
             <Select
               selectedKeys={[language]}
               isDisabled={isTeacher === false}

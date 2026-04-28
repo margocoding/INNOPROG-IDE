@@ -38,7 +38,7 @@ describe("CodeEditor import helpers", () => {
 
   it("inserts imported code at the first position when current code is placeholder", () => {
     expect(mergeImportedCode("# Напишите код здесь", "print(1)")).toEqual({
-      code: "print(1)",
+      code: "print(1)\n",
       insertedFrom: 0,
       replacedCurrentCode: true,
     });
@@ -46,7 +46,7 @@ describe("CodeEditor import helpers", () => {
 
   it("appends imported code from the left edge after existing real code", () => {
     expect(mergeImportedCode("print(1)", "print(2)")).toEqual({
-      code: "print(1)\nprint(2)",
+      code: "print(1)\nprint(2)\n",
       insertedFrom: "print(1)\n".length,
       replacedCurrentCode: false,
     });
