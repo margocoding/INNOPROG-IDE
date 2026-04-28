@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import { isDesktop } from "../../../../index";
 import { Task } from "../../../../types/task";
 import { getTaskType } from "../../../../utils/taskType";
+import { processTaskDescription } from "./TaskDescription.utils";
 import "./TaskDescription.css";
 
 interface TaskDescriptionProps {
@@ -110,93 +111,6 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 		? taskAnswer?.code_before?.trim()
 		: taskAnswer?.input?.trim();
 
-	const capitalizeFirstTextCharacter = (text: string): string => {
-		const match = text.match(/^(\s*)(\S)([\s\S]*)$/);
-
-		if (!match) {
-			return text;
-		}
-
-		const [, leadingWhitespace, firstCharacter, rest] = match;
-		return `${leadingWhitespace}${firstCharacter.toLocaleUpperCase()}${rest}`;
-	};
-
-	const decodeHtmlEntities = (text: string): string => {
-		let decoded = text;
-
-		for (let i = 0; i < 3; i += 1) {
-			const next = decoded
-				.replace(/&lt;/g, "<")
-				.replace(/&gt;/g, ">")
-				.replace(/&quot;/g, '"')
-				.replace(/&#39;/g, "'")
-				.replace(/&nbsp;/g, " ")
-				.replace(/&amp;/g, "&");
-
-			if (next === decoded) {
-				break;
-			}
-
-			decoded = next;
-		}
-
-		return decoded;
-	};
-
-	const processDescription = (html: string): string => {
-		if (!html) return "";
-		
-		let processed = decodeHtmlEntities(html);
-		
-		processed = processed.replace(/\r\n/g, "\n");
-		processed = processed.replace(/\r/g, "\n");
-		
-		const tagRegex = /<[^>]+>/g;
-		const parts: Array<{ type: "text" | "tag"; content: string }> = [];
-		let lastIndex = 0;
-		let match;
-		
-		while ((match = tagRegex.exec(processed)) !== null) {
-			if (match.index > lastIndex) {
-				parts.push({
-					type: "text",
-					content: processed.substring(lastIndex, match.index),
-				});
-			}
-			parts.push({
-				type: "tag",
-				content: match[0],
-			});
-			lastIndex = tagRegex.lastIndex;
-		}
-		
-		if (lastIndex < processed.length) {
-			parts.push({
-				type: "text",
-				content: processed.substring(lastIndex),
-			});
-		}
-		
-		let hasCapitalizedFirstTextCharacter = false;
-
-		return parts
-			.map((part) => {
-				if (part.type === "text") {
-					const normalizedText = hasCapitalizedFirstTextCharacter
-						? part.content
-						: capitalizeFirstTextCharacter(part.content);
-
-					if (normalizedText.trim()) {
-						hasCapitalizedFirstTextCharacter = true;
-					}
-
-					return normalizedText.replace(/\n/g, "<br>");
-				}
-				return part.content;
-			})
-			.join("");
-	};
-
 	return (
 		<div className={`${!hideTopSpacing && !isDesktop() ? "mt-[25px]" : ""}`}>
 			<div
@@ -215,9 +129,11 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 				>
 					<div className="container mx-auto">
 						<div className="prose prose-invert max-w-none">
-							<div 
+							<div
 								className="task-description-content"
-								dangerouslySetInnerHTML={{ __html: processDescription(task.description) }} 
+								dangerouslySetInnerHTML={{
+									__html: processTaskDescription(task.description),
+								}}
 							/>
 							{task.answers && task.answers.length > 1 && (
 								<>
