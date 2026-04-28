@@ -518,28 +518,32 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   useEffect(() => {
     const wasHtmlMode = wasHtmlModeRef.current;
 
-    if (isHtmlMode && !taskId && !wasHtmlMode) {
+    if (isHtmlMode && !taskId && !wasHtmlMode && code.trim().length === 0) {
       setCode(DEFAULT_HTML_TEMPLATE);
       setIsAutoHtmlTemplateActive(true);
+    } else if (isHtmlMode && !taskId && !wasHtmlMode) {
+      setIsAutoHtmlTemplateActive(false);
     } else if (!isHtmlMode || taskId) {
       setIsAutoHtmlTemplateActive(false);
     }
 
     wasHtmlModeRef.current = isHtmlMode;
-  }, [isHtmlMode, taskId]);
+  }, [code, isHtmlMode, taskId]);
 
   useEffect(() => {
     const wasBashMode = wasBashModeRef.current;
 
-    if (isBashMode && !taskId && !wasBashMode) {
+    if (isBashMode && !taskId && !wasBashMode && code.trim().length === 0) {
       setCode(DEFAULT_BASH_TEMPLATE);
       setIsAutoBashTemplateActive(true);
+    } else if (isBashMode && !taskId && !wasBashMode) {
+      setIsAutoBashTemplateActive(false);
     } else if (!isBashMode || taskId) {
       setIsAutoBashTemplateActive(false);
     }
 
     wasBashModeRef.current = isBashMode;
-  }, [isBashMode, taskId]);
+  }, [code, isBashMode, taskId]);
 
   const handleCodeChange = useCallback(
     (nextCode: string) => {

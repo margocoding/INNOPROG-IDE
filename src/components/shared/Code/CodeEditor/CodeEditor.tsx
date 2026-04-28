@@ -41,6 +41,12 @@ import useYDocFromUpdates, {
   REMOTE_WEBSOCKET_ORIGIN,
 } from "../../../../hooks/useYDocFromUpdates";
 import { Language } from "../../../../types/task";
+import {
+  CODE_FILE_ACCEPT,
+  getLanguageFromFileName,
+  mergeImportedCode,
+  normalizeImportedCode,
+} from "./CodeEditor.utils";
 
 interface IProps {
   value: string;
@@ -82,6 +88,17 @@ interface IProps {
 }
 
 const replaceSelectionsEffect = StateEffect.define<DecorationSet>();
+const MAX_IMPORT_FILE_SIZE_BYTES = 2 * 1024 * 1024;
+const fileExtensionByLanguage: Record<string, string> = {
+  [Language.BASH]: "sh",
+  [Language.CPP]: "cpp",
+  [Language.HTML]: "html",
+  [Language.JAVA]: "java",
+  [Language.JS]: "js",
+  [Language.PY]: "py",
+  [Language.SQL]: "sql",
+  [Language.DART]: "dart",
+};
 
 const selectionHighlightField = StateField.define<DecorationSet>({
   create() {
@@ -219,7 +236,8 @@ const CodeEditor: React.FC<IProps> = React.memo(
   }) => {
     const editor = useRef<EditorView>();
     const editorContainer = useRef<HTMLDivElement>(null);
-    const fileExtension = language === Language.BASH ? "sh" : language;
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const fileExtension = fileExtensionByLanguage[language] || language;
     const prevValue = useRef(value);
     const lastLanguageRef = useRef<string>(language);
 
@@ -1195,30 +1213,168 @@ const CodeEditor: React.FC<IProps> = React.memo(
       }
     }, [value, codeBefore, codeAfter]);
 
+    const insertImportedCode = useCallback(
+      (rawImportedCode: string) => {
+        const importedCode = normalizeImportedCode(rawImportedCode);
+
+        if (!importedCode.trim()) {
+          return;
+        }
+
+        const view = editor.current;
+        const currentDoc =
+          view?.state.doc.toString() || `${codeBefore}${value}${codeAfter}`;
+        const docLength = currentDoc.length;
+        const editableFrom = Math.min(codeBefore.length, docLength);
+        const editableTo = Math.max(editableFrom, docLength - codeAfter.length);
+        const hasExpectedBounds =
+          currentDoc.startsWith(codeBefore) && currentDoc.endsWith(codeAfter);
+        const currentEditableCode = hasExpectedBounds
+          ? currentDoc.slice(editableFrom, editableTo)
+          : value;
+        const mergedCode = mergeImportedCode(currentEditableCode, importedCode);
+        const nextFullCode = `${codeBefore}${mergedCode.code}${codeAfter}`;
+        const cursorPosition = codeBefore.length + mergedCode.insertedFrom;
+
+        if (view) {
+          if (hasExpectedBounds) {
+            view.dispatch({
+              changes: {
+                from: editableFrom,
+                to: editableTo,
+                insert: mergedCode.code,
+              },
+              selection: {
+                anchor: cursorPosition,
+                head: cursorPosition,
+              },
+              userEvent: "input",
+            });
+          } else {
+            view.dispatch({
+              changes: {
+                from: 0,
+                to: docLength,
+                insert: nextFullCode,
+              },
+              selection: {
+                anchor: cursorPosition,
+                head: cursorPosition,
+              },
+              userEvent: "input",
+            });
+          }
+          view.focus();
+          return;
+        }
+
+        prevValue.current = mergedCode.code;
+        onChangeRef.current(mergedCode.code);
+        setCurrentCode(nextFullCode);
+      },
+      [codeAfter, codeBefore, setCurrentCode, value]
+    );
+
+    const handleUploadClick = useCallback(() => {
+      if (effectiveReadOnly) {
+        return;
+      }
+
+      fileInputRef.current?.click();
+    }, [effectiveReadOnly]);
+
+    const handleCodeFileChange = useCallback(
+      async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+
+        if (!file) {
+          return;
+        }
+
+        if (file.size > MAX_IMPORT_FILE_SIZE_BYTES) {
+          window.alert("Файл слишком большой. Загрузите файл до 2 МБ.");
+          return;
+        }
+
+        try {
+          const fileCode = await file.text();
+          const fileLanguage = getLanguageFromFileName(file.name);
+
+          if (
+            fileLanguage &&
+            fileLanguage !== language &&
+            isTeacher !== false
+          ) {
+            handleLanguageChange(fileLanguage);
+          }
+
+          insertImportedCode(fileCode);
+        } catch (error) {
+          console.error("Failed to import code file:", error);
+          window.alert("Не удалось прочитать файл с кодом.");
+        }
+      },
+      [handleLanguageChange, insertImportedCode, isTeacher, language]
+    );
+
     return (
       <div className="relative h-full rounded-lg overflow-hidden bg-ide-editor">
         <div className="px-3 py-2 border-b border-ide-border bg-ide-secondary flex justify-between items-center">
           <span className="text-ide-text-secondary text-sm">
             {`script.${fileExtension}`}
           </span>
-          <Select
-            selectedKeys={[language]}
-            isDisabled={isTeacher === false}
-            onChange={(e) => handleLanguageChange(e.target.value as Language)}
-            size={"sm"}
-            className={"min-w-[100px] w-auto bg-[#333] rounded-xl"}
-            variant={"bordered"}
-            placeholder={"Язык программирования"}
-          >
-            <SelectItem key={"js"}>JS</SelectItem>
-            <SelectItem key={"bash"}>Bash</SelectItem>
-            <SelectItem key={"cpp"}>C++</SelectItem>
-            <SelectItem key={"py"}>Python</SelectItem>
-            <SelectItem key={"java"}>Java</SelectItem>
-            <SelectItem key={"sql"}>SQL</SelectItem>
-            <SelectItem key={"dart"}>Dart</SelectItem>
-            <SelectItem key={"html"}>HTML</SelectItem>
-          </Select>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={CODE_FILE_ACCEPT}
+              className="hidden"
+              onChange={handleCodeFileChange}
+            />
+            <button
+              type="button"
+              className="code-file-upload-button"
+              onClick={handleUploadClick}
+              disabled={effectiveReadOnly}
+              title="Загрузить файл с кодом"
+              aria-label="Загрузить файл с кодом"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="M17 8 12 3 7 8" />
+                <path d="M12 3v12" />
+              </svg>
+            </button>
+            <Select
+              selectedKeys={[language]}
+              isDisabled={isTeacher === false}
+              onChange={(e) => handleLanguageChange(e.target.value as Language)}
+              size={"sm"}
+              className={"min-w-[100px] w-auto bg-[#333] rounded-xl"}
+              variant={"bordered"}
+              placeholder={"Язык программирования"}
+            >
+              <SelectItem key={Language.JS}>JS</SelectItem>
+              <SelectItem key={Language.BASH}>Bash</SelectItem>
+              <SelectItem key={Language.CPP}>C++</SelectItem>
+              <SelectItem key={Language.PY}>Python</SelectItem>
+              <SelectItem key={Language.JAVA}>Java</SelectItem>
+              <SelectItem key={Language.SQL}>SQL</SelectItem>
+              <SelectItem key={Language.DART}>Dart</SelectItem>
+              <SelectItem key={Language.HTML}>HTML</SelectItem>
+            </Select>
+          </div>
         </div>
         <div
           ref={editorContainer}
