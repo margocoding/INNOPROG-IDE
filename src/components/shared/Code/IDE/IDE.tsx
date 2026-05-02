@@ -510,10 +510,10 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
   }, [startFormOnOpen]);
 
-  const handleResize = (newWidth: number) => {
+  const handleResize = useCallback((newWidth: number) => {
     setEditorWidth(newWidth);
     localStorage.setItem("innoprog-editor-width", newWidth.toString());
-  };
+  }, []);
 
   useEffect(() => {
     const wasHtmlMode = wasHtmlModeRef.current;
@@ -653,13 +653,11 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
             width={editorWidth}
           />
 
-          {!isHtmlMode && (
-            <Resizer
-              onResize={handleResize}
-              minSize={20}
-              maxSize={80}
-            />
-          )}
+          <Resizer
+            onResize={handleResize}
+            minSize={20}
+            maxSize={80}
+          />
 
           <OutputSection
             output={output}

@@ -14,14 +14,26 @@ const Resizer: React.FC<ResizerProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const resizerRef = useRef<HTMLDivElement>(null);
+  const onResizeRef = useRef(onResize);
+  const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    onResizeRef.current = onResize;
+  }, [onResize]);
 
   useEffect(() => {
     const preventSelection = (e: Event) => {
       e.preventDefault();
     };
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging || !resizerRef.current) return;
+    const stopDragging = () => {
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      document.body.classList.remove("resizer-dragging");
+    };
+
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!isDraggingRef.current || !resizerRef.current) return;
 
       let container = resizerRef.current.parentElement;
       while (container && !container.classList.contains("flex")) {
@@ -34,35 +46,37 @@ const Resizer: React.FC<ResizerProps> = ({
       let newSize = (mouseX / containerRect.width) * 100;
 
       newSize = Math.max(minSize, Math.min(maxSize, newSize));
-      onResize(newSize);
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
+      onResizeRef.current(newSize);
     };
 
     if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("pointermove", handlePointerMove);
+      document.addEventListener("pointerup", stopDragging);
+      document.addEventListener("pointercancel", stopDragging);
       document.addEventListener("selectstart", preventSelection);
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
+      document.body.classList.add("resizer-dragging");
     }
 
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", stopDragging);
+      document.removeEventListener("pointercancel", stopDragging);
       document.removeEventListener("selectstart", preventSelection);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
+      document.body.classList.remove("resizer-dragging");
     };
-  }, [isDragging, onResize, minSize, maxSize]);
+  }, [isDragging, minSize, maxSize]);
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
     window.getSelection()?.removeAllRanges();
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
+    isDraggingRef.current = true;
     setIsDragging(true);
   };
 
@@ -74,7 +88,7 @@ const Resizer: React.FC<ResizerProps> = ({
     <div
       ref={resizerRef}
       className={`resizer ${isDragging ? "resizer-active" : ""}`}
-      onMouseDown={handleMouseDown}
+      onPointerDown={handlePointerDown}
       onDragStart={handleDragStart}
     >
       <div className="resizer-handle" />

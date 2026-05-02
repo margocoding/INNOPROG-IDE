@@ -33,6 +33,10 @@
   background-color: rgba(59, 130, 246, 0.8);
 }
 
+.resizer-dragging iframe {
+  pointer-events: none;
+}
+
 @media (max-width: 768px) {
   .resizer {
     display: none;
