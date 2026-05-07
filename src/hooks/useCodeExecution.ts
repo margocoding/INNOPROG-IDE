@@ -44,6 +44,25 @@ export const useCodeExecution = ({
 	const [isRunning, setIsRunning] = useState<boolean>(false);
 	const [currentCode, setCurrentCode] = useState<string>('');
 
+	const getSelectedAnswer = () => currentAnswer || task?.answers?.[0] || null;
+
+	const extractEditableCode = (
+		sourceCode: string,
+		codeBefore: string,
+		codeAfter: string
+	) => {
+		if (
+			codeBefore &&
+			codeAfter &&
+			sourceCode.startsWith(codeBefore) &&
+			sourceCode.endsWith(codeAfter)
+		) {
+			return sourceCode.slice(codeBefore.length, sourceCode.length - codeAfter.length);
+		}
+
+		return sourceCode;
+	};
+
 	const getIframeAnswerPayload = (): TaskAnswerCheckRequest => {
 		return {
 			client_id: clientId,
@@ -64,21 +83,23 @@ export const useCodeExecution = ({
 		try {
 			const runLanguage =
 				taskId && language !== Language.CPP ? Language.PY : language;
-			const fullCode = `${currentAnswer?.code_before || task?.answers![0].code_before
-				? task?.answers![0].code_before
-				: ""
-				}\n${currentCode || code}\n${currentAnswer?.code_after || task?.answers![0].code_after
-					? task?.answers![0].code_after
-					: ""
-				}`;
+			const selectedAnswer = getSelectedAnswer();
+			const codeBefore = selectedAnswer?.code_before || "";
+			const codeAfter = selectedAnswer?.code_after || "";
+			const editableCode = extractEditableCode(
+				code || currentCode,
+				codeBefore,
+				codeAfter
+			);
+			const fullCode = `${codeBefore}\n${editableCode}\n${codeAfter}`;
 
 			const checkData = {
-				input_data: currentAnswer?.input || inputData || "-",
+				input_data: selectedAnswer?.input || inputData || "-",
 				output_data:
-					task?.answers![0].output.trim() || outputData.trim() || "-",
+					selectedAnswer?.output?.trim() || outputData.trim() || "-",
 				program: fullCode,
 				test_number: -1,
-				timeout: currentAnswer?.timeout || 30,
+				timeout: selectedAnswer?.timeout || 30,
 			};
 
 			const result = await api.checkCode(checkData, runLanguage);

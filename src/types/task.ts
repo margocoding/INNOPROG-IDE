@@ -86,7 +86,7 @@ export enum Language {
   JS = 'js',
   BASH = 'bash',
   CPP = 'cpp',
-  SQL = 'SQL',
+  SQL = 'sql',
   PY = 'py',
   DART = 'dart',
   HTML = 'html'
