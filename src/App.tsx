@@ -11,10 +11,22 @@ const App = React.memo(() => {
   const telegramWebAppUserId = roomId
     ? null
     : window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString();
+  const urlTelegramId = searchParams.get("telegramId");
+  const savedTelegramId = localStorage.getItem("telegramId");
+  const savedRoomClientId = roomId
+    ? localStorage.getItem(`innoprog-room-client-id:${roomId}`)
+    : null;
   const telegramId =
-    searchParams.get("telegramId") ||
-    telegramWebAppUserId ||
-    localStorage.getItem("telegramId");
+    (roomId
+      ? (savedTelegramId && !savedTelegramId.startsWith("i")
+          ? savedTelegramId
+          : null) ||
+        urlTelegramId ||
+        savedRoomClientId ||
+        (savedTelegramId && savedTelegramId.startsWith("i")
+          ? savedTelegramId
+          : null)
+      : urlTelegramId || telegramWebAppUserId || savedTelegramId);
 
   useEffect(() => {
     if (roomId || window.Telegram?.WebApp) {

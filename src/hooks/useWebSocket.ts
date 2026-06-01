@@ -98,7 +98,7 @@ const hslToHex = (h: number, s: number, l: number): string => {
 
 interface UseWebSocketProps {
     socketUrl: string;
-    myTelegramId: string;
+    myTelegramId?: string | null;
     roomId: string | null;
 }
 
@@ -155,10 +155,11 @@ export const useWebSocket = ({
 
     const socketRef = useRef<Socket | null>(null);
     const socketUrlRef = useRef<string>(socketUrl);
-    const myTelegramIdRef = useRef<string>(myTelegramId);
+    const myTelegramIdRef = useRef<string>(myTelegramId || "");
     const assignedColorsRef = useRef<Map<string, string>>(new Map());
     const hasServerTelegramIdRef = useRef<boolean>(false);
     const selfIdsRef = useRef<Set<string>>(new Set());
+    const joinWithoutSavedIdTriedRef = useRef<boolean>(false);
     const roomIdRef = useRef(roomId);
     const isConnectedRef = useRef<boolean>(false);
     const shouldReconnectRef = useRef<boolean>(true);
@@ -188,16 +189,20 @@ export const useWebSocket = ({
         }
     }, []);
 
-    const joinRoom = useCallback(() => {
+    const joinRoom = useCallback((telegramIdOverride?: string | null) => {
         if (!roomIdRef.current) {
             return;
         }
 
         if (socketRef.current?.connected) {
             const savedUsername = localStorage.getItem("innoprog-username");
+            const telegramId =
+                telegramIdOverride === undefined
+                    ? myTelegramIdRef.current
+                    : telegramIdOverride;
 
             socketRef.current.emit("join-room", {
-                telegramId: myTelegramIdRef.current,
+                telegramId: telegramId || undefined,
                 roomId: roomIdRef.current,
                 username: savedUsername || undefined,
             });
@@ -410,8 +415,10 @@ export const useWebSocket = ({
         });
 
         socket.on("joined", (eventData) => {
+            joinWithoutSavedIdTriedRef.current = false;
             setCodeEdits([]);
             setIsJoinedRoom(true);
+            setConnectionError(null);
             setCompleted(eventData.completed);
             setIsTeacher(eventData.isTeacher);
             setLanguage(eventData.language);
@@ -423,11 +430,16 @@ export const useWebSocket = ({
                     : undefined;
             setJoinedCode(initialRoomCode);
             if (eventData.telegramId) {
-                localStorage.setItem('telegramId', eventData.telegramId);
                 selfIdsRef.current.add(eventData.telegramId);
                 if (eventData.telegramId.startsWith('i')) {
                     hasServerTelegramIdRef.current = true;
                     myTelegramIdRef.current = eventData.telegramId;
+                    localStorage.setItem(
+                        `innoprog-room-client-id:${roomIdRef.current}`,
+                        eventData.telegramId
+                    );
+                } else {
+                    localStorage.setItem('telegramId', eventData.telegramId);
                 }
             }
 
@@ -626,6 +638,13 @@ export const useWebSocket = ({
         });
 
         socket.on("join-room:error", (eventData) => {
+            if (!joinWithoutSavedIdTriedRef.current) {
+                joinWithoutSavedIdTriedRef.current = true;
+                setConnectionError(null);
+                joinRoom(null);
+                return;
+            }
+
             setConnectionError(eventData.message);
         });
     }, [joinRoom, clearIntervals, isSelfId, enqueueCodeEdit, getOrAssignUserColor]);
@@ -657,6 +676,7 @@ export const useWebSocket = ({
         roomIdRef.current = roomId;
 
         if (wasRoomId !== roomId) {
+            joinWithoutSavedIdTriedRef.current = false;
             setJoinedCode(undefined);
             setCodeEdits([]);
             assignedColorsRef.current.clear();
