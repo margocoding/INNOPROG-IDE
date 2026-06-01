@@ -18,10 +18,10 @@ const App = React.memo(() => {
     : null;
   const telegramId =
     (roomId
-      ? (savedTelegramId && !savedTelegramId.startsWith("i")
+      ? urlTelegramId ||
+        (savedTelegramId && !savedTelegramId.startsWith("i")
           ? savedTelegramId
           : null) ||
-        urlTelegramId ||
         savedRoomClientId ||
         (savedTelegramId && savedTelegramId.startsWith("i")
           ? savedTelegramId
