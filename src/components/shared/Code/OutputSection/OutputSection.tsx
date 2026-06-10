@@ -103,7 +103,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 									<div className="text-xs font-medium uppercase tracking-wide text-ide-text-secondary">
 										Входные данные
 									</div>
-									<pre className="rounded-md border border-ide-border bg-ide-secondary/60 p-3 font-mono text-sm md:text-base whitespace-pre-wrap break-words text-ide-text-primary">
+									<pre className="font-mono text-sm md:text-base whitespace-pre-wrap break-words text-ide-text-primary">
 										{inputData}
 									</pre>
 								</section>
