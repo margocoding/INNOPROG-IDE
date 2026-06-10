@@ -116,7 +116,7 @@ export const useCodeExecution = ({
 					runLanguage
 				);
 
-				setRunInputData(runInputData);
+				setRunInputData(result.input ?? runInputData);
 				setOutput(result.output || result.comment || "");
 				setStatus(result.result ? "idle" : "error");
 				return;

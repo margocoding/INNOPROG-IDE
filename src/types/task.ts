@@ -61,6 +61,8 @@ export interface CheckResult {
   result: boolean;
   error?: string;
   output?: string;
+  input?: string;
+  transcript?: string;
   comment?: string;
   expected?: string;
 }
