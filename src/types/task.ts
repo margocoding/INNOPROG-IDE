@@ -44,6 +44,12 @@ export interface CodeCheckRequest {
   timeout: number;
 }
 
+export interface RunCodeRequest {
+  input_data?: string;
+  program: string;
+  timeout?: number;
+}
+
 export interface SubmitRequest {
   user_id: number;
   task_id: number;
@@ -58,6 +64,8 @@ export interface CheckResult {
   comment?: string;
   expected?: string;
 }
+
+export type RunCodeResult = CheckResult;
 
 export interface TaskAnswerCheckRequest {
   client_id: string;

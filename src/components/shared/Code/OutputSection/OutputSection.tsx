@@ -2,6 +2,7 @@ import React, { useRef } from "react";
 
 interface OutputSectionProps {
 	output: string;
+	inputData?: string;
 	status: "idle" | "success" | "error";
 	activeTab: "editor" | "output";
 	language?: string;
@@ -11,6 +12,7 @@ interface OutputSectionProps {
 
 const OutputSection: React.FC<OutputSectionProps> = ({
 	output,
+	inputData = "",
 	status,
 	activeTab,
 	language,
@@ -19,6 +21,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 }) => {
 	const outputRef = useRef<HTMLPreElement>(null);
 	const isHtmlMode = language === "html";
+	const hasInputData = inputData.length > 0;
 
 	const getStatusIcon = () => {
 		switch (status) {
@@ -94,19 +97,36 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 							/>
 						</div>
 					) : (
-						<div className="flex-1 p-4 overflow-auto">
-							<pre
-								ref={outputRef}
-								className={`font-mono text-sm md:text-base whitespace-pre-wrap break-words ${
-									status === "error"
-										? "error-output"
-										: status === "success"
-										? "text-green-500"
-										: ""
-								}`}
-							>
-								{output || "Нет результата"}
-							</pre>
+						<div className="flex-1 p-4 overflow-auto space-y-4">
+							{hasInputData && (
+								<section className="space-y-2">
+									<div className="text-xs font-medium uppercase tracking-wide text-ide-text-secondary">
+										Входные данные
+									</div>
+									<pre className="rounded-md border border-ide-border bg-ide-secondary/60 p-3 font-mono text-sm md:text-base whitespace-pre-wrap break-words text-ide-text-primary">
+										{inputData}
+									</pre>
+								</section>
+							)}
+							<section className="space-y-2">
+								{hasInputData && (
+									<div className="text-xs font-medium uppercase tracking-wide text-ide-text-secondary">
+										Вывод программы
+									</div>
+								)}
+								<pre
+									ref={outputRef}
+									className={`font-mono text-sm md:text-base whitespace-pre-wrap break-words ${
+										status === "error"
+											? "error-output"
+											: status === "success"
+											? "text-green-500"
+											: ""
+									}`}
+								>
+									{output || "Нет результата"}
+								</pre>
+							</section>
 						</div>
 					)}
 				</div>

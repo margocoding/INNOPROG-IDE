@@ -13,6 +13,7 @@ interface UseCodeExecutionProps {
 	clientId: string;
 	language: string;
 	setOutput: (output: string) => void;
+	setRunInputData: (inputData: string) => void;
 	setStatus: (status: "idle" | "success" | "error") => void;
 	setActiveTab: (tab: "editor" | "output") => void;
 	setSubmitResult: (result: "success" | "error" | "no_data") => void;
@@ -33,6 +34,7 @@ export const useCodeExecution = ({
 	clientId,
 	language,
 	setOutput,
+	setRunInputData,
 	setStatus,
 	setActiveTab,
 	setSubmitResult,
@@ -79,6 +81,7 @@ export const useCodeExecution = ({
 		setIsRunning(true);
 		setStatus("idle");
 		setOutput("");
+		setRunInputData("");
 
 		try {
 			const runLanguage =
@@ -102,7 +105,25 @@ export const useCodeExecution = ({
 				timeout: selectedAnswer?.timeout || 30,
 			};
 
+			if (!taskId && !outputData.trim()) {
+				const runInputData = inputData || "";
+				const result = await api.runCode(
+					{
+						input_data: runInputData,
+						program: fullCode,
+						timeout: selectedAnswer?.timeout || 30,
+					},
+					runLanguage
+				);
+
+				setRunInputData(runInputData);
+				setOutput(result.output || result.comment || "");
+				setStatus(result.result ? "idle" : "error");
+				return;
+			}
+
 			const result = await api.checkCode(checkData, runLanguage);
+			setRunInputData(checkData.input_data === "-" ? "" : checkData.input_data);
 
 			if (result.result) {
 				if (!outputData && !taskId) {

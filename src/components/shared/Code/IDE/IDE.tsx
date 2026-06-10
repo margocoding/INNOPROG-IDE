@@ -93,6 +93,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [task, setTask] = useState<Task | null>(null);
   const [code, setCode] = useState<string>("");
   const [output, setOutput] = useState<string>("");
+  const [runInputData, setRunInputData] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"editor" | "output">("editor");
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [currentAnswer, setCurrentAnswer] = useState<Answer | null>(null);
@@ -163,6 +164,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       clientId,
       language,
       setOutput,
+      setRunInputData,
       setStatus,
       setActiveTab,
       setSubmitResult,
@@ -661,6 +663,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
           <OutputSection
             output={output}
+            inputData={runInputData}
             status={status}
             activeTab={activeTab}
             language={language}

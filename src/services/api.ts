@@ -3,6 +3,8 @@ import {
 	Task,
 	CheckResult,
 	CodeCheckRequest,
+	RunCodeRequest,
+	RunCodeResult,
 	SubmitRequest,
 	TaskAnswerCheckRequest,
 	TaskAnswerCheckResult,
@@ -28,6 +30,24 @@ export const api = {
 	): Promise<CheckResult> {
 		const response = await BASE_API.post(
 			`https://api.innoprog.ru/check/${language}`,
+			data,
+			{
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: "Bearer bot",
+				},
+			}
+		);
+		return response.data;
+	},
+
+	async runCode(
+		data: RunCodeRequest,
+		language: string
+	): Promise<RunCodeResult> {
+		const runLanguage = language === "sql" ? "sqlite" : language;
+		const response = await BASE_API.post(
+			`https://api.innoprog.ru/code/run/${runLanguage}`,
 			data,
 			{
 				headers: {
