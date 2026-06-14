@@ -131,7 +131,7 @@ export const useCodeExecution = ({
 					return;
 				}
 				setOutput(
-					`Первый тест пройден.\nДля зачёта отправьте решение на проверку.${task?.answers?.length! > 1
+					`Для успешной сдачи отправьте решение на проверку.${task?.answers?.length! > 1
 						? `\nРезультат программы: ${result.output}`
 						: ""
 					}`
