@@ -131,8 +131,8 @@ export const useCodeExecution = ({
 					return;
 				}
 				setOutput(
-					`Тест пройден успешно!\n${task?.answers?.length! > 1
-						? `Результат программы: ${result.output}`
+					`Первый тест пройден.\nДля зачёта отправьте решение на проверку.${task?.answers?.length! > 1
+						? `\nРезультат программы: ${result.output}`
 						: ""
 					}`
 				);
