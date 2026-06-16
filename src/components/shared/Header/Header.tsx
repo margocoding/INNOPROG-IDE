@@ -1,4 +1,5 @@
 import {
+  Button,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -211,14 +212,41 @@ const Header: React.FC<IProps> = ({
                 </PopoverTrigger>
 
                 <PopoverContent className={"p-3 bg-ide-background"}>
-                  <div className="mb-3 w-full">
-                    <h3 className="text-sm font-semibold text-ide-text-primary mb-1">
-                      Участники комнаты
-                    </h3>
-                    <p className="text-xs text-ide-text-secondary">
-                      Всего: {sortedMembers.length} • Онлайн:{" "}
-                      {onlineMembers.length}
-                    </p>
+                  <div className="mb-3 w-full flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-ide-text-primary mb-1">
+                        Участники комнаты
+                      </h3>
+                      <p className="text-xs text-ide-text-secondary">
+                        Всего: {sortedMembers.length} • Онлайн:{" "}
+                        {onlineMembers.length}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onPress={copyStudentRoomLink}
+                      className="shrink-0 min-w-0 h-8 px-3 gap-2 bg-ide-secondary hover:bg-ide-editor border border-ide-border text-ide-text-primary text-xs font-medium rounded-xl transition-colors duration-200 disabled:opacity-60"
+                      disabled={!roomId}
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <circle cx="18" cy="5" r="3" />
+                        <circle cx="6" cy="12" r="3" />
+                        <circle cx="18" cy="19" r="3" />
+                        <path d="M8.59 13.51 15.42 17.49" />
+                        <path d="M15.41 6.51 8.59 10.49" />
+                      </svg>
+                      <span>Поделиться</span>
+                    </Button>
                   </div>
 
                   <div className="max-h-60 overflow-y-auto space-y-2 w-full">
@@ -291,21 +319,12 @@ const Header: React.FC<IProps> = ({
                     <span className="text-xs text-ide-text-secondary">
                       Нажмите на участника для редактирования
                     </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={copyStudentRoomLink}
-                        className="text-xs bg-ide-button-primary text-white px-3 py-1.5 rounded-md hover:bg-ide-button-primary-hover transition-colors duration-200 disabled:opacity-60"
-                        disabled={!roomId}
-                      >
-                        Поделиться
-                      </button>
-                      <button
-                        onClick={() => setShowMembersCard(false)}
-                        className="text-xs text-ide-button-primary hover:text-ide-button-primary-hover transition-colors duration-200 hover:underline"
-                      >
-                        Закрыть
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setShowMembersCard(false)}
+                      className="text-xs text-ide-button-primary hover:text-ide-button-primary-hover transition-colors duration-200 hover:underline"
+                    >
+                      Закрыть
+                    </button>
                   </div>
                 </PopoverContent>
               </Popover>
