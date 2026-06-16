@@ -5,6 +5,7 @@ import {
   useDisclosure,
 } from "@heroui/react";
 import React from "react";
+import { toast } from "react-toastify";
 import { isDesktop } from "../../..";
 import { RoomPermissions } from "../../../types/room";
 import Settings from "../Room/Settings/Settings";
@@ -74,10 +75,46 @@ const Header: React.FC<IProps> = ({
 
   const onlineMembers = sortedMembers.filter((member) => member.online);
   const visibleMembers = onlineMembers.slice(0, 3);
-  const hasMoreMembers = sortedMembers.length > 3;
   const telegramInitData = roomId
     ? undefined
     : window.Telegram?.WebApp?.initDataUnsafe;
+  const studentRoomLink = React.useMemo(() => {
+    if (!roomId) {
+      return "";
+    }
+
+    const url = new URL(window.location.origin + window.location.pathname);
+    url.searchParams.set("roomId", roomId);
+    return url.toString();
+  }, [roomId]);
+
+  const copyStudentRoomLink = React.useCallback(async () => {
+    if (!studentRoomLink) {
+      toast.error("Не удалось создать ссылку");
+      return;
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(studentRoomLink);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = studentRoomLink;
+        textarea.setAttribute("readonly", "true");
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      toast.success("Ссылка скопирована");
+    } catch (error) {
+      console.error("Failed to copy room link:", error);
+      toast.error("Не удалось скопировать ссылку");
+    }
+  }, [studentRoomLink]);
 
     if (!isDesktop() && telegramInitData && Object.keys(telegramInitData).length) {
         console.log(telegramInitData);
@@ -254,12 +291,21 @@ const Header: React.FC<IProps> = ({
                     <span className="text-xs text-ide-text-secondary">
                       Нажмите на участника для редактирования
                     </span>
-                    <button
-                      onClick={() => setShowMembersCard(false)}
-                      className="text-xs text-ide-button-primary hover:text-ide-button-primary-hover transition-colors duration-200 hover:underline"
-                    >
-                      Закрыть
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={copyStudentRoomLink}
+                        className="text-xs bg-ide-button-primary text-white px-3 py-1.5 rounded-md hover:bg-ide-button-primary-hover transition-colors duration-200 disabled:opacity-60"
+                        disabled={!roomId}
+                      >
+                        Поделиться
+                      </button>
+                      <button
+                        onClick={() => setShowMembersCard(false)}
+                        className="text-xs text-ide-button-primary hover:text-ide-button-primary-hover transition-colors duration-200 hover:underline"
+                      >
+                        Закрыть
+                      </button>
+                    </div>
                   </div>
                 </PopoverContent>
               </Popover>

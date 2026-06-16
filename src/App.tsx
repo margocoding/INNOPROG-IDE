@@ -22,6 +22,12 @@ const App = React.memo(() => {
       : urlTelegramId || telegramWebAppUserId || savedTelegramId);
 
   useEffect(() => {
+    if (roomId && urlTelegramId) {
+      localStorage.removeItem(`innoprog-room-client-id:${roomId}`);
+    }
+  }, [roomId, urlTelegramId]);
+
+  useEffect(() => {
     if (roomId || window.Telegram?.WebApp) {
       return;
     }

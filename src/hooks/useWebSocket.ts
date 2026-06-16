@@ -161,6 +161,7 @@ export const useWebSocket = ({
     const myTelegramIdRef = useRef<string>(myTelegramId || "");
     const assignedColorsRef = useRef<Map<string, string>>(new Map());
     const hasServerTelegramIdRef = useRef<boolean>(false);
+    const hasAuthoritativeRoomTelegramIdRef = useRef<boolean>(false);
     const selfIdsRef = useRef<Set<string>>(new Set());
     const joinWithoutSavedIdTriedRef = useRef<boolean>(false);
     const roomIdRef = useRef(roomId);
@@ -449,6 +450,11 @@ export const useWebSocket = ({
                         joinedTelegramId
                     );
                 } else {
+                    if (roomIdRef.current) {
+                        localStorage.removeItem(
+                            `innoprog-room-client-id:${roomIdRef.current}`
+                        );
+                    }
                     localStorage.setItem("telegramId", joinedTelegramId);
                 }
             }
@@ -649,6 +655,11 @@ export const useWebSocket = ({
         });
 
         socket.on("join-room:error", (eventData) => {
+            if (hasAuthoritativeRoomTelegramIdRef.current) {
+                setConnectionError(eventData.message);
+                return;
+            }
+
             if (!joinWithoutSavedIdTriedRef.current) {
                 const staleRoomId = roomIdRef.current;
                 if (staleRoomId) {
@@ -695,6 +706,11 @@ export const useWebSocket = ({
         const hasAuthoritativeRoomTelegramId = Boolean(
             roomId && myTelegramId && !isRoomGeneratedTelegramId(myTelegramId)
         );
+        hasAuthoritativeRoomTelegramIdRef.current = hasAuthoritativeRoomTelegramId;
+
+        if (hasAuthoritativeRoomTelegramId && roomId) {
+            localStorage.removeItem(`innoprog-room-client-id:${roomId}`);
+        }
 
         if (roomChanged) {
             hasServerTelegramIdRef.current = false;
