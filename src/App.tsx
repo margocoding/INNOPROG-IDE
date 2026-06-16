@@ -18,14 +18,7 @@ const App = React.memo(() => {
     : null;
   const telegramId =
     (roomId
-      ? urlTelegramId ||
-        (savedTelegramId && !savedTelegramId.startsWith("i")
-          ? savedTelegramId
-          : null) ||
-        savedRoomClientId ||
-        (savedTelegramId && savedTelegramId.startsWith("i")
-          ? savedTelegramId
-          : null)
+      ? urlTelegramId || savedRoomClientId
       : urlTelegramId || telegramWebAppUserId || savedTelegramId);
 
   useEffect(() => {

@@ -57,6 +57,9 @@ const randomInt = (min: number, max: number): number => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
+const isRoomGeneratedTelegramId = (telegramId?: string | null): boolean =>
+    Boolean(telegramId && /^i\d+$/.test(telegramId));
+
 const hslToHex = (h: number, s: number, l: number): string => {
     const saturation = s / 100;
     const lightness = l / 100;
@@ -440,7 +443,7 @@ export const useWebSocket = ({
                 hasServerTelegramIdRef.current = true;
                 myTelegramIdRef.current = joinedTelegramId;
 
-                if (joinedTelegramId.startsWith("i")) {
+                if (isRoomGeneratedTelegramId(joinedTelegramId)) {
                     localStorage.setItem(
                         `innoprog-room-client-id:${roomIdRef.current}`,
                         joinedTelegramId
@@ -652,10 +655,10 @@ export const useWebSocket = ({
                     localStorage.removeItem(`innoprog-room-client-id:${staleRoomId}`);
                 }
 
-                if (myTelegramIdRef.current.startsWith("i")) {
+                if (isRoomGeneratedTelegramId(myTelegramIdRef.current)) {
                     selfIdsRef.current.delete(myTelegramIdRef.current);
                     myTelegramIdRef.current =
-                        myTelegramId && !myTelegramId.startsWith("i")
+                        myTelegramId && !isRoomGeneratedTelegramId(myTelegramId)
                             ? myTelegramId
                             : "";
                 }
@@ -689,6 +692,9 @@ export const useWebSocket = ({
         socketUrlRef.current = socketUrl;
         const wasRoomId = roomIdRef.current;
         const roomChanged = wasRoomId !== roomId;
+        const hasAuthoritativeRoomTelegramId = Boolean(
+            roomId && myTelegramId && !isRoomGeneratedTelegramId(myTelegramId)
+        );
 
         if (roomChanged) {
             hasServerTelegramIdRef.current = false;
@@ -698,7 +704,7 @@ export const useWebSocket = ({
 
         if (myTelegramId) {
             selfIdsRef.current.add(myTelegramId);
-            if (!hasServerTelegramIdRef.current) {
+            if (!hasServerTelegramIdRef.current || hasAuthoritativeRoomTelegramId) {
                 myTelegramIdRef.current = myTelegramId;
             }
             setMyUserColor(getOrAssignUserColor(myTelegramIdRef.current));
@@ -765,7 +771,18 @@ export const useWebSocket = ({
                 return;
             }
         }
-    }, [socketUrl, myTelegramId, roomId, getOrAssignUserColor]);
+
+        if (
+            !roomChanged &&
+            hasAuthoritativeRoomTelegramId &&
+            socketRef.current?.connected
+        ) {
+            hasServerTelegramIdRef.current = false;
+            joinWithoutSavedIdTriedRef.current = false;
+            setConnectionError(null);
+            joinRoom(myTelegramId);
+        }
+    }, [socketUrl, myTelegramId, roomId, getOrAssignUserColor, joinRoom]);
 
     useEffect(() => {
         shouldReconnectRef.current = true;
