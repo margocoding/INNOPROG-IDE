@@ -10,13 +10,29 @@ import {
 	TaskAnswerCheckResult,
 } from "../types/task";
 
-const API_URL = "https://bot.innoprog.ru:8443";
+const API_URL = (process.env.REACT_APP_BOT_API_URL || "/bot-api").replace(/\/$/, "");
+const API_REQUEST_TIMEOUT_MS = 15000;
 const BASE_API = axios.create({
 	baseURL: API_URL,
+	timeout: API_REQUEST_TIMEOUT_MS,
 	headers: {
 		Authorization: "Bearer bot",
 	},
 });
+
+async function fetchWithTimeout(url: string, options: RequestInit = {}) {
+	const controller = new AbortController();
+	const timeoutId = window.setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
+
+	try {
+		return await fetch(url, {
+			...options,
+			signal: options.signal || controller.signal,
+		});
+	} finally {
+		window.clearTimeout(timeoutId);
+	}
+}
 
 export const api = {
 	async getTask(taskId: string): Promise<Task> {
@@ -87,9 +103,12 @@ export const api = {
 	},
 
 	async getSubmitCode(answer_id: string, user_id: number, task_id: number) {
-		const response = await fetch(
-			`https://bot.innoprog.ru:8443/answer/code?answer_id=${answer_id}&user_id=${user_id}&task_id=${task_id}`
-		);
+		const params = new URLSearchParams({
+			answer_id,
+			user_id: String(user_id),
+			task_id: String(task_id),
+		});
+		const response = await fetchWithTimeout(`${API_URL}/answer/code?${params.toString()}`);
 		const data = await response.json();
 		return data;
 	},

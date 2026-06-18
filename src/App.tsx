@@ -27,37 +27,6 @@ const App = React.memo(() => {
     }
   }, [roomId, urlTelegramId]);
 
-  useEffect(() => {
-    if (roomId || window.Telegram?.WebApp) {
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://telegram.org/js/telegram-web-app.js";
-    script.async = true;
-
-    const cleanup = () => {
-      window.clearTimeout(timeoutId);
-      script.onload = null;
-      script.onerror = null;
-    };
-
-    script.onload = cleanup;
-    script.onerror = cleanup;
-
-    const timeoutId = window.setTimeout(() => {
-      cleanup();
-      script.remove();
-    }, 1500);
-
-    document.head.appendChild(script);
-
-    return () => {
-      cleanup();
-      script.remove();
-    };
-  }, [roomId]);
-
   const webSocketParams = useMemo(
     () => ({
       socketUrl: process.env.REACT_APP_WS_URL || "https://ide.innoprog.ru",
