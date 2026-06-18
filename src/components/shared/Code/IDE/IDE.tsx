@@ -152,6 +152,30 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
   }, [platform, platforma]);
 
+  useEffect(() => {
+    if (!isEmbeddedApp) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      window.parent.postMessage(
+        {
+          source: "innoprog-ide",
+          type: "ide-ready",
+          event: "app-rendered",
+          taskId: taskId ? Number(taskId) : null,
+          language,
+          ready: true,
+        },
+        "*"
+      );
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isEmbeddedApp, language, taskId]);
+
   const { isRunning, handleRunCode, onSendCheck, setCurrentCode } =
     useCodeExecution({
       currentAnswer,
