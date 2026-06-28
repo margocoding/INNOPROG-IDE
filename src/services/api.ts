@@ -15,9 +15,6 @@ const API_REQUEST_TIMEOUT_MS = 15000;
 const BASE_API = axios.create({
 	baseURL: API_URL,
 	timeout: API_REQUEST_TIMEOUT_MS,
-	headers: {
-		Authorization: "Bearer bot",
-	},
 });
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}) {
@@ -45,12 +42,11 @@ export const api = {
 		language: string
 	): Promise<CheckResult> {
 		const response = await BASE_API.post(
-			`https://api.innoprog.ru/check/${language}`,
+			`/check/${language}`,
 			data,
 			{
 				headers: {
 					"Content-Type": "application/json",
-					Authorization: "Bearer bot",
 				},
 			}
 		);
@@ -63,12 +59,11 @@ export const api = {
 	): Promise<RunCodeResult> {
 		const runLanguage = language === "sql" ? "sqlite" : language;
 		const response = await BASE_API.post(
-			`https://api.innoprog.ru/code/run/${runLanguage}`,
+			`/code/run/${runLanguage}`,
 			data,
 			{
 				headers: {
 					"Content-Type": "application/json",
-					Authorization: "Bearer bot",
 				},
 			}
 		);
@@ -90,7 +85,6 @@ export const api = {
 			{
 				headers: {
 					"Content-Type": "application/json",
-					Authorization: "Bearer bot",
 				},
 				validateStatus: (status) => status < 500,
 			}
