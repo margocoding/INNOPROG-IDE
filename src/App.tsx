@@ -8,6 +8,7 @@ import { useWebSocket } from "./hooks/useWebSocket";
 const App = React.memo(() => {
   const [searchParams] = useSearchParams();
   const roomId = searchParams.get("roomId");
+  const roomToken = searchParams.get("roomToken");
   const telegramWebAppUserId = roomId
     ? null
     : window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString();
@@ -32,8 +33,9 @@ const App = React.memo(() => {
       socketUrl: process.env.REACT_APP_WS_URL || "https://ide.innoprog.ru",
       myTelegramId: telegramId,
       roomId,
+      roomToken,
     }),
-    [telegramId, roomId]
+    [telegramId, roomId, roomToken]
   );
 
   const webSocketData = useWebSocket(webSocketParams);
