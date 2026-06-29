@@ -1,6 +1,37 @@
-import { processTaskDescription } from "./TaskDescription.utils";
+import {
+	processTaskDescription,
+	stripInlineIdeFormattingHint,
+} from "./TaskDescription.utils";
 
 describe("processTaskDescription", () => {
+	it("removes inline IDE monospace formatting hint from task descriptions", () => {
+		const description = `Реализуйте функцию
+
+❗ При отправке кода текстом, примените форматирование Моноширинный к коду
+
+Проверьте результат`;
+
+		expect(stripInlineIdeFormattingHint(description)).toBe(
+			"Реализуйте функцию\n\nПроверьте результат"
+		);
+
+		const processed = processTaskDescription(description);
+		expect(processed).toContain("Реализуйте функцию");
+		expect(processed).toContain("Проверьте результат");
+		expect(processed).not.toContain("При отправке кода текстом");
+		expect(processed).not.toContain("Моноширинный");
+	});
+
+	it("removes inline IDE monospace formatting hint when the keyword is formatted as html", () => {
+		const description =
+			"<p>Условие задания</p><p>❗ При отправке кода текстом, примените форматирование <b>Моноширинный</b> к коду</p>";
+
+		const processed = processTaskDescription(description);
+
+		expect(processed).toBe("<p>Условие задания</p>");
+		expect(processed).not.toContain("При отправке");
+	});
+
 	it("keeps escaped html tags visible in task text", () => {
 		const description =
 			"напишите код HTML для подключения JS файла. Используйте тег &lt;script&gt;";

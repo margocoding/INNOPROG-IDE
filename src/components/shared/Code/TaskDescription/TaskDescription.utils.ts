@@ -378,10 +378,26 @@ const renderTag = (token: DescriptionTagToken): string => {
 	return attributes ? `<${token.tagName} ${attributes}>` : `<${token.tagName}>`;
 };
 
+export const stripInlineIdeFormattingHint = (description: string): string => {
+	if (!description) return "";
+
+	return description
+		.replace(
+			/<(p|div|span|li)[^>]*>(?:(?!<\/\1>)[\s\S])*?(?:❗|!|⚠️)?\s*При отправке кода текстом,\s*примените форматирование(?:(?!<\/\1>)[\s\S])*?к коду\.?\s*<\/\1>/gi,
+			""
+		)
+		.replace(
+			/(?:❗|!|⚠️)?\s*При отправке кода текстом,\s*примените форматирование[\s\S]{0,160}?к коду\.?\s*(?:<br\s*\/?>)?/gi,
+			""
+		)
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
+};
+
 export const processTaskDescription = (description: string): string => {
 	if (!description) return "";
 
-	let processed = decodeHtmlEntities(description);
+	let processed = stripInlineIdeFormattingHint(decodeHtmlEntities(description));
 
 	processed = processed.replace(/\r\n/g, "\n");
 	processed = processed.replace(/\r/g, "\n");
