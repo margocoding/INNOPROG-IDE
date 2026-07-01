@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { io, Socket } from "socket.io-client";
 import { RoomPermissions } from "../types/room";
 import { Language } from "../types/task";
+import { isRoomTokenExpired } from "../utils/roomToken";
 
 const REFERENCE_BLUE = "#518bff";
 const MIN_CONTRAST_WITH_REFERENCE = 1.9;
@@ -166,6 +167,7 @@ export const useWebSocket = ({
     const hasAuthoritativeRoomTelegramIdRef = useRef<boolean>(false);
     const selfIdsRef = useRef<Set<string>>(new Set());
     const joinWithoutSavedIdTriedRef = useRef<boolean>(false);
+    const roomTokenRefreshTriedRef = useRef<boolean>(false);
     const roomIdRef = useRef(roomId);
     const roomTokenRef = useRef<string>(roomToken || "");
     const isConnectedRef = useRef<boolean>(false);
@@ -197,8 +199,26 @@ export const useWebSocket = ({
         }
     }, []);
 
-    const ensureRoomToken = useCallback(async (): Promise<boolean> => {
-        if (roomTokenRef.current) {
+    const persistRoomTokenInUrl = useCallback(
+        (currentRoomId: string, telegramId: string, token: string) => {
+            try {
+                const url = new URL(window.location.href);
+                if (url.searchParams.get("roomId") !== currentRoomId) {
+                    return;
+                }
+
+                url.searchParams.set("telegramId", telegramId);
+                url.searchParams.set("roomToken", token);
+                window.history.replaceState(null, "", url.toString());
+            } catch {
+                // Keeping the token in memory is enough for the current session.
+            }
+        },
+        []
+    );
+
+    const ensureRoomToken = useCallback(async (forceRefresh = false): Promise<boolean> => {
+        if (roomTokenRef.current && !forceRefresh) {
             return true;
         }
 
@@ -227,14 +247,16 @@ export const useWebSocket = ({
         roomTokenRef.current = String(payload.roomToken);
         const generatedTelegramId = String(payload.telegramId);
         myTelegramIdRef.current = generatedTelegramId;
+        hasAuthoritativeRoomTelegramIdRef.current = false;
         selfIdsRef.current.add(generatedTelegramId);
         localStorage.setItem(
             `innoprog-room-client-id:${currentRoomId}`,
             generatedTelegramId
         );
+        persistRoomTokenInUrl(currentRoomId, generatedTelegramId, roomTokenRef.current);
         setMyUserColor(REFERENCE_BLUE);
         return true;
-    }, [getRoomApiBase]);
+    }, [getRoomApiBase, persistRoomTokenInUrl]);
 
     const clearIntervals = useCallback(() => {
         if (reconnectTimeoutRef.current) {
@@ -271,6 +293,18 @@ export const useWebSocket = ({
                     username: savedUsername || undefined,
                 });
             };
+
+            if (roomTokenRef.current && isRoomTokenExpired(roomTokenRef.current)) {
+                roomTokenRefreshTriedRef.current = true;
+                roomTokenRef.current = "";
+                hasAuthoritativeRoomTelegramIdRef.current = false;
+                ensureRoomToken(true)
+                    .then(emitJoin)
+                    .catch((error) => {
+                        setConnectionError(error?.message || "Не удалось открыть комнату");
+                    });
+                return;
+            }
 
             if (roomTokenRef.current) {
                 emitJoin();
@@ -732,6 +766,19 @@ export const useWebSocket = ({
         });
 
         socket.on("join-room:error", (eventData) => {
+            if (roomIdRef.current && roomTokenRef.current && !roomTokenRefreshTriedRef.current) {
+                roomTokenRefreshTriedRef.current = true;
+                roomTokenRef.current = "";
+                hasAuthoritativeRoomTelegramIdRef.current = false;
+                setConnectionError(null);
+                ensureRoomToken(true)
+                    .then(() => joinRoom(myTelegramIdRef.current))
+                    .catch((error) => {
+                        setConnectionError(error?.message || eventData.message);
+                    });
+                return;
+            }
+
             if (hasAuthoritativeRoomTelegramIdRef.current) {
                 setConnectionError(eventData.message);
                 return;
@@ -760,7 +807,15 @@ export const useWebSocket = ({
 
             setConnectionError(eventData.message);
         });
-    }, [joinRoom, clearIntervals, isSelfId, enqueueCodeEdit, getOrAssignUserColor, myTelegramId]);
+    }, [
+        joinRoom,
+        clearIntervals,
+        isSelfId,
+        enqueueCodeEdit,
+        getOrAssignUserColor,
+        myTelegramId,
+        ensureRoomToken,
+    ]);
 
     useEffect(() => {
         if (
@@ -791,6 +846,7 @@ export const useWebSocket = ({
 
         if (roomChanged) {
             hasServerTelegramIdRef.current = false;
+            roomTokenRefreshTriedRef.current = false;
             selfIdsRef.current.clear();
             myTelegramIdRef.current = myTelegramId || "";
         }
