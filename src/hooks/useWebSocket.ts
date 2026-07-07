@@ -170,6 +170,7 @@ export const useWebSocket = ({
     const roomTokenRefreshTriedRef = useRef<boolean>(false);
     const roomIdRef = useRef(roomId);
     const roomTokenRef = useRef<string>(roomToken || "");
+    const roomTokenRequestRef = useRef<Promise<boolean> | null>(null);
     const isConnectedRef = useRef<boolean>(false);
     const shouldReconnectRef = useRef<boolean>(true);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -222,40 +223,70 @@ export const useWebSocket = ({
             return true;
         }
 
+        if (roomTokenRequestRef.current && !forceRefresh) {
+            return roomTokenRequestRef.current;
+        }
+
         const currentRoomId = roomIdRef.current;
         if (!currentRoomId) {
             return false;
         }
 
-        const response = await fetch(
-            `${getRoomApiBase(socketUrlRef.current)}/${encodeURIComponent(currentRoomId)}/token`,
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: "{}",
+        const savedGeneratedTelegramId =
+            isRoomGeneratedTelegramId(myTelegramIdRef.current)
+                ? myTelegramIdRef.current
+                : localStorage.getItem(`innoprog-room-client-id:${currentRoomId}`);
+        const requestedTelegramId = isRoomGeneratedTelegramId(savedGeneratedTelegramId)
+            ? savedGeneratedTelegramId
+            : undefined;
+
+        const request = (async () => {
+            const response = await fetch(
+                `${getRoomApiBase(socketUrlRef.current)}/${encodeURIComponent(currentRoomId)}/token`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(
+                        requestedTelegramId ? { telegramId: requestedTelegramId } : {}
+                    ),
+                }
+            );
+            if (!response.ok) {
+                throw new Error("Не удалось подготовить безопасный вход в комнату");
             }
-        );
-        if (!response.ok) {
-            throw new Error("Не удалось подготовить безопасный вход в комнату");
-        }
 
-        const payload = await response.json();
-        if (!payload?.roomToken || !payload?.telegramId) {
-            throw new Error("Сервер вернул некорректный токен комнаты");
-        }
+            const payload = await response.json();
+            if (!payload?.roomToken || !payload?.telegramId) {
+                throw new Error("Сервер вернул некорректный токен комнаты");
+            }
 
-        roomTokenRef.current = String(payload.roomToken);
-        const generatedTelegramId = String(payload.telegramId);
-        myTelegramIdRef.current = generatedTelegramId;
-        hasAuthoritativeRoomTelegramIdRef.current = false;
-        selfIdsRef.current.add(generatedTelegramId);
-        localStorage.setItem(
-            `innoprog-room-client-id:${currentRoomId}`,
-            generatedTelegramId
-        );
-        persistRoomTokenInUrl(currentRoomId, generatedTelegramId, roomTokenRef.current);
-        setMyUserColor(REFERENCE_BLUE);
-        return true;
+            if (roomIdRef.current !== currentRoomId) {
+                return false;
+            }
+
+            roomTokenRef.current = String(payload.roomToken);
+            const generatedTelegramId = String(payload.telegramId);
+            myTelegramIdRef.current = generatedTelegramId;
+            hasAuthoritativeRoomTelegramIdRef.current = false;
+            selfIdsRef.current.add(generatedTelegramId);
+            localStorage.setItem(
+                `innoprog-room-client-id:${currentRoomId}`,
+                generatedTelegramId
+            );
+            persistRoomTokenInUrl(currentRoomId, generatedTelegramId, roomTokenRef.current);
+            setMyUserColor(REFERENCE_BLUE);
+            return true;
+        })();
+
+        roomTokenRequestRef.current = request;
+
+        try {
+            return await request;
+        } finally {
+            if (roomTokenRequestRef.current === request) {
+                roomTokenRequestRef.current = null;
+            }
+        }
     }, [getRoomApiBase, persistRoomTokenInUrl]);
 
     const clearIntervals = useCallback(() => {
@@ -860,6 +891,7 @@ export const useWebSocket = ({
         if (roomChanged) {
             hasServerTelegramIdRef.current = false;
             roomTokenRefreshTriedRef.current = false;
+            roomTokenRequestRef.current = null;
             selfIdsRef.current.clear();
             myTelegramIdRef.current = myTelegramId || "";
         }
