@@ -492,7 +492,20 @@ export const useWebSocket = ({
             setTimeout(joinRoom, 100);
         });
 
-        socketRef.current?.on("disconnect", (reason) => {
+        socket.on("room-session-replaced", () => {
+            if (socketRef.current !== socket) {
+                return;
+            }
+
+            shouldReconnectRef.current = false;
+            setConnectionError("Комната открыта в другом окне");
+        });
+
+        socket.on("disconnect", (reason) => {
+            if (socketRef.current !== socket) {
+                return;
+            }
+
             setIsConnected(false);
             setIsJoinedRoom(false);
             isConnectedRef.current = false;
