@@ -48,6 +48,8 @@
     "build": "react-scripts build",
     "test:proxy": "node scripts/test-proxy-contracts.mjs",
     "test": "react-scripts test",
+    "test:coverage": "react-scripts test --watchAll=false --runInBand --coverage",
+    "test:ci": "npm run test:coverage -- --ci",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -55,6 +57,11 @@
       "react-app",
       "react-app/jest"
     ]
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^react-router-dom$": "<rootDir>/src/test-mocks/react-router-dom.ts"
+    }
   },
   "browserslist": {
     "production": [
