@@ -48,7 +48,7 @@
     "build": "react-scripts build",
     "test:proxy": "node scripts/test-proxy-contracts.mjs",
     "test": "react-scripts test",
-    "test:coverage": "react-scripts test --watchAll=false --runInBand --coverage",
+    "test:coverage": "react-scripts test --watchAll=false --runInBand --coverage --coverageProvider=v8",
     "test:ci": "npm run test:coverage -- --ci",
     "eject": "react-scripts eject"
   },
@@ -61,6 +61,24 @@
   "jest": {
     "moduleNameMapper": {
       "^react-router-dom$": "<rootDir>/src/test-mocks/react-router-dom.ts"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(yjs|lib0|y-protocols|y-codemirror.next|@codemirror|@marijn|style-mod|w3c-keyname|crelt)/)"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{ts,tsx}",
+      "!src/**/*.d.ts",
+      "!src/**/*.test.{ts,tsx}",
+      "!src/index.tsx",
+      "!src/reportWebVitals.ts",
+      "!src/setupTests.ts",
+      "!src/test-mocks/**"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "statements": 80,
+        "lines": 80
+      }
     }
   },
   "browserslist": {

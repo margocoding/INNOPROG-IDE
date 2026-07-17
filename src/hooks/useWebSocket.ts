@@ -316,9 +316,13 @@ export const useWebSocket = ({
                     : telegramIdOverride;
             const emitJoin = () => {
                 const savedUsername = localStorage.getItem("innoprog-username");
+                const resolvedTelegramId =
+                    telegramIdOverride === undefined
+                        ? myTelegramIdRef.current
+                        : telegramIdOverride;
 
                 socketRef.current?.emit("join-room", {
-                    telegramId: telegramId || undefined,
+                    telegramId: resolvedTelegramId || undefined,
                     roomId: roomIdRef.current,
                     roomToken: roomTokenRef.current || undefined,
                     username: savedUsername || undefined,

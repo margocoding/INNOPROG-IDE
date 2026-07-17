@@ -2,6 +2,10 @@ import {
 	processTaskDescription,
 	stripInlineIdeFormattingHint,
 } from "./TaskDescription.utils";
+import { fireEvent, render, screen } from "@testing-library/react";
+import TaskDescription from "./TaskDescription";
+
+jest.mock("../../../../index", () => ({ isDesktop: () => true }));
 
 describe("processTaskDescription", () => {
 	it("removes inline IDE monospace formatting hint from task descriptions", () => {
@@ -160,5 +164,51 @@ for (i = 0; i &lt; 10; i++) {
 
 		expect(container.innerHTML).toBe("<a>Ссылка</a>");
 		expect(container.querySelector("a")).not.toHaveAttribute("href");
+	});
+});
+
+describe("TaskDescription component", () => {
+	it("renders multi-answer input/output and safely resizes", () => {
+		const { container } = render(
+			<TaskDescription
+				task={{
+					description: "решите задачу",
+					answers: [
+						{ input: "1", output: "2" },
+						{ input: "3", output: "4" },
+					],
+				} as any}
+			/>
+		);
+		expect(screen.getByText("Решите задачу")).toBeInTheDocument();
+		expect(screen.getByText("Входные данные:")).toBeInTheDocument();
+		const outer = container.querySelector(".bg-ide-secondary") as HTMLElement;
+		jest.spyOn(outer, "getBoundingClientRect").mockReturnValue({
+			top: 10,
+		} as DOMRect);
+		const handle = outer.lastElementChild as HTMLElement;
+		fireEvent.mouseDown(handle);
+		fireEvent.mouseMove(document, { clientY: 310 });
+		expect(outer.style.height).toBe("300px");
+		fireEvent.mouseUp(document);
+	});
+
+	it("uses code-before for multi-answer paste tasks and hides absent tasks", () => {
+		const { rerender } = render(
+			<TaskDescription
+				task={{
+					description: "дополните",
+					task_type: "paste",
+					answers: [
+						{ code_before: "prefix", output: "done" },
+						{},
+					],
+				} as any}
+				hideTopSpacing
+			/>
+		);
+		expect(screen.getByText("prefix")).toBeInTheDocument();
+		rerender(<TaskDescription task={null} />);
+		expect(screen.queryByText("prefix")).toBeNull();
 	});
 });
