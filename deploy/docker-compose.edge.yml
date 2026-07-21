@@ -1,0 +1,48 @@
+services:
+  backend:
+    image: ide-backend:${BACKEND_IMAGE_TAG:?BACKEND_IMAGE_TAG is required}
+    build:
+      context: /opt/innoprog/apps/innoprog-room-microservice
+      dockerfile: Dockerfile
+      labels:
+        org.opencontainers.image.revision: ${BACKEND_IMAGE_REVISION:?BACKEND_IMAGE_REVISION is required}
+    container_name: ide-backend-1
+    labels:
+      org.opencontainers.image.revision: ${BACKEND_IMAGE_REVISION:?BACKEND_IMAGE_REVISION is required}
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1.0
+    env_file:
+      - /opt/innoprog/apps/innoprog-room-microservice/.env
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').connect(3000,'127.0.0.1').on('connect',function(){this.end()}).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+
+  frontend:
+    image: ide-frontend:${FRONTEND_IMAGE_TAG:?FRONTEND_IMAGE_TAG is required}
+    build:
+      context: /opt/innoprog/apps/INNOPROG-IDE
+      dockerfile: Dockerfile
+      labels:
+        org.opencontainers.image.revision: ${FRONTEND_IMAGE_REVISION:?FRONTEND_IMAGE_REVISION is required}
+    container_name: ide-frontend-1
+    labels:
+      org.opencontainers.image.revision: ${FRONTEND_IMAGE_REVISION:?FRONTEND_IMAGE_REVISION is required}
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    env_file:
+      - /opt/innoprog/apps/INNOPROG-IDE/.env
+    ports:
+      - "127.0.0.1:8080:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
