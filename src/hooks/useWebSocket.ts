@@ -61,6 +61,9 @@ const randomInt = (min: number, max: number): number => {
 const isRoomGeneratedTelegramId = (telegramId?: string | null): boolean =>
     Boolean(telegramId && /^i\d+$/.test(telegramId));
 
+const isSupportedRoomLanguage = (language: unknown): language is Language =>
+    typeof language === "string" && Object.values(Language).includes(language as Language);
+
 const hslToHex = (h: number, s: number, l: number): string => {
     const saturation = s / 100;
     const lightness = l / 100;
@@ -310,10 +313,6 @@ export const useWebSocket = ({
         }
 
         if (socketRef.current?.connected) {
-            const telegramId =
-                telegramIdOverride === undefined
-                    ? myTelegramIdRef.current
-                    : telegramIdOverride;
             const emitJoin = () => {
                 const savedUsername = localStorage.getItem("innoprog-username");
                 const resolvedTelegramId =
@@ -345,6 +344,11 @@ export const useWebSocket = ({
                 emitJoin();
                 return;
             }
+
+            const telegramId =
+                telegramIdOverride === undefined
+                    ? myTelegramIdRef.current
+                    : telegramIdOverride;
 
             if (telegramId && !isRoomGeneratedTelegramId(telegramId)) {
                 emitJoin();
@@ -1119,7 +1123,12 @@ export const useWebSocket = ({
     );
 
     const sendChangeLanguage = useCallback((language: Language) => {
-        if (socketRef.current?.connected && roomIdRef.current && !completed) {
+        if (
+            isSupportedRoomLanguage(language) &&
+            socketRef.current?.connected &&
+            roomIdRef.current &&
+            !completed
+        ) {
             const telegramId = getCurrentTelegramId();
             if (!telegramId) return;
 

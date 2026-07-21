@@ -137,6 +137,7 @@ describe("useWebSocket", () => {
       result.current.onSendUpdate?.(new Uint8Array([1]));
       result.current.sendEditMember("Name");
       result.current.sendChangeLanguage("js" as any);
+      result.current.sendChangeLanguage("" as any);
       result.current.sendRoomPermissions({
         studentCursorEnabled: false,
         studentSelectionEnabled: true,
@@ -148,6 +149,11 @@ describe("useWebSocket", () => {
     expect(socket.emit).toHaveBeenCalledWith("selection", expect.any(Object));
     expect(socket.emit).toHaveBeenCalledWith("code-edit", expect.any(Object));
     expect(socket.emit).toHaveBeenCalledWith("edit-member", expect.any(Object));
+    expect(socket.emit.mock.calls.filter(([event]) => event === "edit-room")).toHaveLength(2);
+    expect(socket.emit).not.toHaveBeenCalledWith(
+      "edit-room",
+      expect.objectContaining({ language: "" })
+    );
     expect(socket.emit).toHaveBeenCalledWith("close-session", expect.any(Object));
   });
 
