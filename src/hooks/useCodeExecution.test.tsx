@@ -60,8 +60,8 @@ describe("useCodeExecution", () => {
     expect(callbacks.setStatus).toHaveBeenLastCalledWith("idle");
   });
 
-  it("runs task code without receiving or comparing hidden expected answers", async () => {
-    mockedApi.runCode.mockResolvedValue({ result: true, output: "ok" } as any);
+  it("checks task code against the single public sample without receiving hidden tests", async () => {
+    mockedApi.checkCode.mockResolvedValue({ result: true, output: "out" } as any);
     const answer = {
       code_before: "before\n",
       code_after: "\nafter",
@@ -74,16 +74,22 @@ describe("useCodeExecution", () => {
       language: Language.JS,
       code: "before\neditable\nafter",
       currentAnswer: answer,
-      task: { answers: [answer, answer] },
+      task: { answers: [answer] },
     });
     await act(() => result.current.handleRunCode());
-    expect(mockedApi.runCode).toHaveBeenCalledWith(
-      expect.objectContaining({ program: "before\n\neditable\n\nafter" }),
+    expect(mockedApi.checkCode).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input_data: "in",
+        output_data: "out",
+        program: "before\n\neditable\n\nafter",
+      }),
       Language.PY,
     );
-    expect(mockedApi.checkCode).not.toHaveBeenCalled();
+    expect(mockedApi.runCode).not.toHaveBeenCalled();
     expect(callbacks.setStatus).toHaveBeenCalledWith("success");
-    expect(callbacks.setOutput).toHaveBeenLastCalledWith("ok");
+    expect(callbacks.setOutput).toHaveBeenLastCalledWith(
+      "Первый тест пройден. Для сдачи задания отправь решение на полную проверку",
+    );
   });
 
   it("reports failed checks and execution exceptions on the output tab", async () => {

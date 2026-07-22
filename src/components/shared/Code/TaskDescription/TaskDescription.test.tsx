@@ -168,15 +168,12 @@ for (i = 0; i &lt; 10; i++) {
 });
 
 describe("TaskDescription component", () => {
-	it("renders multi-answer input/output and safely resizes", () => {
+	it("renders the single public sample input/output and safely resizes", () => {
 		const { container } = render(
 			<TaskDescription
 				task={{
 					description: "решите задачу",
-					answers: [
-						{ input: "1", output: "2" },
-						{ input: "3", output: "4" },
-					],
+					answers: [{ input: "1", output: "2" }],
 				} as any}
 			/>
 		);

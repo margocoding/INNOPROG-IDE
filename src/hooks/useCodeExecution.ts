@@ -105,7 +105,11 @@ export const useCodeExecution = ({
 				timeout: selectedAnswer?.timeout || 30,
 			};
 
-			if (taskId || !outputData.trim()) {
+			const canCheckPublicTaskExample = Boolean(
+				taskId && selectedAnswer?.input != null && selectedAnswer?.output?.trim()
+			);
+
+			if (!canCheckPublicTaskExample && (taskId || !outputData.trim())) {
 				const runInputData = inputData || "";
 				const result = await api.runCode(
 					{
@@ -131,10 +135,9 @@ export const useCodeExecution = ({
 					return;
 				}
 				setOutput(
-					`Программа успешно выполнена. Для сдачи задания отправь решение на проверку${task?.answers?.length! > 1
-						? `\nРезультат программы: ${result.output}`
-						: ""
-					}`
+					taskId
+						? "Первый тест пройден. Для сдачи задания отправь решение на полную проверку"
+						: `Программа успешно выполнена${result.output ? `\nРезультат программы: ${result.output}` : ""}`
 				);
 				setStatus("success");
 			} else {

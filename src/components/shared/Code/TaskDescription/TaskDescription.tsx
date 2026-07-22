@@ -104,12 +104,12 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 
 	if (!task) return null;
 
-	const isPasteTaskWithMultipleAnswers =
-		getTaskType(task) === "paste" && (task.answers?.length || 0) > 1;
+	const isPasteTask = getTaskType(task) === "paste";
 	const taskAnswer = task.answers?.[0];
-	const taskInput = isPasteTaskWithMultipleAnswers
+	const taskInput = isPasteTask
 		? taskAnswer?.code_before?.trim()
 		: taskAnswer?.input?.trim();
+	const hasPublicExample = Boolean(taskInput || taskAnswer?.output?.trim());
 
 	return (
 		<div className={`${!hideTopSpacing && !isDesktop() ? "mt-[25px]" : ""}`}>
@@ -135,7 +135,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 									__html: processTaskDescription(task.description),
 								}}
 							/>
-							{task.answers && task.answers.length > 1 && (
+							{hasPublicExample && (
 								<>
 									{taskInput && (
 										<>

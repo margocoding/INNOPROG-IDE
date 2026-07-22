@@ -361,7 +361,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       try {
         const taskData = await api.getTask(taskId, clientId);
         setTask(taskData);
-        if (taskData.answers && taskData.answers.length > 1) {
+        if (taskData.answers && taskData.answers.length > 0) {
           setCurrentAnswer({
             ...taskData.answers[0],
           });
