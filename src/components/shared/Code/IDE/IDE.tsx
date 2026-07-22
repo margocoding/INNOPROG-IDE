@@ -359,7 +359,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       if (!taskId) return;
 
       try {
-        const taskData = await api.getTask(taskId);
+        const taskData = await api.getTask(taskId, clientId);
         setTask(taskData);
         if (taskData.answers && taskData.answers.length > 1) {
           setCurrentAnswer({
@@ -372,7 +372,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     };
 
     loadTask();
-  }, [taskId]);
+  }, [clientId, taskId]);
 
   // Загрузка кода с приоритетами
   useEffect(() => {

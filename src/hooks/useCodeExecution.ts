@@ -105,7 +105,7 @@ export const useCodeExecution = ({
 				timeout: selectedAnswer?.timeout || 30,
 			};
 
-			if (!taskId && !outputData.trim()) {
+			if (taskId || !outputData.trim()) {
 				const runInputData = inputData || "";
 				const result = await api.runCode(
 					{
@@ -118,7 +118,7 @@ export const useCodeExecution = ({
 
 				setRunInputData(result.input ?? runInputData);
 				setOutput(result.output || result.comment || "");
-				setStatus(result.result ? "idle" : "error");
+				setStatus(result.result ? (taskId ? "success" : "idle") : "error");
 				return;
 			}
 

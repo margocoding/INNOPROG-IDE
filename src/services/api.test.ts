@@ -20,7 +20,15 @@ describe("IDE API", () => {
 
   it("loads tasks", async () => {
     mockedAxios.get.mockResolvedValue({ data: { id: 1 } });
-    await expect(api.getTask("1")).resolves.toEqual({ id: 1 });
+    window.location.hash = "platform_auth=signed-token";
+    await expect(api.getTask("1", "42")).resolves.toEqual({ id: 1 });
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "https://api.innoprog.ru/task/1",
+      expect.objectContaining({
+        params: { client_id: "42" },
+        headers: { "X-Platform-Auth": "signed-token" },
+      }),
+    );
   });
 
   it("checks, runs and submits code through the configured client", async () => {
@@ -37,6 +45,9 @@ describe("IDE API", () => {
     await expect(api.checkTaskAnswer(3, {} as any)).resolves.toEqual({
       result: false, status: 422,
     });
+    expect(post.mock.calls[3][2].headers).toEqual(expect.objectContaining({
+      "X-Platform-Auth": "signed-token",
+    }));
   });
 
   it("loads submitted code with URL encoded parameters", async () => {

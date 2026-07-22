@@ -17,6 +17,19 @@ const BASE_API = axios.create({
 	timeout: API_REQUEST_TIMEOUT_MS,
 });
 
+function protectedTaskHeaders(): Record<string, string> {
+	const headers: Record<string, string> = {};
+	const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+	const platformToken = String(fragment.get("platform_auth") || "").trim();
+	const telegramInitData = String(window.Telegram?.WebApp?.initData || "").trim();
+	if (platformToken) {
+		headers["X-Platform-Auth"] = platformToken;
+	} else if (telegramInitData) {
+		headers["X-Telegram-Init-Data"] = telegramInitData;
+	}
+	return headers;
+}
+
 async function fetchWithTimeout(url: string, options: RequestInit = {}) {
 	const controller = new AbortController();
 	const timeoutId = window.setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
@@ -32,8 +45,11 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}) {
 }
 
 export const api = {
-	async getTask(taskId: string): Promise<Task> {
-		const response = await axios.get(`https://api.innoprog.ru/task/${taskId}`);
+	async getTask(taskId: string, clientId: string): Promise<Task> {
+		const response = await axios.get(`https://api.innoprog.ru/task/${taskId}`, {
+			params: { client_id: clientId },
+			headers: protectedTaskHeaders(),
+		});
 		return response.data;
 	},
 
@@ -85,6 +101,7 @@ export const api = {
 			{
 				headers: {
 					"Content-Type": "application/json",
+					...protectedTaskHeaders(),
 				},
 				validateStatus: (status) => status < 500,
 			}
