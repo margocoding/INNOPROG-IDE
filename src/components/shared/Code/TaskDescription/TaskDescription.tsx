@@ -139,7 +139,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 								<>
 									{taskInput && (
 										<>
-											<div>Входные данные:</div>
+											<div className="mt-3">Входные данные:</div>
 											<pre>{taskInput}</pre>
 										</>
 									)}

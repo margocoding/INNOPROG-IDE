@@ -92,6 +92,31 @@ describe("useCodeExecution", () => {
     );
   });
 
+  it("uses the first-test guidance for task runs without a public expected output", async () => {
+    mockedApi.runCode.mockResolvedValue({
+      result: true,
+      output: "",
+      comment: "Программа выполнена успешно.",
+      input: "",
+    } as any);
+    const { result, callbacks } = setup({
+      taskId: "11",
+      currentAnswer: { code_before: "prefix", output: "" },
+      task: {
+        task_type: "paste",
+        answers: [{ code_before: "prefix", output: "" }],
+      },
+    });
+
+    await act(() => result.current.handleRunCode());
+
+    expect(mockedApi.runCode).toHaveBeenCalled();
+    expect(callbacks.setStatus).toHaveBeenLastCalledWith("success");
+    expect(callbacks.setOutput).toHaveBeenLastCalledWith(
+      "Первый тест пройден. Для сдачи задания отправь решение на полную проверку",
+    );
+  });
+
   it("reports failed checks and execution exceptions on the output tab", async () => {
     Object.defineProperty(window, "innerWidth", { value: 500, configurable: true });
     mockedApi.checkCode.mockResolvedValue({

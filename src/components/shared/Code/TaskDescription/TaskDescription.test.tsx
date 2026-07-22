@@ -178,7 +178,7 @@ describe("TaskDescription component", () => {
 			/>
 		);
 		expect(screen.getByText("Решите задачу")).toBeInTheDocument();
-		expect(screen.getByText("Входные данные:")).toBeInTheDocument();
+		expect(screen.getByText("Входные данные:")).toHaveClass("mt-3");
 		const outer = container.querySelector(".bg-ide-secondary") as HTMLElement;
 		jest.spyOn(outer, "getBoundingClientRect").mockReturnValue({
 			top: 10,

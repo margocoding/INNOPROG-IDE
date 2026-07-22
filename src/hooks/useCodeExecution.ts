@@ -121,7 +121,11 @@ export const useCodeExecution = ({
 				);
 
 				setRunInputData(result.input ?? runInputData);
-				setOutput(result.output || result.comment || "");
+				setOutput(
+					taskId && result.result
+						? "Первый тест пройден. Для сдачи задания отправь решение на полную проверку"
+						: result.output || result.comment || ""
+				);
 				setStatus(result.result ? (taskId ? "success" : "idle") : "error");
 				return;
 			}
