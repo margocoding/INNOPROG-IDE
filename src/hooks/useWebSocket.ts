@@ -110,6 +110,7 @@ interface UseWebSocketProps {
     roomId: string | null;
     roomToken?: string | null;
     roomLaunchCode?: string | null;
+    suggestedUsername?: string | null;
 }
 
 export interface RoomMember {
@@ -134,6 +135,7 @@ export const useWebSocket = ({
     roomId,
     roomToken,
     roomLaunchCode,
+    suggestedUsername,
 }: UseWebSocketProps) => {
     const [isConnected, setIsConnected] = useState<boolean>(false);
     const [isJoinedRoom, setIsJoinedRoom] = useState<boolean>(false);
@@ -177,6 +179,7 @@ export const useWebSocket = ({
     const roomIdRef = useRef(roomId);
     const roomTokenRef = useRef<string>(roomToken || "");
     const roomLaunchCodeRef = useRef<string>(roomLaunchCode || "");
+    const suggestedUsernameRef = useRef<string>(suggestedUsername?.trim() || "");
     const roomTokenRequestRef = useRef<Promise<boolean> | null>(null);
     const isConnectedRef = useRef<boolean>(false);
     const shouldReconnectRef = useRef<boolean>(true);
@@ -302,7 +305,8 @@ export const useWebSocket = ({
 
         if (socketRef.current?.connected) {
             const emitJoin = () => {
-                const savedUsername = localStorage.getItem("innoprog-username");
+                const savedUsername = localStorage.getItem("innoprog-username")?.trim();
+                const resolvedUsername = savedUsername || suggestedUsernameRef.current;
                 const resolvedTelegramId =
                     telegramIdOverride === undefined
                         ? myTelegramIdRef.current
@@ -312,7 +316,7 @@ export const useWebSocket = ({
                     telegramId: resolvedTelegramId || undefined,
                     roomId: roomIdRef.current,
                     roomToken: roomTokenRef.current || undefined,
-                    username: savedUsername || undefined,
+                    username: resolvedUsername || undefined,
                 });
             };
 
@@ -590,7 +594,11 @@ export const useWebSocket = ({
                     ? eventData.lastCode
                     : undefined;
             setJoinedCode(initialRoomCode);
-            if (typeof eventData.username === "string" && eventData.username.trim()) {
+            if (
+                !localStorage.getItem("innoprog-username")?.trim() &&
+                typeof eventData.username === "string" &&
+                eventData.username.trim()
+            ) {
                 localStorage.setItem("innoprog-username", eventData.username.trim());
             }
             if (eventData.telegramId) {
@@ -668,7 +676,11 @@ export const useWebSocket = ({
                 userColor: getOrAssignUserColor(member.telegramId),
             }));
             const me = membersWithSelfFlag.find((member: RoomMember) => member.isYourself);
-            if (me && me.username) {
+            if (
+                me &&
+                me.username &&
+                !localStorage.getItem("innoprog-username")?.trim()
+            ) {
                 localStorage.setItem("innoprog-username", me.username);
             }
             setRoomMembers(membersWithSelfFlag);
@@ -878,6 +890,7 @@ export const useWebSocket = ({
 
     useEffect(() => {
         socketUrlRef.current = socketUrl;
+        suggestedUsernameRef.current = suggestedUsername?.trim() || "";
         const wasRoomId = roomIdRef.current;
         const roomChanged = wasRoomId !== roomId;
         const hasAuthoritativeRoomTelegramId = Boolean(
@@ -974,7 +987,7 @@ export const useWebSocket = ({
             setConnectionError(null);
             joinRoom(myTelegramId);
         }
-    }, [socketUrl, myTelegramId, roomId, roomToken, roomLaunchCode, getOrAssignUserColor, joinRoom]);
+    }, [socketUrl, myTelegramId, roomId, roomToken, roomLaunchCode, suggestedUsername, getOrAssignUserColor, joinRoom]);
 
     useEffect(() => {
         shouldReconnectRef.current = true;

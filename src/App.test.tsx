@@ -12,10 +12,13 @@ jest.mock('./hooks/useWebSocket', () => ({
 
 beforeEach(() => {
   sessionStorage.clear();
-  mockUseWebSocket.mockClear();
   mockUseWebSocket.mockImplementation((_params?: unknown) => ({ telegramId: null }));
 });
 
+afterEach(() => {
+  delete (window as any).Telegram;
+  mockUseWebSocket.mockClear();
+});
 test('renders the IDE shell and passes URL room parameters to the app', () => {
   window.history.pushState({}, '', '/?roomId=room-1&roomToken=token-1&telegramId=123');
   render(<App />);
@@ -33,5 +36,18 @@ test('passes a fragment launch code without keeping it in the address bar', () =
   expect(window.location.hash).toBe('');
   expect(mockUseWebSocket).toHaveBeenCalledWith(expect.objectContaining({
     roomLaunchCode: 'single-use-code',
+  }));
+});
+
+test('offers the authenticated Telegram first name to a room', () => {
+  (window as any).Telegram = {
+    WebApp: { initDataUnsafe: { user: { id: 123, first_name: 'Александр' } } },
+  };
+  window.history.pushState({}, '', '/?roomId=room-1');
+
+  render(<App />);
+
+  expect(mockUseWebSocket).toHaveBeenCalledWith(expect.objectContaining({
+    suggestedUsername: 'Александр',
   }));
 });

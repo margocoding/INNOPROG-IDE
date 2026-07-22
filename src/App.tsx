@@ -14,6 +14,10 @@ const App = React.memo(() => {
     [roomId],
   );
   const roomToken = roomBootstrap?.roomToken || null;
+  const authenticatedUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+  const authenticatedUsername = String(
+    authenticatedUser?.first_name || authenticatedUser?.username || ""
+  ).trim();
   const telegramWebAppUserId = roomId
     ? null
     : window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString();
@@ -42,8 +46,9 @@ const App = React.memo(() => {
       roomId,
       roomToken,
       roomLaunchCode: roomBootstrap?.launchCode || null,
+      suggestedUsername: authenticatedUsername || null,
     }),
-    [telegramId, roomId, roomToken, roomBootstrap?.launchCode]
+    [authenticatedUsername, telegramId, roomId, roomToken, roomBootstrap?.launchCode]
   );
 
   const webSocketData = useWebSocket(webSocketParams);

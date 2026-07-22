@@ -81,7 +81,7 @@ describe("useWebSocket", () => {
       ],
     }));
     expect(result.current.roomMembers[0].isYourself).toBe(true);
-    expect(localStorage.getItem("innoprog-username")).toBe("Teacher");
+    expect(localStorage.getItem("innoprog-username")).toBe("Артемий Королёв");
 
     act(() => socket.handlers.get("cursor-action")?.({
       telegramId: "other", position: [4, 5], username: "Other",
@@ -112,6 +112,53 @@ describe("useWebSocket", () => {
       lastCode: "loaded", participantCount: 2,
     }));
     expect(result.current.joinedCode).toBe("loaded");
+  });
+
+  it("never overwrites a display name previously entered in this browser", () => {
+    localStorage.setItem("innoprog-username", "Моё сохранённое имя");
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+
+    renderHook(() => useWebSocket({
+      socketUrl: "https://rooms.test",
+      myTelegramId: "teacher-1",
+      roomId: "room-1",
+      roomToken: "token",
+    }));
+
+    act(() => socket.handlers.get("joined")?.({
+      telegramId: "teacher-1",
+      username: "Имя из профиля",
+      isTeacher: true,
+      completed: false,
+    }));
+    act(() => socket.handlers.get("members-updated")?.({
+      members: [
+        { telegramId: "teacher-1", online: true, username: "Имя из комнаты" },
+      ],
+    }));
+
+    expect(localStorage.getItem("innoprog-username")).toBe("Моё сохранённое имя");
+  });
+
+  it("uses an authenticated profile name when this browser has no saved name", () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+
+    renderHook(() => useWebSocket({
+      socketUrl: "https://rooms.test",
+      myTelegramId: "student-1",
+      roomId: "room-1",
+      roomToken: "token",
+      suggestedUsername: "Александр",
+    }));
+
+    act(() => socket.handlers.get("connect")?.());
+    act(() => jest.advanceTimersByTime(100));
+
+    expect(socket.emit).toHaveBeenCalledWith("join-room", expect.objectContaining({
+      username: "Александр",
+    }));
   });
 
   it("emits cursor, selection, code, member, language and permission actions", () => {
