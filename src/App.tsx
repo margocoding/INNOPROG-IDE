@@ -4,15 +4,22 @@ import "./App.css";
 import Cursor from "./components/shared/Room/Cursor/Cursor";
 import IDE from "./components/shared/Code/IDE/IDE";
 import { useWebSocket } from "./hooks/useWebSocket";
+import { readRoomSessionBootstrap } from "./utils/roomSession";
 
 const App = React.memo(() => {
   const [searchParams] = useSearchParams();
   const roomId = searchParams.get("roomId");
-  const roomToken = searchParams.get("roomToken");
+  const roomBootstrap = useMemo(
+    () => roomId ? readRoomSessionBootstrap(roomId) : null,
+    [roomId],
+  );
+  const roomToken = roomBootstrap?.roomToken || null;
   const telegramWebAppUserId = roomId
     ? null
     : window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString();
-  const urlTelegramId = searchParams.get("telegramId");
+  const urlTelegramId = roomId
+    ? roomBootstrap?.telegramId || null
+    : searchParams.get("telegramId");
   const savedTelegramId = localStorage.getItem("telegramId");
   const savedRoomClientId = roomId
     ? localStorage.getItem(`innoprog-room-client-id:${roomId}`)
@@ -34,8 +41,9 @@ const App = React.memo(() => {
       myTelegramId: telegramId,
       roomId,
       roomToken,
+      roomLaunchCode: roomBootstrap?.launchCode || null,
     }),
-    [telegramId, roomId, roomToken]
+    [telegramId, roomId, roomToken, roomBootstrap?.launchCode]
   );
 
   const webSocketData = useWebSocket(webSocketParams);

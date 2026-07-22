@@ -211,8 +211,41 @@ describe("useWebSocket", () => {
       expect.objectContaining({ method: "POST" }),
     );
     expect(localStorage.getItem("innoprog-room-client-id:room-1")).toBe("i12345");
+    expect(sessionStorage.getItem("innoprog-room-token:room-1")).toBe("new-token");
+    expect(window.location.href).not.toContain("new-token");
     expect(socket.emit).toHaveBeenCalledWith("join-room", expect.objectContaining({
       telegramId: "i12345", roomToken: "new-token",
+    }));
+  });
+
+  it("exchanges a one-time launch code before joining as the teacher", async () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({ roomToken: "teacher-token", telegramId: "42" }),
+    } as any);
+    renderHook(() => useWebSocket({
+      socketUrl: "wss://rooms.test",
+      myTelegramId: null,
+      roomId: "room-1",
+      roomToken: null,
+      roomLaunchCode: "single-use-code",
+    }));
+    act(() => socket.handlers.get("connect")?.());
+    await act(async () => {
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://rooms.test/api/room/room-1/launch",
+      expect.objectContaining({
+        method: "POST", body: JSON.stringify({ launchCode: "single-use-code" }),
+      }),
+    );
+    expect(socket.emit).toHaveBeenCalledWith("join-room", expect.objectContaining({
+      telegramId: "42", roomToken: "teacher-token",
     }));
   });
 

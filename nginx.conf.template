@@ -6,20 +6,26 @@ server {
   index index.html;
 
   client_max_body_size 10m;
+  # Room credentials are never written to this container's access log. The
+  # outer proxy logs only the path configured by infrastructure, without args.
+  access_log off;
 
   location = /index.html {
     add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate" always;
     add_header Pragma "no-cache" always;
     add_header Expires "0" always;
+    add_header Referrer-Policy "no-referrer" always;
     try_files /index.html =404;
   }
 
   location /static/ {
     add_header Cache-Control "public, max-age=31536000, immutable" always;
+    add_header Referrer-Policy "no-referrer" always;
     try_files $uri =404;
   }
 
   location /bot-api/check/ {
+    add_header Referrer-Policy "no-referrer" always;
     rewrite ^/bot-api/(.*)$ /$1 break;
     proxy_pass ${CODE_RUNNER_API_PROXY_URL};
     proxy_http_version 1.1;
@@ -33,6 +39,7 @@ server {
   }
 
   location /bot-api/code/run/ {
+    add_header Referrer-Policy "no-referrer" always;
     rewrite ^/bot-api/(.*)$ /$1 break;
     proxy_pass ${CODE_RUNNER_API_PROXY_URL};
     proxy_http_version 1.1;
@@ -46,6 +53,7 @@ server {
   }
 
   location /bot-api/ {
+    add_header Referrer-Policy "no-referrer" always;
     rewrite ^/bot-api/(.*)$ /$1 break;
     proxy_pass ${BOT_API_PROXY_URL};
     proxy_http_version 1.1;
@@ -61,6 +69,7 @@ server {
     add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate" always;
     add_header Pragma "no-cache" always;
     add_header Expires "0" always;
+    add_header Referrer-Policy "no-referrer" always;
     try_files $uri $uri/ /index.html;
   }
 }
