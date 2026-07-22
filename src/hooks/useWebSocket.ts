@@ -601,6 +601,9 @@ export const useWebSocket = ({
                     ? eventData.lastCode
                     : undefined;
             setJoinedCode(initialRoomCode);
+            if (typeof eventData.username === "string" && eventData.username.trim()) {
+                localStorage.setItem("innoprog-username", eventData.username.trim());
+            }
             if (eventData.telegramId) {
                 const joinedTelegramId = String(eventData.telegramId);
                 selfIdsRef.current.add(joinedTelegramId);

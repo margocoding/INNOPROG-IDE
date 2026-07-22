@@ -55,6 +55,7 @@ describe("useWebSocket", () => {
 
     act(() => socket.handlers.get("joined")?.({
       telegramId: "teacher-1",
+      username: "Артемий Королёв",
       isTeacher: true,
       completed: false,
       language: "py",
@@ -71,6 +72,7 @@ describe("useWebSocket", () => {
     expect(result.current.joinedCode).toBe("print(1)");
     expect(result.current.cursors.has("student")).toBe(true);
     expect(result.current.selections.has("student")).toBe(true);
+    expect(localStorage.getItem("innoprog-username")).toBe("Артемий Королёв");
 
     act(() => socket.handlers.get("members-updated")?.({
       members: [
