@@ -1166,6 +1166,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
         window.removeEventListener("keydown", handleGlobalKeydown);
         view.destroy();
       };
+      // The editor is created only when its structural configuration changes.
+      // Volatile values/callbacks are read through refs; adding them here would
+      // destroy and recreate CodeMirror on every keystroke.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [language, effectiveReadOnly, codeBefore, codeAfter, ydoc]);
 
     useEffect(() => {

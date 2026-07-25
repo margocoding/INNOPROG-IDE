@@ -34,4 +34,10 @@ describe("roomToken helpers", () => {
     expect(getRoomTokenExpiration("bad-token")).toBeUndefined();
     expect(isRoomTokenExpired("bad-token", 101)).toBe(false);
   });
+
+  it("rejects missing and non-numeric expiration values", () => {
+    expect(getRoomTokenExpiration(null)).toBeUndefined();
+    expect(getRoomTokenExpiration(encodePayload({ room_id: "room-1" }))).toBeUndefined();
+    expect(getRoomTokenExpiration(encodePayload({ exp: "100" }))).toBeUndefined();
+  });
 });

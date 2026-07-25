@@ -317,6 +317,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         webSocketData?.sendEditMember?.(savedUsername);
       }
     }
+  // The hook intentionally reacts only to connection identity changes. Member
+  // collections/callbacks are consumed from the current socket facade.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     webSocketData?.isConnected,
     webSocketData?.isJoinedRoom,
@@ -511,6 +514,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       joinedCode: webSocketData.joinedCode,
       isConnected: webSocketData.isConnected,
     };
+  // Keep the memo keyed by the fields passed to the editor. The socket facade
+  // also exposes volatile members that must not invalidate this value.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     webSocketData?.isTeacher,
     telegramId,
