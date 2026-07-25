@@ -20,7 +20,6 @@
     "@heroui/react": "^2.6.14",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^5.14.1",
-    "@testing-library/react": "^13.0.0",
     "@testing-library/user-event": "^13.2.1",
     "@types/jest": "^27.0.1",
     "@types/node": "^16.7.13",
@@ -85,7 +84,12 @@
         "branches": 67
       }
     },
-    "coverageReporters": ["text", "html", "lcov", "json-summary"]
+    "coverageReporters": [
+      "text",
+      "html",
+      "lcov",
+      "json-summary"
+    ]
   },
   "browserslist": {
     "production": [
@@ -100,6 +104,7 @@
     ]
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
     "tailwindcss": "^3.4.17"
   }
 }
