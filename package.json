@@ -48,8 +48,11 @@
     "build": "react-scripts build",
     "test:proxy": "node scripts/test-proxy-contracts.mjs",
     "test": "react-scripts test",
-    "test:coverage": "react-scripts test --watchAll=false --runInBand --coverage --coverageProvider=v8",
-    "test:ci": "npm run test:coverage -- --ci",
+    "test:unit": "react-scripts test --watchAll=false --runInBand",
+    "test:contracts": "npm run test:proxy",
+    "test:integration": "react-scripts test --watchAll=false --runInBand",
+    "test:coverage": "react-scripts test --watchAll=false --runInBand --coverage --coverageProvider=v8 && node scripts/write-coverage-metadata.mjs",
+    "test:ci": "npm run test:contracts && npm run test:coverage -- --ci && npm run build",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -77,9 +80,12 @@
     "coverageThreshold": {
       "global": {
         "statements": 80,
-        "lines": 80
+        "lines": 80,
+        "functions": 78,
+        "branches": 67
       }
-    }
+    },
+    "coverageReporters": ["text", "html", "lcov", "json-summary"]
   },
   "browserslist": {
     "production": [
