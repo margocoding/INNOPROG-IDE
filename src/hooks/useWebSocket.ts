@@ -234,7 +234,7 @@ export const useWebSocket = ({
 
         const request = (async () => {
             const launchCode = roomLaunchCodeRef.current;
-            const response = await fetch(
+            const requestRoomToken = () => fetch(
                 `${getRoomApiBase(socketUrlRef.current)}/${encodeURIComponent(currentRoomId)}/${launchCode ? "launch" : "token"}`,
                 {
                     method: "POST",
@@ -245,6 +245,19 @@ export const useWebSocket = ({
                         : requestedTelegramId ? { telegramId: requestedTelegramId } : {}),
                 }
             );
+            let response;
+            try {
+                response = await requestRoomToken();
+            } catch (error) {
+                if (!launchCode) {
+                    throw error;
+                }
+                // The server may already have consumed the one-time code and
+                // installed the protected room cookie before the response was
+                // interrupted. A single retry lets the backend recover that
+                // same teacher identity without issuing another credential.
+                response = await requestRoomToken();
+            }
             if (!response.ok) {
                 throw new Error("Не удалось подготовить безопасный вход в комнату");
             }

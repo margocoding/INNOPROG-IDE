@@ -296,6 +296,42 @@ describe("useWebSocket", () => {
     }));
   });
 
+  it("retries a teacher launch exchange once when the first response is interrupted", async () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    global.fetch = jest.fn()
+      .mockRejectedValueOnce(new TypeError("connection interrupted"))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: jest.fn().mockResolvedValue({
+          roomToken: "recovered-teacher-token",
+          telegramId: "42",
+        }),
+      } as any);
+
+    renderHook(() => useWebSocket({
+      socketUrl: "wss://rooms.test",
+      myTelegramId: null,
+      roomId: "room-1",
+      roomToken: null,
+      roomLaunchCode: "single-use-code",
+    }));
+    act(() => socket.handlers.get("connect")?.());
+    await act(async () => {
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(socket.emit).toHaveBeenCalledWith("join-room", expect.objectContaining({
+      telegramId: "42",
+      roomToken: "recovered-teacher-token",
+    }));
+  });
+
   it("cleans up a socket when the room disappears and rejoins on focus", () => {
     const socket = createSocket();
     mockedIo.mockReturnValue(socket);
