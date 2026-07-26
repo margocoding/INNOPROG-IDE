@@ -14,6 +14,11 @@ services:
     cpus: 1.0
     env_file:
       - /opt/innoprog/apps/innoprog-room-microservice/.env
+    environment:
+      IDE_ROOMS_REDIS_URL: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:
@@ -22,6 +27,27 @@ services:
       timeout: 5s
       retries: 4
       start_period: 20s
+
+  redis:
+    image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    container_name: ide-redis-1
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.25
+    volumes:
+      - /opt/innoprog/data/ide-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
   frontend:
     image: ide-frontend:${FRONTEND_IMAGE_TAG:?FRONTEND_IMAGE_TAG is required}
