@@ -49,7 +49,7 @@ describe("Footer", () => {
     expect(state.setStatus).toHaveBeenCalledWith("idle");
   });
 
-  it("shows desktop task result actions without changing submit behavior", () => {
+  it("hides retry on desktop task results without changing submit behavior", () => {
     const state = {
       ...props(),
       status: "success" as const,
@@ -60,8 +60,8 @@ describe("Footer", () => {
     render(<Footer {...state} />);
     fireEvent.click(screen.getByText("Отправить"));
     expect(state.onSubmitCheck).toHaveBeenCalled();
-    fireEvent.click(screen.getByText("Попробовать снова"));
-    expect(state.setActiveTab).toHaveBeenCalledWith("editor");
-    expect(state.setStatus).toHaveBeenCalledWith("idle");
+    expect(screen.getByText("Попробовать снова").closest("div")).toHaveClass(
+      "md:hidden",
+    );
   });
 });

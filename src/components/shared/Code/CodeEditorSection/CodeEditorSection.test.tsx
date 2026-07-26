@@ -71,7 +71,7 @@ describe("CodeEditorSection", () => {
     expect(mockedEditor.mock.calls[0][0].disabled).toBe(false);
   });
 
-  it("removes the editor from the desktop task result pane", () => {
+  it("keeps the editor visible on desktop when task output is open", () => {
     const { container } = render(
       <CodeEditorSection
         code="print(1)"
@@ -82,10 +82,17 @@ describe("CodeEditorSection", () => {
         activeTab="output"
         setCurrentCode={jest.fn()}
         handleLanguageChange={jest.fn()}
-        desktopSinglePane
+        desktopStackedPane
+        desktopPaneSize={58}
       />,
     );
-    expect(container.firstElementChild).toHaveClass("hidden");
+    expect(container.firstElementChild).toHaveClass("hidden", "md:block");
+    expect(container.firstElementChild).toHaveClass(
+      "desktop-task-editor-pane",
+    );
     expect(container.firstElementChild).toHaveStyle("width: 100%");
+    expect(container.firstElementChild).toHaveStyle(
+      "--desktop-pane-size: 58%",
+    );
   });
 });

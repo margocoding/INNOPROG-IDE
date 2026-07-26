@@ -1,0 +1,12 @@
+@media (min-width: 768px) {
+  .desktop-task-editor-pane {
+    height: calc(var(--desktop-pane-size) - 4px) !important;
+    flex: 0 0 calc(var(--desktop-pane-size) - 4px);
+  }
+
+  .desktop-task-output-pane {
+    height: auto !important;
+    min-height: 0;
+    flex: 1 1 0;
+  }
+}

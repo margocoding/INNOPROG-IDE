@@ -5,12 +5,14 @@ interface ResizerProps {
   onResize: (newWidth: number) => void;
   minSize?: number;
   maxSize?: number;
+  orientation?: "vertical" | "horizontal";
 }
 
 const Resizer: React.FC<ResizerProps> = ({
   onResize,
   minSize = 20,
   maxSize = 80,
+  orientation = "vertical",
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const resizerRef = useRef<HTMLDivElement>(null);
@@ -42,8 +44,15 @@ const Resizer: React.FC<ResizerProps> = ({
       if (!container) return;
 
       const containerRect = container.getBoundingClientRect();
-      const mouseX = e.clientX - containerRect.left;
-      let newSize = (mouseX / containerRect.width) * 100;
+      const pointerPosition =
+        orientation === "horizontal"
+          ? e.clientY - containerRect.top
+          : e.clientX - containerRect.left;
+      const containerSize =
+        orientation === "horizontal"
+          ? containerRect.height
+          : containerRect.width;
+      let newSize = (pointerPosition / containerSize) * 100;
 
       newSize = Math.max(minSize, Math.min(maxSize, newSize));
       onResizeRef.current(newSize);
@@ -54,7 +63,8 @@ const Resizer: React.FC<ResizerProps> = ({
       document.addEventListener("pointerup", stopDragging);
       document.addEventListener("pointercancel", stopDragging);
       document.addEventListener("selectstart", preventSelection);
-      document.body.style.cursor = "col-resize";
+      document.body.style.cursor =
+        orientation === "horizontal" ? "row-resize" : "col-resize";
       document.body.style.userSelect = "none";
       document.body.classList.add("resizer-dragging");
     }
@@ -68,13 +78,14 @@ const Resizer: React.FC<ResizerProps> = ({
       document.body.style.userSelect = "";
       document.body.classList.remove("resizer-dragging");
     };
-  }, [isDragging, minSize, maxSize]);
+  }, [isDragging, minSize, maxSize, orientation]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     window.getSelection()?.removeAllRanges();
-    document.body.style.cursor = "col-resize";
+    document.body.style.cursor =
+      orientation === "horizontal" ? "row-resize" : "col-resize";
     document.body.style.userSelect = "none";
     isDraggingRef.current = true;
     setIsDragging(true);
@@ -87,7 +98,10 @@ const Resizer: React.FC<ResizerProps> = ({
   return (
     <div
       ref={resizerRef}
-      className={`resizer ${isDragging ? "resizer-active" : ""}`}
+      className={`resizer resizer-${orientation} ${
+        isDragging ? "resizer-active" : ""
+      }`}
+      data-orientation={orientation}
       onPointerDown={handlePointerDown}
       onDragStart={handleDragStart}
     >

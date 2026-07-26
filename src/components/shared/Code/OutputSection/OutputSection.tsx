@@ -9,6 +9,7 @@ interface OutputSectionProps {
 	htmlPreview?: string;
 	width?: number;
 	desktopSinglePane?: boolean;
+	desktopStackedPane?: boolean;
 }
 
 const OutputSection: React.FC<OutputSectionProps> = ({
@@ -20,6 +21,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 	htmlPreview,
 	width = 50,
 	desktopSinglePane = false,
+	desktopStackedPane = false,
 }) => {
 	const outputRef = useRef<HTMLPreElement>(null);
 	const isHtmlMode = language === "html";
@@ -71,13 +73,17 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 					? "block"
 					: activeTab === "output"
 					? "block"
+					: desktopStackedPane
+					? "hidden"
 					: desktopSinglePane
 					? "hidden"
 					: "hidden md:block"
-			}`}
+			} ${desktopStackedPane ? "desktop-task-output-pane" : ""}`}
 			style={
 				isHtmlMode
 					? { width: "100%", flex: `0 0 ${width}%`, minWidth: 0 }
+					: desktopStackedPane
+					? { width: "100%" }
 					: desktopSinglePane || activeTab === "output"
 					? { width: "100%" }
 					: { flex: `0 0 ${width}%`, minWidth: 0 }

@@ -37,6 +37,9 @@ describe("CodeEditor", () => {
     const { container } = render(<CodeEditor {...props} language="py" isTeacher />);
     expect(container.querySelector(".cm-editor")).toBeInTheDocument();
     expect(screen.getByText(/\.py/)).toBeInTheDocument();
+    expect(screen.getByTestId("code-editor-shell")).toHaveClass(
+      "overflow-clip",
+    );
   });
 
   it("switches language through the teacher selector", () => {

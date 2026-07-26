@@ -13,6 +13,8 @@ interface CodeEditorSectionProps {
   setCurrentCode: Dispatch<SetStateAction<string>>;
   width?: number;
   desktopSinglePane?: boolean;
+  desktopStackedPane?: boolean;
+  desktopPaneSize?: number;
   webSocketData?: {
     isTeacher?: boolean;
     isConnected?: boolean;
@@ -59,6 +61,8 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     setCurrentCode,
     width = 50,
     desktopSinglePane = false,
+    desktopStackedPane = false,
+    desktopPaneSize = 100,
   }) => {
     const selectedAnswer = currentAnswer ?? task?.answers?.[0] ?? null;
     const hasMultipleAnswers = (task?.answers?.length || 0) > 1;
@@ -74,12 +78,19 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
         className={`h-full min-w-0 p-4 ${
           activeTab === "editor"
             ? "block"
+            : desktopStackedPane
+            ? "hidden md:block"
             : desktopSinglePane
             ? "hidden"
             : "hidden md:block"
-        }`}
+        } ${desktopStackedPane ? "desktop-task-editor-pane" : ""}`}
         style={
-          desktopSinglePane || activeTab === "editor"
+          desktopStackedPane
+            ? ({
+                width: "100%",
+                "--desktop-pane-size": `${desktopPaneSize}%`,
+              } as React.CSSProperties)
+            : desktopSinglePane || activeTab === "editor"
             ? { width: "100%" }
             : { flex: `0 0 ${width}%`, minWidth: 0 }
         }

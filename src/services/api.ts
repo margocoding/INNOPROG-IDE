@@ -17,6 +17,42 @@ const BASE_API = axios.create({
 	timeout: API_REQUEST_TIMEOUT_MS,
 });
 
+const LOCAL_TASK_PREVIEWS: Record<string, Task> = {
+	"10006": {
+		id: 10006,
+		title: "Сумма чисел от a до b",
+		description:
+			"Напиши программу, которая выведет сумму чисел от a до b (включительно), числа введет пользователь с новой строки, a точно меньше чем b.",
+		points: 6,
+		task_type: "code",
+		answers: [
+			{
+				id: 10006,
+				code_before: "",
+				code_after: "",
+				input: "1\n16",
+				output: "136",
+				hint: "",
+				timeout: 30,
+			},
+		],
+	},
+};
+
+function getLocalTaskPreview(taskId: string): Task | null {
+	const hostname = window.location.hostname;
+	const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+	const previewId = new URLSearchParams(window.location.search).get(
+		"local_task_preview",
+	);
+
+	if (!isLocalhost || previewId !== taskId) {
+		return null;
+	}
+
+	return LOCAL_TASK_PREVIEWS[previewId] || null;
+}
+
 let platformAccessToken = "";
 let platformSessionPromise: Promise<string> | null = null;
 
@@ -96,6 +132,11 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}) {
 
 export const api = {
 	async getTask(taskId: string, clientId: string): Promise<Task> {
+		const localPreview = getLocalTaskPreview(taskId);
+		if (localPreview) {
+			return localPreview;
+		}
+
 		try {
 			const headers = await protectedTaskHeaders();
 			const response = await axios.get(`https://api.innoprog.ru/task/${taskId}`, {

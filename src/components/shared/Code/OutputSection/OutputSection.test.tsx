@@ -45,4 +45,18 @@ describe("OutputSection", () => {
       "hidden",
     );
   });
+
+  it("sizes task output as the lower desktop pane", () => {
+    render(
+      <OutputSection
+        output="done"
+        status="success"
+        activeTab="output"
+        desktopStackedPane
+      />,
+    );
+    const pane = screen.getByText("Output").closest(".h-full.min-w-0");
+    expect(pane).toHaveClass("desktop-task-output-pane");
+    expect(pane).toHaveStyle("width: 100%");
+  });
 });

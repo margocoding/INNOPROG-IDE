@@ -39,6 +39,27 @@ describe("IDE API", () => {
     );
   });
 
+  it("loads the explicit localhost task preview without production auth", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?task_id=10006&local_task_preview=10006",
+    );
+
+    await expect(api.getTask("10006", "42")).resolves.toMatchObject({
+      id: 10006,
+      title: "Сумма чисел от a до b",
+      answers: [
+        expect.objectContaining({
+          input: "1\n16",
+          output: "136",
+        }),
+      ],
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockedAxios.get).not.toHaveBeenCalled();
+  });
+
   it("silently refreshes the cookie session and retries a task after access-token expiry", async () => {
     mockedAxios.get
       .mockRejectedValueOnce({ response: { status: 401 } })

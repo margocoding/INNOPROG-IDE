@@ -21,4 +21,31 @@ describe("Resizer", () => {
     fireEvent.pointerUp(document);
     expect(document.body).not.toHaveClass("resizer-dragging");
   });
+
+  it("uses vertical pointer movement for a horizontal divider", () => {
+    const onResize = jest.fn();
+    const { container } = render(
+      <div className="flex">
+        <Resizer
+          onResize={onResize}
+          minSize={30}
+          maxSize={75}
+          orientation="horizontal"
+        />
+      </div>,
+    );
+    const parent = container.firstElementChild as HTMLElement;
+    jest.spyOn(parent, "getBoundingClientRect").mockReturnValue({
+      top: 100,
+      height: 400,
+    } as DOMRect);
+    const handle = container.querySelector(".resizer") as HTMLElement;
+    (handle as any).setPointerCapture = jest.fn();
+    fireEvent.pointerDown(handle, { pointerId: 1 });
+    document.dispatchEvent(
+      new MouseEvent("pointermove", { clientY: 300, bubbles: true }),
+    );
+    expect(onResize).toHaveBeenCalledWith(50);
+    fireEvent.pointerUp(document);
+  });
 });

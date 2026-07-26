@@ -16,6 +16,7 @@ import Header from "../../Header/Header";
 import Footer from "../../Footer/Footer";
 import Resizer from "../Resizer/Resizer";
 import { CursorData, RoomMember } from "../../../../hooks/useWebSocket";
+import "./IDE.css";
 
 interface RoomPermissions {
   studentCursorEnabled: boolean;
@@ -123,6 +124,10 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [taskPanelWidth, setTaskPanelWidth] = useState<number>(() => {
     const saved = localStorage.getItem("innoprog-task-panel-width");
     return saved ? parseFloat(saved) : 38;
+  });
+  const [desktopEditorHeight, setDesktopEditorHeight] = useState<number>(() => {
+    const saved = localStorage.getItem("innoprog-task-editor-height");
+    return saved ? parseFloat(saved) : 58;
   });
 
   const { onOpen, onOpenChange, isOpen, onClose } = useDisclosure();
@@ -556,6 +561,11 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     localStorage.setItem("innoprog-task-panel-width", newWidth.toString());
   }, []);
 
+  const handleDesktopEditorResize = useCallback((newHeight: number) => {
+    setDesktopEditorHeight(newHeight);
+    localStorage.setItem("innoprog-task-editor-height", newHeight.toString());
+  }, []);
+
   useEffect(() => {
     const wasHtmlMode = wasHtmlModeRef.current;
 
@@ -700,7 +710,11 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         )}
 
         <main className="flex-1 min-w-0 min-h-0 overflow-hidden">
-          <div className="h-full flex flex-col md:flex-row">
+          <div
+            className={`h-full flex flex-col ${
+              desktopTaskMode ? "" : "md:flex-row"
+            }`}
+          >
             <CodeEditorSection
               code={code}
               setCode={handleCodeChange}
@@ -712,16 +726,28 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               webSocketData={memoizedWebSocketData}
               handleLanguageChange={handleLanguageChange}
               width={editorWidth}
-              desktopSinglePane={desktopTaskMode}
+              desktopStackedPane={desktopTaskMode}
+              desktopPaneSize={
+                desktopTaskMode && activeTab === "output"
+                  ? desktopEditorHeight
+                  : 100
+              }
             />
 
-            {!desktopTaskMode && (
+            {desktopTaskMode && activeTab === "output" ? (
+              <Resizer
+                onResize={handleDesktopEditorResize}
+                minSize={30}
+                maxSize={75}
+                orientation="horizontal"
+              />
+            ) : !desktopTaskMode ? (
               <Resizer
                 onResize={handleResize}
                 minSize={20}
                 maxSize={80}
               />
-            )}
+            ) : null}
 
             <OutputSection
               output={output}
@@ -731,7 +757,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               language={language}
               htmlPreview={htmlPreviewContent}
               width={100 - editorWidth}
-              desktopSinglePane={desktopTaskMode}
+              desktopStackedPane={desktopTaskMode}
             />
           </div>
         </main>

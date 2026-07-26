@@ -28,10 +28,19 @@ jest.mock("../../../../services/api", () => ({
 }));
 jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
   __esModule: true,
-  default: ({ code, setCode, handleLanguageChange, desktopSinglePane }: any) => (
+  default: ({
+    code,
+    setCode,
+    handleLanguageChange,
+    desktopSinglePane,
+    desktopStackedPane,
+    desktopPaneSize,
+  }: any) => (
     <section
       data-testid="editor"
       data-desktop-single-pane={String(Boolean(desktopSinglePane))}
+      data-desktop-stacked-pane={String(Boolean(desktopStackedPane))}
+      data-desktop-pane-size={desktopPaneSize}
     >
       <span>{code}</span>
       <button onClick={() => setCode("changed")}>change-code</button>
@@ -41,10 +50,17 @@ jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
 }));
 jest.mock("../OutputSection/OutputSection", () => ({
   __esModule: true,
-  default: ({ htmlPreview, desktopSinglePane }: any) => (
+  default: ({
+    htmlPreview,
+    desktopSinglePane,
+    desktopStackedPane,
+    activeTab,
+  }: any) => (
     <div
       data-testid="output"
       data-desktop-single-pane={String(Boolean(desktopSinglePane))}
+      data-desktop-stacked-pane={String(Boolean(desktopStackedPane))}
+      data-active-tab={activeTab}
     >
       {htmlPreview}
     </div>
@@ -67,17 +83,30 @@ jest.mock("../TaskDescription/TaskDescription", () => ({
 }));
 jest.mock("../Resizer/Resizer", () => ({
   __esModule: true,
-  default: ({ onResize }: any) => <button onClick={() => onResize(60)}>resize</button>,
+  default: ({ onResize, orientation = "vertical" }: any) => (
+    <button
+      data-testid={`resizer-${orientation}`}
+      onClick={() => onResize(60)}
+    >
+      resize
+    </button>
+  ),
 }));
 jest.mock("../../Header/Header", () => ({
   __esModule: true, default: () => <header>header</header>,
 }));
 jest.mock("../../Footer/Footer", () => ({
   __esModule: true,
-  default: ({ onRunCode, onSubmitCheck, desktopTaskMode }: any) => (
+  default: ({
+    onRunCode,
+    onSubmitCheck,
+    desktopTaskMode,
+    setActiveTab,
+  }: any) => (
     <footer data-desktop-task-mode={String(Boolean(desktopTaskMode))}>
       <button onClick={onRunCode}>run</button>
       <button onClick={onSubmitCheck}>submit</button>
+      <button onClick={() => setActiveTab("output")}>show-output</button>
     </footer>
   ),
 }));
@@ -158,19 +187,37 @@ describe("IDE", () => {
       "38",
     );
     expect(screen.getByTestId("editor")).toHaveAttribute(
-      "data-desktop-single-pane",
+      "data-desktop-stacked-pane",
       "true",
     );
     expect(screen.getByTestId("output")).toHaveAttribute(
-      "data-desktop-single-pane",
+      "data-desktop-stacked-pane",
       "true",
     );
+    expect(screen.getByTestId("editor")).toHaveAttribute(
+      "data-desktop-pane-size",
+      "100",
+    );
+    expect(screen.queryByTestId("resizer-horizontal")).toBeNull();
     expect(screen.getByRole("contentinfo")).toHaveAttribute(
       "data-desktop-task-mode",
       "true",
     );
     fireEvent.click(screen.getByText("resize"));
     expect(localStorage.getItem("innoprog-task-panel-width")).toBe("60");
+
+    fireEvent.click(screen.getByText("show-output"));
+    expect(screen.getByTestId("editor")).toHaveAttribute(
+      "data-desktop-pane-size",
+      "58",
+    );
+    expect(screen.getByTestId("output")).toHaveAttribute(
+      "data-active-tab",
+      "output",
+    );
+    expect(screen.getByTestId("resizer-horizontal")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("resizer-horizontal"));
+    expect(localStorage.getItem("innoprog-task-editor-height")).toBe("60");
   });
 
   it("keeps HTML tasks and standalone IDE in the existing split mode", async () => {

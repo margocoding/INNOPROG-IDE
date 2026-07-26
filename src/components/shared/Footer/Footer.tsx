@@ -129,7 +129,7 @@ const Footer: React.FC<FooterProps> = ({
           <div
             className={
               desktopTaskMode
-                ? "w-full md:w-auto"
+                ? "w-full md:hidden"
                 : "lg:hidden w-full md:hidden"
             }
           >
