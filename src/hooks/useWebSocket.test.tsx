@@ -18,6 +18,7 @@ const createSocket = () => {
       return this;
     }),
     emit: jest.fn(),
+    connect: jest.fn(),
     close: jest.fn(),
     handlers,
   };
@@ -247,12 +248,11 @@ describe("useWebSocket", () => {
       roomId: "room-1",
       roomToken: null,
     }));
-    act(() => socket.handlers.get("connect")?.());
     await act(async () => {
-      jest.advanceTimersByTime(100);
       await Promise.resolve();
       await Promise.resolve();
     });
+    act(() => socket.handlers.get("connect")?.());
     expect(global.fetch).toHaveBeenCalledWith(
       "https://rooms.test/api/room/room-1/token",
       expect.objectContaining({ method: "POST", credentials: "include" }),
@@ -279,21 +279,52 @@ describe("useWebSocket", () => {
       roomToken: null,
       roomLaunchCode: "single-use-code",
     }));
-    act(() => socket.handlers.get("connect")?.());
     await act(async () => {
-      jest.advanceTimersByTime(100);
       await Promise.resolve();
       await Promise.resolve();
     });
+    act(() => socket.handlers.get("connect")?.());
     expect(global.fetch).toHaveBeenCalledWith(
       "https://rooms.test/api/room/room-1/launch",
       expect.objectContaining({
-        method: "POST", body: JSON.stringify({ launchCode: "single-use-code" }),
+        method: "POST",
+        body: expect.stringContaining('"launchCode":"single-use-code"'),
       }),
     );
     expect(socket.emit).toHaveBeenCalledWith("join-room", expect.objectContaining({
       telegramId: "42", roomToken: "teacher-token",
     }));
+  });
+
+  it("finishes the teacher launch exchange before creating the websocket", async () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    let resolveExchange: ((value: unknown) => void) | undefined;
+    global.fetch = jest.fn(() => new Promise((resolve) => {
+      resolveExchange = resolve;
+    })) as jest.Mock;
+
+    renderHook(() => useWebSocket({
+      socketUrl: "wss://rooms.test",
+      myTelegramId: null,
+      roomId: "room-1",
+      roomToken: null,
+      roomLaunchCode: "single-use-code",
+    }));
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(mockedIo).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveExchange?.({
+        ok: true,
+        json: async () => ({ roomToken: "teacher-token", telegramId: "42" }),
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockedIo).toHaveBeenCalledTimes(1);
   });
 
   it("retries a teacher launch exchange once when the first response is interrupted", async () => {
@@ -317,13 +348,12 @@ describe("useWebSocket", () => {
       roomToken: null,
       roomLaunchCode: "single-use-code",
     }));
-    act(() => socket.handlers.get("connect")?.());
     await act(async () => {
-      jest.advanceTimersByTime(100);
       await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
     });
+    act(() => socket.handlers.get("connect")?.());
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
     expect(socket.emit).toHaveBeenCalledWith("join-room", expect.objectContaining({
@@ -332,7 +362,24 @@ describe("useWebSocket", () => {
     }));
   });
 
-  it("cleans up a socket when the room disappears and rejoins on focus", () => {
+  it("lets Socket.IO reconnect without constructing a competing socket", async () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+
+    renderHook(() => useWebSocket({
+      socketUrl: "wss://rooms.test",
+      myTelegramId: "teacher-1",
+      roomId: "room-1",
+      roomToken: "teacher-token",
+    }));
+
+    act(() => socket.handlers.get("disconnect")?.("transport close"));
+    act(() => jest.advanceTimersByTime(10_000));
+
+    expect(mockedIo).toHaveBeenCalledTimes(1);
+  });
+
+  it("cleans up a socket when the room disappears without rejoining on focus", () => {
     const socket = createSocket();
     mockedIo.mockReturnValue(socket);
     const { rerender } = renderHook(
@@ -350,7 +397,7 @@ describe("useWebSocket", () => {
     });
     socket.emit.mockClear();
     act(() => window.dispatchEvent(new Event("focus")));
-    expect(socket.emit).toHaveBeenCalledWith("join-room", expect.any(Object));
+    expect(socket.emit).not.toHaveBeenCalledWith("join-room", expect.any(Object));
     rerender({ roomId: null });
     expect(socket.close).toHaveBeenCalled();
   });

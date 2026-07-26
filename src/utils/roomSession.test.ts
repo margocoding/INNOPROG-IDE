@@ -26,6 +26,14 @@ describe("room session bootstrap", () => {
     expect(window.location.hash).toBe("");
   });
 
+  it("keeps the captured launch code stable across React-style repeated reads", () => {
+    window.history.replaceState({}, "", "/?roomId=room-strict#launchCode=single-use-code");
+
+    expect(readRoomSessionBootstrap("room-strict").launchCode).toBe("single-use-code");
+    expect(readRoomSessionBootstrap("room-strict").launchCode).toBe("single-use-code");
+    expect(window.location.hash).toBe("");
+  });
+
   it("stores credentials only for the browser session", () => {
     saveRoomSession("room-1", "42", "secret-token");
     expect(readRoomSessionBootstrap("room-1")).toEqual({

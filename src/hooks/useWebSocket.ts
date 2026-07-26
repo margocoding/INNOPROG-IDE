@@ -4,7 +4,11 @@ import { io, Socket } from "socket.io-client";
 import { RoomPermissions } from "../types/room";
 import { Language } from "../types/task";
 import { isRoomTokenExpired } from "../utils/roomToken";
-import { clearRoomSessionToken, saveRoomSession } from "../utils/roomSession";
+import {
+    clearRoomLaunchCode,
+    clearRoomSessionToken,
+    saveRoomSession,
+} from "../utils/roomSession";
 
 const REFERENCE_BLUE = "#518bff";
 const MIN_CONTRAST_WITH_REFERENCE = 1.9;
@@ -64,6 +68,19 @@ const isRoomGeneratedTelegramId = (telegramId?: string | null): boolean =>
 
 const isSupportedRoomLanguage = (language: unknown): language is Language =>
     typeof language === "string" && Object.values(Language).includes(language as Language);
+
+const getOrCreateClientInstanceId = (): string => {
+    const key = "innoprog-ide-client-instance";
+    const saved = sessionStorage.getItem(key);
+    if (saved) return saved;
+    const generated =
+        typeof crypto?.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const normalized = generated.replace(/[^A-Za-z0-9_-]/g, "");
+    sessionStorage.setItem(key, normalized);
+    return normalized;
+};
 
 const hslToHex = (h: number, s: number, l: number): string => {
     const saturation = s / 100;
@@ -181,17 +198,13 @@ export const useWebSocket = ({
     const roomLaunchCodeRef = useRef<string>(roomLaunchCode || "");
     const suggestedUsernameRef = useRef<string>(suggestedUsername?.trim() || "");
     const roomTokenRequestRef = useRef<Promise<boolean> | null>(null);
+    const clientInstanceIdRef = useRef<string>(getOrCreateClientInstanceId());
     const isConnectedRef = useRef<boolean>(false);
     const shouldReconnectRef = useRef<boolean>(true);
-    const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const connectionAttempts = useRef<number>(0);
-    const lastConnectionTime = useRef<number>(0);
-    const maxRetriesBeforeError = useRef<number>(3);
     const isRemoteUpdate = useRef<boolean>(false);
-
-    const [forceReconnectTrigger, setForceReconnectTrigger] = useState(0);
 
     const getRoomApiBase = useCallback((url: string): string => {
         const fallbackBase = "/api/room";
@@ -241,7 +254,10 @@ export const useWebSocket = ({
                     credentials: "include",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(launchCode
-                        ? { launchCode }
+                        ? {
+                            launchCode,
+                            browserNonce: clientInstanceIdRef.current,
+                        }
                         : requestedTelegramId ? { telegramId: requestedTelegramId } : {}),
                 }
             );
@@ -273,6 +289,7 @@ export const useWebSocket = ({
 
             roomTokenRef.current = String(payload.roomToken);
             roomLaunchCodeRef.current = "";
+            clearRoomLaunchCode(currentRoomId);
             const generatedTelegramId = String(payload.telegramId);
             myTelegramIdRef.current = generatedTelegramId;
             hasAuthoritativeRoomTelegramIdRef.current = false;
@@ -298,10 +315,6 @@ export const useWebSocket = ({
     }, [getRoomApiBase]);
 
     const clearIntervals = useCallback(() => {
-        if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = null;
-        }
         if (pingIntervalRef.current) {
             clearInterval(pingIntervalRef.current);
             pingIntervalRef.current = null;
@@ -331,6 +344,7 @@ export const useWebSocket = ({
                     roomId: roomIdRef.current,
                     roomToken: roomTokenRef.current || undefined,
                     username: resolvedUsername || undefined,
+                    clientInstanceId: clientInstanceIdRef.current,
                 });
             };
 
@@ -501,18 +515,19 @@ export const useWebSocket = ({
         }
 
         if (!shouldReconnectRef.current) return;
-
-        const now = Date.now();
-        const timeSinceLastConnection = now - lastConnectionTime.current;
-        if (timeSinceLastConnection < 5000 && lastConnectionTime.current > 0)
+        if (!roomTokenRef.current) {
             return;
-        lastConnectionTime.current = now;
-
-        if (socketRef.current && !socketRef.current.disconnected) {
-            socketRef.current.close();
         }
-
-        clearIntervals();
+        if (
+            socketRef.current &&
+            (socketRef.current.connected || socketRef.current.active)
+        ) {
+            return;
+        }
+        if (socketRef.current) {
+            socketRef.current.close();
+            socketRef.current = null;
+        }
 
         let wsUrl;
         if (currentSocketUrl.startsWith("https://")) {
@@ -526,6 +541,10 @@ export const useWebSocket = ({
         const socket = io(wsUrl, {
             transports: ["websocket"],
             reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 10000,
         });
         socketRef.current = socket;
 
@@ -534,8 +553,7 @@ export const useWebSocket = ({
             setConnectionError(null);
             isConnectedRef.current = true;
             connectionAttempts.current = 0;
-
-            setTimeout(joinRoom, 100);
+            joinRoom();
         });
 
         socket.on("room-session-replaced", () => {
@@ -556,41 +574,22 @@ export const useWebSocket = ({
             setIsJoinedRoom(false);
             isConnectedRef.current = false;
             clearIntervals();
-
-            if (shouldReconnectRef.current && currentRoomId) {
-                connectionAttempts.current++;
-
-                if (connectionAttempts.current > maxRetriesBeforeError.current) {
-                    if (
-                        reason !== "io client disconnect" &&
-                        reason !== "io server disconnect"
-                    ) {
-                        setConnectionError("Не удается подключиться к серверу");
-                    }
-                } else {
-                    setConnectionError(null);
-                }
-
-                const delay = 2000;
-                reconnectTimeoutRef.current = setTimeout(() => {
-                    if (!shouldReconnectRef.current) {
-                        return;
-                    }
-
-                    if (socketRef.current && !socketRef.current.disconnected) {
-                        socketRef.current.close();
-                    }
-
-                    lastConnectionTime.current = 0;
-                    connectWebSocket();
-                }, delay);
+            if (
+                shouldReconnectRef.current &&
+                reason !== "io client disconnect" &&
+                reason !== "io server disconnect"
+            ) {
+                setConnectionError(null);
             }
         });
 
         socket.on("connect_error", (error) => {
             setIsConnected(false);
-
             isConnectedRef.current = false;
+            connectionAttempts.current += 1;
+            if (connectionAttempts.current >= 5) {
+                setConnectionError("Не удается подключиться к серверу");
+            }
         });
 
         socket.on("joined", (eventData) => {
@@ -889,20 +888,6 @@ export const useWebSocket = ({
     ]);
 
     useEffect(() => {
-        if (
-            forceReconnectTrigger > 0 &&
-            roomIdRef.current &&
-            shouldReconnectRef.current
-        ) {
-            lastConnectionTime.current = 0;
-            connectionAttempts.current = 0;
-            setConnectionError(null);
-
-            connectWebSocket();
-        }
-    }, [forceReconnectTrigger, connectWebSocket]);
-
-    useEffect(() => {
         socketUrlRef.current = socketUrl;
         suggestedUsernameRef.current = suggestedUsername?.trim() || "";
         const wasRoomId = roomIdRef.current;
@@ -932,8 +917,17 @@ export const useWebSocket = ({
             setMyUserColor(getOrAssignUserColor(myTelegramIdRef.current));
         }
         roomIdRef.current = roomId;
-        roomTokenRef.current = roomToken || "";
-        roomLaunchCodeRef.current = roomLaunchCode || "";
+        if (roomChanged) {
+            roomTokenRef.current = roomToken || "";
+            roomLaunchCodeRef.current = roomLaunchCode || "";
+        } else {
+            if (roomToken) {
+                roomTokenRef.current = roomToken;
+            }
+            if (roomLaunchCode) {
+                roomLaunchCodeRef.current = roomLaunchCode;
+            }
+        }
 
         if (roomChanged) {
             joinWithoutSavedIdTriedRef.current = false;
@@ -946,10 +940,6 @@ export const useWebSocket = ({
                 setIsJoinedRoom(false);
                 setConnectionError(null);
                 setMyUserColor("#FF6B6B");
-                if (reconnectTimeoutRef.current) {
-                    clearTimeout(reconnectTimeoutRef.current);
-                    reconnectTimeoutRef.current = null;
-                }
                 if (pingIntervalRef.current) {
                     clearInterval(pingIntervalRef.current);
                     pingIntervalRef.current = null;
@@ -960,6 +950,7 @@ export const useWebSocket = ({
                 }
                 if (socketRef.current) {
                     socketRef.current.close();
+                    socketRef.current = null;
                 }
                 return;
             }
@@ -980,12 +971,7 @@ export const useWebSocket = ({
 
                 if (socketRef.current) {
                     socketRef.current.close();
-                } else {
-                    lastConnectionTime.current = 0;
-                    connectionAttempts.current = 0;
-                    setConnectionError(null);
-
-                    setForceReconnectTrigger((prev) => prev + 1);
+                    socketRef.current = null;
                 }
                 return;
             }
@@ -1005,11 +991,25 @@ export const useWebSocket = ({
 
     useEffect(() => {
         shouldReconnectRef.current = true;
+        let cancelled = false;
         if (roomId) {
             setConnectionError(null);
             connectionAttempts.current = 0;
-            lastConnectionTime.current = 0;
-            connectWebSocket();
+            if (roomTokenRef.current) {
+                connectWebSocket();
+            } else {
+                ensureRoomToken()
+                    .then((ready) => {
+                        if (!cancelled && ready) {
+                            connectWebSocket();
+                        }
+                    })
+                    .catch((error) => {
+                        if (!cancelled) {
+                            setConnectionError(error?.message || "Не удалось открыть комнату");
+                        }
+                    });
+            }
         }
 
         const handleBeforeUnload = () => {
@@ -1017,6 +1017,7 @@ export const useWebSocket = ({
             clearIntervals();
             if (socketRef.current) {
                 socketRef.current.close();
+                socketRef.current = null;
             }
         };
 
@@ -1028,16 +1029,28 @@ export const useWebSocket = ({
             if (socketRef.current?.connected) {
                 setConnectionError(null);
                 connectionAttempts.current = 0;
-                joinRoom();
+                if (!isConnectedRef.current) {
+                    joinRoom();
+                }
                 return;
             }
 
-            if (!isConnectedRef.current) {
+            if (socketRef.current?.active) {
+                return;
+            }
+
+            if (socketRef.current?.disconnected) {
                 setConnectionError(null);
                 connectionAttempts.current = 0;
-                lastConnectionTime.current = 0;
-                connectWebSocket();
+                socketRef.current.connect();
+                return;
             }
+
+            ensureRoomToken()
+                .then((ready) => {
+                    if (ready) connectWebSocket();
+                })
+                .catch(() => undefined);
         };
 
         const handleVisibilityChange = () => {
@@ -1057,16 +1070,18 @@ export const useWebSocket = ({
         window.addEventListener("focus", handleWindowFocus);
 
         return () => {
+            cancelled = true;
             shouldReconnectRef.current = false;
 
             if (socketRef.current) {
                 socketRef.current.close();
+                socketRef.current = null;
             }
             window.removeEventListener("beforeunload", handleBeforeUnload);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
             window.removeEventListener("focus", handleWindowFocus);
         };
-    }, [roomId, connectWebSocket, clearIntervals, joinRoom]);
+    }, [roomId, connectWebSocket, clearIntervals, ensureRoomToken, joinRoom]);
 
     const sendCursorPosition = useCallback(
         (position: [number, number]) => {

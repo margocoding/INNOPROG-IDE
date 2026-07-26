@@ -22,7 +22,7 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:
-      test: ["CMD", "node", "-e", "require('net').connect(3000,'127.0.0.1').on('connect',function(){this.end()}).on('error',()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/ready',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 4
