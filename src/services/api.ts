@@ -55,6 +55,15 @@ function getLocalTaskPreview(taskId: string): Task | null {
 
 let platformAccessToken = "";
 let platformSessionPromise: Promise<string> | null = null;
+let launchBrowserNonce = "";
+
+function getLaunchBrowserNonce(): string {
+	if (!launchBrowserNonce) {
+		launchBrowserNonce = globalThis.crypto?.randomUUID?.()
+			|| `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+	}
+	return launchBrowserNonce;
+}
 
 export function clearPlatformAccessSession(): void {
 	platformAccessToken = "";
@@ -90,7 +99,11 @@ async function restorePlatformSession(): Promise<string> {
 				credentials: "include",
 				headers: { "Content-Type": "application/json" },
 				body: launchCode
-					? JSON.stringify({ launch_code: launchCode, target_service: "ide" })
+					? JSON.stringify({
+						launch_code: launchCode,
+						target_service: "ide",
+						browser_nonce: getLaunchBrowserNonce(),
+					})
 					: (incoming ? JSON.stringify({ auth: incoming }) : undefined),
 			},
 		);

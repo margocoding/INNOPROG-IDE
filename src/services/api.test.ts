@@ -86,12 +86,14 @@ describe("IDE API", () => {
       expect.objectContaining({
         method: "POST",
         credentials: "include",
-        body: JSON.stringify({
-          launch_code: "one-time-code",
-          target_service: "ide",
-        }),
+        body: expect.any(String),
       }),
     );
+    expect(JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)).toEqual({
+      launch_code: "one-time-code",
+      target_service: "ide",
+      browser_nonce: expect.any(String),
+    });
     expect(global.fetch).toHaveBeenNthCalledWith(
       2,
       "https://api.innoprog.ru/platform/session/refresh",
