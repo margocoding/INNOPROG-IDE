@@ -28,8 +28,11 @@ jest.mock("../../../../services/api", () => ({
 }));
 jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
   __esModule: true,
-  default: ({ code, setCode, handleLanguageChange }: any) => (
-    <section data-testid="editor">
+  default: ({ code, setCode, handleLanguageChange, desktopSinglePane }: any) => (
+    <section
+      data-testid="editor"
+      data-desktop-single-pane={String(Boolean(desktopSinglePane))}
+    >
       <span>{code}</span>
       <button onClick={() => setCode("changed")}>change-code</button>
       <button onClick={() => handleLanguageChange("js")}>change-language</button>
@@ -38,14 +41,29 @@ jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
 }));
 jest.mock("../OutputSection/OutputSection", () => ({
   __esModule: true,
-  default: ({ htmlPreview }: any) => <div data-testid="output">{htmlPreview}</div>,
+  default: ({ htmlPreview, desktopSinglePane }: any) => (
+    <div
+      data-testid="output"
+      data-desktop-single-pane={String(Boolean(desktopSinglePane))}
+    >
+      {htmlPreview}
+    </div>
+  ),
 }));
 jest.mock("../SubmitModal/SubmitModal", () => ({
   __esModule: true, default: () => <div data-testid="submit-modal" />,
 }));
 jest.mock("../TaskDescription/TaskDescription", () => ({
   __esModule: true,
-  default: ({ task }: any) => <div data-testid="task">{task?.title}</div>,
+  default: ({ task, desktopSidebar, desktopWidth }: any) => (
+    <div
+      data-testid="task"
+      data-desktop-sidebar={String(Boolean(desktopSidebar))}
+      data-desktop-width={desktopWidth}
+    >
+      {task?.title}
+    </div>
+  ),
 }));
 jest.mock("../Resizer/Resizer", () => ({
   __esModule: true,
@@ -56,8 +74,8 @@ jest.mock("../../Header/Header", () => ({
 }));
 jest.mock("../../Footer/Footer", () => ({
   __esModule: true,
-  default: ({ onRunCode, onSubmitCheck }: any) => (
-    <footer>
+  default: ({ onRunCode, onSubmitCheck, desktopTaskMode }: any) => (
+    <footer data-desktop-task-mode={String(Boolean(desktopTaskMode))}>
       <button onClick={onRunCode}>run</button>
       <button onClick={onSubmitCheck}>submit</button>
     </footer>
@@ -131,6 +149,54 @@ describe("IDE", () => {
     await screen.findByText("Task");
     await screen.findByText("saved");
     expect(api.getSubmitCode).toHaveBeenCalledWith("a", 123, 7);
+    expect(screen.getByTestId("task")).toHaveAttribute(
+      "data-desktop-sidebar",
+      "true",
+    );
+    expect(screen.getByTestId("task")).toHaveAttribute(
+      "data-desktop-width",
+      "38",
+    );
+    expect(screen.getByTestId("editor")).toHaveAttribute(
+      "data-desktop-single-pane",
+      "true",
+    );
+    expect(screen.getByTestId("output")).toHaveAttribute(
+      "data-desktop-single-pane",
+      "true",
+    );
+    expect(screen.getByRole("contentinfo")).toHaveAttribute(
+      "data-desktop-task-mode",
+      "true",
+    );
+    fireEvent.click(screen.getByText("resize"));
+    expect(localStorage.getItem("innoprog-task-panel-width")).toBe("60");
+  });
+
+  it("keeps HTML tasks and standalone IDE in the existing split mode", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?telegramId=123&task_id=9&lang=html",
+    );
+    (api.getTask as jest.Mock).mockResolvedValue({
+      title: "HTML task",
+      answers: [{}],
+    });
+    render(<IDE telegramId="123" />);
+    await screen.findByText("HTML task");
+    expect(screen.getByTestId("task")).toHaveAttribute(
+      "data-desktop-sidebar",
+      "false",
+    );
+    expect(screen.getByTestId("editor")).toHaveAttribute(
+      "data-desktop-single-pane",
+      "false",
+    );
+    expect(screen.getByRole("contentinfo")).toHaveAttribute(
+      "data-desktop-task-mode",
+      "false",
+    );
   });
 
   it("uses joined room code, synchronizes username and language", () => {

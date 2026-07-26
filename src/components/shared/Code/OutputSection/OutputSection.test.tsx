@@ -31,4 +31,18 @@ describe("OutputSection", () => {
     );
     expect(screen.getByTitle("HTML Preview")).toHaveAttribute("srcDoc", "<h1>Hello</h1>");
   });
+
+  it("hides output while the desktop task editor is active", () => {
+    render(
+      <OutputSection
+        output=""
+        status="idle"
+        activeTab="editor"
+        desktopSinglePane
+      />,
+    );
+    expect(screen.getByText("Output").closest(".h-full.min-w-0")).toHaveClass(
+      "hidden",
+    );
+  });
 });

@@ -159,7 +159,7 @@ export const useCodeExecution = ({
 			setStatus("error");
 		} finally {
 			setIsRunning(false);
-			if (window.innerWidth < 768) {
+			if (taskId || window.innerWidth < 768) {
 				setActiveTab("output");
 			}
 		}

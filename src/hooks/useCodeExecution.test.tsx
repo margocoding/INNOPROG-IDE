@@ -134,6 +134,27 @@ describe("useCodeExecution", () => {
     expect(second.callbacks.setStatus).toHaveBeenCalledWith("error");
   });
 
+  it("opens the result pane for task runs on desktop", async () => {
+    Object.defineProperty(window, "innerWidth", {
+      value: 1280,
+      configurable: true,
+    });
+    mockedApi.checkCode.mockResolvedValue({
+      result: true,
+      output: "136",
+    } as any);
+    const { result, callbacks } = setup({
+      taskId: "10006",
+      task: {
+        answers: [{ input: "1\n16", output: "136" }],
+      },
+    });
+
+    await act(() => result.current.handleRunCode());
+
+    expect(callbacks.setActiveTab).toHaveBeenCalledWith("output");
+  });
+
   it("submits regular solutions and closes Telegram WebApp", async () => {
     mockedApi.submitCode.mockResolvedValue({} as any);
     const close = jest.fn();

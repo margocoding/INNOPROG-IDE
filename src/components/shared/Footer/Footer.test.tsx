@@ -48,4 +48,20 @@ describe("Footer", () => {
     expect(state.setActiveTab).toHaveBeenCalledWith("editor");
     expect(state.setStatus).toHaveBeenCalledWith("idle");
   });
+
+  it("shows desktop task result actions without changing submit behavior", () => {
+    const state = {
+      ...props(),
+      status: "success" as const,
+      taskId: "1",
+      activeTab: "output" as const,
+      desktopTaskMode: true,
+    };
+    render(<Footer {...state} />);
+    fireEvent.click(screen.getByText("Отправить"));
+    expect(state.onSubmitCheck).toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Попробовать снова"));
+    expect(state.setActiveTab).toHaveBeenCalledWith("editor");
+    expect(state.setStatus).toHaveBeenCalledWith("idle");
+  });
 });

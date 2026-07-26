@@ -8,11 +8,15 @@ import "./TaskDescription.css";
 interface TaskDescriptionProps {
 	task: Task | null;
 	hideTopSpacing?: boolean;
+	desktopSidebar?: boolean;
+	desktopWidth?: number;
 }
 
 const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	task,
 	hideTopSpacing = false,
+	desktopSidebar = false,
+	desktopWidth = 38,
 }) => {
 	const [height, setHeight] = useState(200);
 	const isResizing = useRef(false);
@@ -112,14 +116,23 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	const hasPublicExample = Boolean(taskInput || taskAnswer?.output?.trim());
 
 	return (
-		<div className={`${!hideTopSpacing && !isDesktop() ? "mt-[25px]" : ""}`}>
+		<div
+			className={`task-description-shell ${
+				desktopSidebar ? "task-description-shell--sidebar" : ""
+			} ${!hideTopSpacing && !isDesktop() ? "mt-[25px]" : ""}`}
+			style={
+				{
+					"--task-panel-width": `${desktopWidth}%`,
+				} as React.CSSProperties
+			}
+		>
 			<div
 				ref={containerRef}
 				style={{
 					position: "relative",
 					height: `${height}px`,
 				}}
-				className={`flex-none bg-ide-secondary p-4 border-b border-ide-border`}
+				className="task-description-panel flex-none bg-ide-secondary p-4 border-b border-ide-border"
 			>
 				<div
 					style={{
@@ -152,6 +165,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 				</div>
 
 				<div
+					className="task-description-row-resizer"
 					style={{
 						position: "absolute",
 						bottom: 0,

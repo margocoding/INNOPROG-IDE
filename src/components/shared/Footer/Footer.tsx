@@ -12,6 +12,7 @@ interface FooterProps {
   onSubmitCheck: () => Promise<void>;
   setActiveTab: (tab: "editor" | "output") => void;
   setStatus: (status: "idle" | "success" | "error") => void;
+  desktopTaskMode?: boolean;
 }
 
 const Footer: React.FC<FooterProps> = ({
@@ -24,6 +25,7 @@ const Footer: React.FC<FooterProps> = ({
   onSubmitCheck,
   setActiveTab,
   setStatus,
+  desktopTaskMode = false,
 }) => {
   const isHtmlMode = language === "html";
   const hasTask = Boolean(taskId);
@@ -51,7 +53,11 @@ const Footer: React.FC<FooterProps> = ({
         !isDesktop() ? "pb-[env(safe-area-inset-bottom)]" : ""
       }`}
     >
-      <div className="container mx-auto px-4 py-3 md:py-4 flex items-center lg:flex-row flex-col gap-3 ">
+      <div
+        className={`container mx-auto px-4 py-3 md:py-4 flex items-center flex-col gap-3 ${
+          desktopTaskMode ? "md:flex-row" : "lg:flex-row"
+        }`}
+      >
         <Button
           onPress={handleButtonClick}
           disabled={isRunning}
@@ -60,7 +66,9 @@ const Footer: React.FC<FooterProps> = ({
               ? "secondary"
               : "success"
           }
-          className="w-full lg:w-auto text-white"
+          className={`w-full text-white ${
+            desktopTaskMode ? "md:w-auto" : "lg:w-auto"
+          }`}
         >
           {isRunning ? (
             <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
@@ -105,20 +113,33 @@ const Footer: React.FC<FooterProps> = ({
               ? "Отправка..."
               : "Отправить решение"
             : status === "success" && taskId
-            ? "Отправить на проверку"
+            ? desktopTaskMode
+              ? (
+                <>
+                  <span className="hidden md:inline">Отправить</span>
+                  <span className="md:hidden">Отправить на проверку</span>
+                </>
+              )
+              : "Отправить на проверку"
             : isRunning
             ? "Выполняется..."
             : "Выполнить"}
         </Button>
         {!isHtmlMode && activeTab === "output" && (
-          <div className="lg:hidden w-full md:hidden">
+          <div
+            className={
+              desktopTaskMode
+                ? "w-full md:w-auto"
+                : "lg:hidden w-full md:hidden"
+            }
+          >
             <Button
               onPress={() => {
                 setActiveTab("editor");
                 setStatus("idle");
               }}
               color="danger"
-              className={`w-full`}
+              className={`w-full ${desktopTaskMode ? "md:w-auto" : ""}`}
             >
               Попробовать снова
             </Button>

@@ -12,6 +12,7 @@ interface CodeEditorSectionProps {
   activeTab: string;
   setCurrentCode: Dispatch<SetStateAction<string>>;
   width?: number;
+  desktopSinglePane?: boolean;
   webSocketData?: {
     isTeacher?: boolean;
     isConnected?: boolean;
@@ -57,6 +58,7 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     handleLanguageChange,
     setCurrentCode,
     width = 50,
+    desktopSinglePane = false,
   }) => {
     const selectedAnswer = currentAnswer ?? task?.answers?.[0] ?? null;
     const hasMultipleAnswers = (task?.answers?.length || 0) > 1;
@@ -70,10 +72,14 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     return (
       <div
         className={`h-full min-w-0 p-4 ${
-          activeTab === "editor" ? "block" : "hidden md:block"
+          activeTab === "editor"
+            ? "block"
+            : desktopSinglePane
+            ? "hidden"
+            : "hidden md:block"
         }`}
         style={
-          activeTab === "editor"
+          desktopSinglePane || activeTab === "editor"
             ? { width: "100%" }
             : { flex: `0 0 ${width}%`, minWidth: 0 }
         }

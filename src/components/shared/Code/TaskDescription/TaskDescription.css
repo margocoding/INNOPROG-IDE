@@ -4,6 +4,55 @@
   line-height: 1.6;
 }
 
+@media (min-width: 768px) {
+  .task-description-shell--sidebar {
+    flex: 0 0 var(--task-panel-width);
+    width: var(--task-panel-width);
+    min-width: 0;
+    height: 100%;
+  }
+
+  .task-description-shell--sidebar .task-description-panel {
+    height: 100% !important;
+    border: 0;
+    border-bottom: 0;
+  }
+
+  .task-description-shell--sidebar .task-description-row-resizer {
+    display: none;
+  }
+
+  .task-description-shell--sidebar + .resizer {
+    background-image: linear-gradient(
+      to right,
+      #222632 0,
+      #222632 50%,
+      #1e1f26 50%,
+      #1e1f26 100%
+    );
+  }
+
+  .task-description-shell--sidebar + .resizer:hover {
+    background-image: linear-gradient(
+      to right,
+      #383b47 0,
+      #383b47 50%,
+      #35353c 50%,
+      #35353c 100%
+    );
+  }
+
+  .task-description-shell--sidebar + .resizer.resizer-active {
+    background-image: linear-gradient(
+      to right,
+      #29445f 0,
+      #29445f 50%,
+      #273f5c 50%,
+      #273f5c 100%
+    );
+  }
+}
+
 .task-description-content p {
   white-space: pre-wrap;
   margin-bottom: 1em;

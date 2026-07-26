@@ -120,6 +120,10 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     const saved = localStorage.getItem("innoprog-editor-width");
     return saved ? parseFloat(saved) : 50;
   });
+  const [taskPanelWidth, setTaskPanelWidth] = useState<number>(() => {
+    const saved = localStorage.getItem("innoprog-task-panel-width");
+    return saved ? parseFloat(saved) : 38;
+  });
 
   const { onOpen, onOpenChange, isOpen, onClose } = useDisclosure();
 
@@ -547,6 +551,11 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     localStorage.setItem("innoprog-editor-width", newWidth.toString());
   }, []);
 
+  const handleTaskPanelResize = useCallback((newWidth: number) => {
+    setTaskPanelWidth(newWidth);
+    localStorage.setItem("innoprog-task-panel-width", newWidth.toString());
+  }, []);
+
   useEffect(() => {
     const wasHtmlMode = wasHtmlModeRef.current;
 
@@ -603,6 +612,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
     return isAutoHtmlTemplateActive ? DEFAULT_HTML_TEMPLATE : "";
   }, [code, isAutoHtmlTemplateActive, isHtmlMode]);
+  const desktopTaskMode = Boolean(taskId && task && !isHtmlMode);
 
   return (
     <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden">
@@ -668,40 +678,64 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         />
       )}
 
-      <TaskDescription task={task} hideTopSpacing={isEmbeddedApp} />
-
-      <main className="flex-1 overflow-hidden">
-        <div className="h-full flex flex-col md:flex-row">
-        <CodeEditorSection
-          code={code}
-          setCode={handleCodeChange}
-          language={language}
-          currentAnswer={currentAnswer}
+      <div
+        className={`flex-1 min-h-0 overflow-hidden ${
+          desktopTaskMode ? "flex flex-col md:flex-row" : "flex flex-col"
+        }`}
+        data-testid={desktopTaskMode ? "desktop-task-workspace" : undefined}
+      >
+        <TaskDescription
           task={task}
-            setCurrentCode={setCurrentCode}
-            activeTab={activeTab}
-            webSocketData={memoizedWebSocketData}
-            handleLanguageChange={handleLanguageChange}
-            width={editorWidth}
-          />
+          hideTopSpacing={isEmbeddedApp}
+          desktopSidebar={desktopTaskMode}
+          desktopWidth={taskPanelWidth}
+        />
 
+        {desktopTaskMode && (
           <Resizer
-            onResize={handleResize}
-            minSize={20}
-            maxSize={80}
+            onResize={handleTaskPanelResize}
+            minSize={25}
+            maxSize={60}
           />
+        )}
 
-          <OutputSection
-            output={output}
-            inputData={runInputData}
-            status={status}
-            activeTab={activeTab}
-            language={language}
-            htmlPreview={htmlPreviewContent}
-            width={100 - editorWidth}
-          />
-        </div>
-      </main>
+        <main className="flex-1 min-w-0 min-h-0 overflow-hidden">
+          <div className="h-full flex flex-col md:flex-row">
+            <CodeEditorSection
+              code={code}
+              setCode={handleCodeChange}
+              language={language}
+              currentAnswer={currentAnswer}
+              task={task}
+              setCurrentCode={setCurrentCode}
+              activeTab={activeTab}
+              webSocketData={memoizedWebSocketData}
+              handleLanguageChange={handleLanguageChange}
+              width={editorWidth}
+              desktopSinglePane={desktopTaskMode}
+            />
+
+            {!desktopTaskMode && (
+              <Resizer
+                onResize={handleResize}
+                minSize={20}
+                maxSize={80}
+              />
+            )}
+
+            <OutputSection
+              output={output}
+              inputData={runInputData}
+              status={status}
+              activeTab={activeTab}
+              language={language}
+              htmlPreview={htmlPreviewContent}
+              width={100 - editorWidth}
+              desktopSinglePane={desktopTaskMode}
+            />
+          </div>
+        </main>
+      </div>
 
       <Footer
         status={status}
@@ -713,6 +747,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         onSubmitCheck={onSendCheck}
         setActiveTab={setActiveTab}
         setStatus={setStatus}
+        desktopTaskMode={desktopTaskMode}
       />
     </div>
   );

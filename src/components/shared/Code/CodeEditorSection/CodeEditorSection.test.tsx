@@ -70,4 +70,22 @@ describe("CodeEditorSection", () => {
     );
     expect(mockedEditor.mock.calls[0][0].disabled).toBe(false);
   });
+
+  it("removes the editor from the desktop task result pane", () => {
+    const { container } = render(
+      <CodeEditorSection
+        code="print(1)"
+        setCode={jest.fn()}
+        language="py"
+        currentAnswer={null}
+        task={{ answers: [{}] } as any}
+        activeTab="output"
+        setCurrentCode={jest.fn()}
+        handleLanguageChange={jest.fn()}
+        desktopSinglePane
+      />,
+    );
+    expect(container.firstElementChild).toHaveClass("hidden");
+    expect(container.firstElementChild).toHaveStyle("width: 100%");
+  });
 });

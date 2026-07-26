@@ -208,4 +208,20 @@ describe("TaskDescription component", () => {
 		rerender(<TaskDescription task={null} />);
 		expect(screen.queryByText("prefix")).toBeNull();
 	});
+
+	it("uses a full-height desktop sidebar without the horizontal resize handle", () => {
+		const { container } = render(
+			<TaskDescription
+				task={{ description: "условие", answers: [{}] } as any}
+				desktopSidebar
+				desktopWidth={38}
+			/>
+		);
+		const shell = container.querySelector(".task-description-shell");
+		expect(shell).toHaveClass("task-description-shell--sidebar");
+		expect(shell).toHaveStyle("--task-panel-width: 38%");
+		expect(
+			container.querySelector(".task-description-row-resizer")
+		).toBeInTheDocument();
+	});
 });
