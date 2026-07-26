@@ -19,6 +19,7 @@ describe("IDE API", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clearPlatformAccessSession();
+    sessionStorage.clear();
     window.history.replaceState({}, "", "/");
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -117,6 +118,22 @@ describe("IDE API", () => {
       }),
     );
     expect(window.location.hash).toBe("");
+  });
+
+  it("retains a launch code and browser nonce when exchange transport fails", async () => {
+    window.location.hash = "launch_code=retryable-code&target_service=ide";
+    global.fetch = jest.fn().mockRejectedValueOnce(new TypeError("Load failed"));
+
+    await expect(api.getTask("1", "42")).rejects.toThrow("Load failed");
+
+    expect(window.location.hash).toContain("launch_code=retryable-code");
+    const stored = JSON.parse(
+      sessionStorage.getItem("innoprog:ide:launch-nonce") || "{}",
+    );
+    expect(stored).toEqual({
+      fingerprint: expect.any(String),
+      nonce: expect.any(String),
+    });
   });
 
   it("does not retry non-authentication task failures", async () => {

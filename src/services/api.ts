@@ -56,11 +56,45 @@ function getLocalTaskPreview(taskId: string): Task | null {
 let platformAccessToken = "";
 let platformSessionPromise: Promise<string> | null = null;
 let launchBrowserNonce = "";
+let launchCodeFingerprint = "";
+const LAUNCH_NONCE_STORAGE_KEY = "innoprog:ide:launch-nonce";
 
-function getLaunchBrowserNonce(): string {
-	if (!launchBrowserNonce) {
+function fingerprintLaunchCode(launchCode: string): string {
+	let hash = 2166136261;
+	for (const character of launchCode) {
+		hash ^= character.charCodeAt(0);
+		hash = Math.imul(hash, 16777619);
+	}
+	return (hash >>> 0).toString(36);
+}
+
+function getLaunchBrowserNonce(launchCode: string): string {
+	const fingerprint = fingerprintLaunchCode(launchCode);
+	if (launchBrowserNonce && launchCodeFingerprint === fingerprint) {
+		return launchBrowserNonce;
+	}
+	try {
+		const stored = JSON.parse(sessionStorage.getItem(LAUNCH_NONCE_STORAGE_KEY) || "{}");
+		if (stored.fingerprint === fingerprint && typeof stored.nonce === "string" && stored.nonce) {
+			launchBrowserNonce = stored.nonce;
+			launchCodeFingerprint = fingerprint;
+			return launchBrowserNonce;
+		}
+	} catch {
+		sessionStorage.removeItem(LAUNCH_NONCE_STORAGE_KEY);
+	}
+	if (!launchBrowserNonce || launchCodeFingerprint !== fingerprint) {
 		launchBrowserNonce = globalThis.crypto?.randomUUID?.()
 			|| `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+		launchCodeFingerprint = fingerprint;
+		try {
+			sessionStorage.setItem(
+				LAUNCH_NONCE_STORAGE_KEY,
+				JSON.stringify({ fingerprint, nonce: launchBrowserNonce }),
+			);
+		} catch {
+			// Same-page retries remain safe when storage is unavailable.
+		}
 	}
 	return launchBrowserNonce;
 }
@@ -77,7 +111,7 @@ async function restorePlatformSession(): Promise<string> {
 		const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
 		const launchCode = String(fragment.get("launch_code") || "").trim();
 		const incoming = String(fragment.get("platform_auth") || fragment.get("auth") || "").trim();
-		if (launchCode || incoming) {
+		const clearIncomingCredential = () => {
 			fragment.delete("launch_code");
 			fragment.delete("target_service");
 			fragment.delete("platform_auth");
@@ -88,7 +122,7 @@ async function restorePlatformSession(): Promise<string> {
 				"",
 				`${window.location.pathname}${window.location.search}${suffix ? `#${suffix}` : ""}`,
 			);
-		}
+		};
 		const endpoint = launchCode
 			? "/platform/session/launch/exchange"
 			: (incoming ? "/platform/session/magic-link/exchange" : "/platform/session/refresh");
@@ -102,7 +136,7 @@ async function restorePlatformSession(): Promise<string> {
 					? JSON.stringify({
 						launch_code: launchCode,
 						target_service: "ide",
-						browser_nonce: getLaunchBrowserNonce(),
+						browser_nonce: getLaunchBrowserNonce(launchCode),
 					})
 					: (incoming ? JSON.stringify({ auth: incoming }) : undefined),
 			},
@@ -110,6 +144,9 @@ async function restorePlatformSession(): Promise<string> {
 		if (!response.ok) return "";
 		const payload = await response.json();
 		platformAccessToken = String(payload?.access_token || "").trim();
+		if (platformAccessToken && (launchCode || incoming)) {
+			clearIncomingCredential();
+		}
 		return platformAccessToken;
 	})().finally(() => {
 		platformSessionPromise = null;
