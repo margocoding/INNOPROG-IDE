@@ -20,6 +20,11 @@ const BASE_API = axios.create({
 let platformAccessToken = "";
 let platformSessionPromise: Promise<string> | null = null;
 
+export function clearPlatformAccessSession(): void {
+	platformAccessToken = "";
+	platformSessionPromise = null;
+}
+
 async function restorePlatformSession(): Promise<string> {
 	if (platformAccessToken) return platformAccessToken;
 	if (platformSessionPromise) return platformSessionPromise;
@@ -91,12 +96,26 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}) {
 
 export const api = {
 	async getTask(taskId: string, clientId: string): Promise<Task> {
-		const response = await axios.get(`https://api.innoprog.ru/task/${taskId}`, {
-			params: { client_id: clientId },
-			headers: await protectedTaskHeaders(),
-			withCredentials: true,
-		});
-		return response.data;
+		try {
+			const headers = await protectedTaskHeaders();
+			const response = await axios.get(`https://api.innoprog.ru/task/${taskId}`, {
+				params: { client_id: clientId },
+				headers,
+				withCredentials: true,
+			});
+			return response.data;
+		} catch (error: any) {
+			if (error?.response?.status !== 401) throw error;
+			clearPlatformAccessSession();
+			const headers = await protectedTaskHeaders();
+			if (!headers.Authorization && !headers["X-Telegram-Init-Data"]) throw error;
+			const response = await axios.get(`https://api.innoprog.ru/task/${taskId}`, {
+				params: { client_id: clientId },
+				headers,
+				withCredentials: true,
+			});
+			return response.data;
+		}
 	},
 
 	async checkCode(

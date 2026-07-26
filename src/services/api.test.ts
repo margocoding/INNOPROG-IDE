@@ -1,5 +1,5 @@
 import axios from "axios";
-import { api } from "./api";
+import { api, clearPlatformAccessSession } from "./api";
 
 jest.mock("axios", () => {
   const post = jest.fn();
@@ -18,6 +18,8 @@ const mockedAxios = axios as jest.Mocked<typeof axios> & { __post: jest.Mock };
 describe("IDE API", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearPlatformAccessSession();
+    window.history.replaceState({}, "", "/");
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ access_token: "short-access-token" }),
@@ -35,6 +37,72 @@ describe("IDE API", () => {
         headers: { Authorization: "Bearer short-access-token" },
       }),
     );
+  });
+
+  it("silently refreshes the cookie session and retries a task after access-token expiry", async () => {
+    mockedAxios.get
+      .mockRejectedValueOnce({ response: { status: 401 } })
+      .mockResolvedValueOnce({ data: { id: 1, title: "Recovered task" } });
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: "launch-access-token" }),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: "refreshed-access-token" }),
+      } as any);
+    window.location.hash = "launch_code=one-time-code&target_service=ide";
+
+    await expect(api.getTask("1", "42")).resolves.toEqual({
+      id: 1,
+      title: "Recovered task",
+    });
+
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      "https://api.innoprog.ru/platform/session/launch/exchange",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify({
+          launch_code: "one-time-code",
+          target_service: "ide",
+        }),
+      }),
+    );
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      "https://api.innoprog.ru/platform/session/refresh",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+      }),
+    );
+    expect(mockedAxios.get).toHaveBeenNthCalledWith(
+      1,
+      "https://api.innoprog.ru/task/1",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer launch-access-token" },
+      }),
+    );
+    expect(mockedAxios.get).toHaveBeenNthCalledWith(
+      2,
+      "https://api.innoprog.ru/task/1",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer refreshed-access-token" },
+      }),
+    );
+    expect(window.location.hash).toBe("");
+  });
+
+  it("does not retry non-authentication task failures", async () => {
+    const failure = { response: { status: 500 } };
+    mockedAxios.get.mockRejectedValueOnce(failure);
+
+    await expect(api.getTask("1", "42")).rejects.toBe(failure);
+    expect(mockedAxios.get).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("checks, runs and submits code through the configured client", async () => {
