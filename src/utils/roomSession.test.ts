@@ -1,8 +1,13 @@
-import { readRoomSessionBootstrap, saveRoomSession } from "./roomSession";
+import {
+  clearRoomSessionToken,
+  readRoomSessionBootstrap,
+  saveRoomSession,
+} from "./roomSession";
 
 describe("room session bootstrap", () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    clearRoomSessionToken("room-1");
     window.history.replaceState({}, "", "/");
   });
 
@@ -27,5 +32,6 @@ describe("room session bootstrap", () => {
       telegramId: "42", roomToken: "secret-token", launchCode: null,
     });
     expect(window.localStorage.getItem("innoprog-room-token:room-1")).toBeNull();
+    expect(window.sessionStorage.getItem("innoprog-room-token:room-1")).toBeNull();
   });
 });

@@ -16,17 +16,23 @@ jest.mock("axios", () => {
 const mockedAxios = axios as jest.Mocked<typeof axios> & { __post: jest.Mock };
 
 describe("IDE API", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ access_token: "short-access-token" }),
+    } as any);
+  });
 
   it("loads tasks", async () => {
     mockedAxios.get.mockResolvedValue({ data: { id: 1 } });
-    window.location.hash = "platform_auth=signed-token";
+    window.location.hash = "launch_code=one-time-code&target_service=ide";
     await expect(api.getTask("1", "42")).resolves.toEqual({ id: 1 });
     expect(mockedAxios.get).toHaveBeenCalledWith(
       "https://api.innoprog.ru/task/1",
       expect.objectContaining({
         params: { client_id: "42" },
-        headers: { "X-Platform-Auth": "signed-token" },
+        headers: { Authorization: "Bearer short-access-token" },
       }),
     );
   });
@@ -46,7 +52,7 @@ describe("IDE API", () => {
       result: false, status: 422,
     });
     expect(post.mock.calls[3][2].headers).toEqual(expect.objectContaining({
-      "X-Platform-Auth": "signed-token",
+      Authorization: "Bearer short-access-token",
     }));
   });
 

@@ -4,16 +4,14 @@ export interface RoomSessionBootstrap {
   launchCode: string | null;
 }
 
-const tokenKey = (roomId: string) => `innoprog-room-token:${roomId}`;
-const userKey = (roomId: string) => `innoprog-room-user:${roomId}`;
+const roomSessions = new Map<string, { telegramId: string; roomToken: string }>();
 
 export function saveRoomSession(roomId: string, telegramId: string, roomToken: string): void {
-  window.sessionStorage.setItem(tokenKey(roomId), roomToken);
-  window.sessionStorage.setItem(userKey(roomId), telegramId);
+  roomSessions.set(roomId, { telegramId, roomToken });
 }
 
 export function clearRoomSessionToken(roomId: string): void {
-  window.sessionStorage.removeItem(tokenKey(roomId));
+  roomSessions.delete(roomId);
 }
 
 export function readRoomSessionBootstrap(roomId: string): RoomSessionBootstrap {
@@ -35,10 +33,11 @@ export function readRoomSessionBootstrap(roomId: string): RoomSessionBootstrap {
   const sanitizedFragment = fragment.toString();
   url.hash = sanitizedFragment ? `#${sanitizedFragment}` : "";
   window.history.replaceState(window.history.state, "", url.toString());
+  const memorySession = roomSessions.get(roomId);
 
   return {
-    telegramId: legacyTelegramId || window.sessionStorage.getItem(userKey(roomId)),
-    roomToken: legacyToken || window.sessionStorage.getItem(tokenKey(roomId)),
+    telegramId: legacyTelegramId || memorySession?.telegramId || null,
+    roomToken: legacyToken || memorySession?.roomToken || null,
     launchCode,
   };
 }

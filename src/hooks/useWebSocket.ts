@@ -238,6 +238,7 @@ export const useWebSocket = ({
                 `${getRoomApiBase(socketUrlRef.current)}/${encodeURIComponent(currentRoomId)}/${launchCode ? "launch" : "token"}`,
                 {
                     method: "POST",
+                    credentials: "include",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(launchCode
                         ? { launchCode }

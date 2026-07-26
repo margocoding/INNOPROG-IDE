@@ -231,7 +231,7 @@ describe("useWebSocket", () => {
     expect(result.current.isConnected).toBe(false);
   });
 
-  it("requests and persists an anonymous room token before joining", async () => {
+  it("requests an anonymous room token without persisting the secret", async () => {
     const socket = createSocket();
     mockedIo.mockReturnValue(socket);
     global.fetch = jest.fn().mockResolvedValue({
@@ -255,10 +255,10 @@ describe("useWebSocket", () => {
     });
     expect(global.fetch).toHaveBeenCalledWith(
       "https://rooms.test/api/room/room-1/token",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({ method: "POST", credentials: "include" }),
     );
     expect(localStorage.getItem("innoprog-room-client-id:room-1")).toBe("i12345");
-    expect(sessionStorage.getItem("innoprog-room-token:room-1")).toBe("new-token");
+    expect(sessionStorage.getItem("innoprog-room-token:room-1")).toBeNull();
     expect(window.location.href).not.toContain("new-token");
     expect(socket.emit).toHaveBeenCalledWith("join-room", expect.objectContaining({
       telegramId: "i12345", roomToken: "new-token",
