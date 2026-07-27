@@ -48,7 +48,6 @@ const StartFormModal: React.FC<IProps> = ({
         <ModalBody>
           <Input
             onKeyUp={(e) => {
-              console.log(e);
               if (e.key === "Enter") {
                 onSubmit();
               }

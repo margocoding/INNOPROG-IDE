@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../services/api";
 import { Answer, Language, Task, TaskAnswerCheckRequest } from "../types/task";
+import { postToParent } from "../utils/parentMessaging";
 
 interface UseCodeExecutionProps {
 	currentAnswer: Answer | null;
@@ -184,21 +185,18 @@ export const useCodeExecution = ({
 
 				if (result.result) {
 					setSubmitResult("success");
-					window.parent.postMessage(
-						{
-							source: "innoprog-ide",
-							type: "task-completed",
-							event: "check-answer-success",
-							taskId: Number(taskId),
-							result: true,
-							checked: true,
-							completed: true,
-							taskCompleted: true,
-							status: "success",
-							message: result.message,
-						},
-						"*"
-					);
+					postToParent({
+						source: "innoprog-ide",
+						type: "task-completed",
+						event: "check-answer-success",
+						taskId: Number(taskId),
+						result: true,
+						checked: true,
+						completed: true,
+						taskCompleted: true,
+						status: "success",
+						message: result.message,
+					});
 					return;
 				}
 

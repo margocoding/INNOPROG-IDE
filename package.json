@@ -21,75 +21,35 @@
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^5.14.1",
     "@testing-library/user-event": "^13.2.1",
-    "@types/jest": "^27.0.1",
-    "@types/node": "^16.7.13",
+    "@types/node": "^22.19.15",
     "@types/prismjs": "^1.26.5",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@types/react-icons": "^3.0.0",
-    "axios": "^1.7.9",
+    "axios": "^1.18.1",
     "framer-motion": "^11.18.1",
     "prismjs": "^1.29.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^7.1.1",
-    "react-scripts": "5.0.1",
+    "react-router-dom": "7.18.1",
     "react-toastify": "^11.0.5",
-    "socket.io-client": "^4.8.1",
-    "typescript": "^4.4.2",
+    "socket.io-client": "^4.8.3",
+    "typescript": "^5.9.3",
     "web-vitals": "^2.1.0",
     "y-codemirror.next": "^0.3.5",
     "y-websocket": "^3.0.0",
     "yjs": "^13.6.27"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
+    "start": "vite",
+    "build": "tsc --noEmit -p tsconfig.build.json && vite build && node scripts/test-built-css.mjs",
     "test:proxy": "node scripts/test-proxy-contracts.mjs",
-    "test": "react-scripts test",
-    "test:unit": "react-scripts test --watchAll=false --runInBand",
+    "test": "jest",
+    "test:unit": "jest --runInBand",
     "test:contracts": "npm run test:proxy",
-    "test:integration": "react-scripts test --watchAll=false --runInBand",
-    "test:coverage": "react-scripts test --watchAll=false --runInBand --coverage --coverageProvider=v8 && node scripts/write-coverage-metadata.mjs",
-    "test:ci": "npm run test:contracts && npm run test:coverage -- --ci && npm run build",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "jest": {
-    "moduleNameMapper": {
-      "^react-router-dom$": "<rootDir>/src/test-mocks/react-router-dom.ts"
-    },
-    "transformIgnorePatterns": [
-      "node_modules/(?!(yjs|lib0|y-protocols|y-codemirror.next|@codemirror|@marijn|style-mod|w3c-keyname|crelt)/)"
-    ],
-    "collectCoverageFrom": [
-      "src/**/*.{ts,tsx}",
-      "!src/**/*.d.ts",
-      "!src/**/*.test.{ts,tsx}",
-      "!src/index.tsx",
-      "!src/reportWebVitals.ts",
-      "!src/setupTests.ts",
-      "!src/test-mocks/**"
-    ],
-    "coverageThreshold": {
-      "global": {
-        "statements": 80,
-        "lines": 80,
-        "functions": 78,
-        "branches": 67
-      }
-    },
-    "coverageReporters": [
-      "text",
-      "html",
-      "lcov",
-      "json-summary"
-    ]
+    "test:integration": "jest --runInBand",
+    "test:coverage": "jest --runInBand --coverage --coverageProvider=v8 && node scripts/write-coverage-metadata.mjs",
+    "test:ci": "npm run test:contracts && npm run test:coverage -- --ci && npm run build"
   },
   "browserslist": {
     "production": [
@@ -104,8 +64,20 @@
     ]
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.28.6",
+    "@babel/preset-react": "^7.28.5",
+    "@babel/preset-typescript": "^7.28.5",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
-    "tailwindcss": "^3.4.17"
+    "@types/jest": "^30.0.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "autoprefixer": "^10.4.27",
+    "babel-jest": "^30.4.1",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
+    "tailwindcss": "^3.4.17",
+    "vite": "^7.3.6",
+    "whatwg-fetch": "^3.6.20"
   }
 }

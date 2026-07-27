@@ -29,7 +29,6 @@ const root = ReactDOM.createRoot(
 export function isDesktop() {
   const userAgent = navigator.userAgent.toLowerCase();
 
-  console.log(userAgent)
   return (
     userAgent.includes("windows") ||
     userAgent.includes("macintosh")

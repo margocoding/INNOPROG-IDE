@@ -118,7 +118,6 @@ const Header: React.FC<IProps> = ({
   }, [studentRoomLink]);
 
     if (!isDesktop() && telegramInitData && Object.keys(telegramInitData).length) {
-        console.log(telegramInitData);
         try {
             window.Telegram?.WebApp?.expand?.();
             window.Telegram?.WebApp?.requestFullscreen?.();

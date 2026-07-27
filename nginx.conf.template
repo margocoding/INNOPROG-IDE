@@ -24,6 +24,12 @@ server {
     try_files $uri =404;
   }
 
+  location /assets/ {
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    add_header Referrer-Policy "no-referrer" always;
+    try_files $uri =404;
+  }
+
   location /bot-api/check/ {
     add_header Referrer-Policy "no-referrer" always;
     rewrite ^/bot-api/(.*)$ /$1 break;

@@ -30,6 +30,8 @@ services:
 
   redis:
     image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    labels:
+      org.opencontainers.image.revision: redis-7.4.9-6ab0b6e73817
     container_name: ide-redis-1
     command:
       - redis-server
@@ -54,6 +56,11 @@ services:
     build:
       context: /opt/innoprog/apps/INNOPROG-IDE
       dockerfile: Dockerfile
+      args:
+        REACT_APP_BOT_API_URL: ${REACT_APP_BOT_API_URL:-/bot-api}
+        REACT_APP_WS_URL: ${REACT_APP_WS_URL:-https://ide.innoprog.ru}
+        REACT_APP_PARENT_APP_ORIGIN: ${REACT_APP_PARENT_APP_ORIGIN:-https://app.innoprog.ru}
+        REACT_APP_PARENT_POST_MESSAGE_ALLOWED_ORIGINS: ${REACT_APP_PARENT_POST_MESSAGE_ALLOWED_ORIGINS:-https://app.innoprog.ru,https://api.innoprog.ru,https://cabinet.innoprog.ru}
       labels:
         org.opencontainers.image.revision: ${FRONTEND_IMAGE_REVISION:?FRONTEND_IMAGE_REVISION is required}
     container_name: ide-frontend-1

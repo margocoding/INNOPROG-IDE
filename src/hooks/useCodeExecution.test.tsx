@@ -3,6 +3,8 @@ import { api } from "../services/api";
 import { Language } from "../types/task";
 import { useCodeExecution } from "./useCodeExecution";
 
+const mockPostToParent = jest.fn();
+
 jest.mock("../services/api", () => ({
   api: {
     runCode: jest.fn(),
@@ -10,6 +12,9 @@ jest.mock("../services/api", () => ({
     submitCode: jest.fn(),
     checkTaskAnswer: jest.fn(),
   },
+}));
+jest.mock("../utils/parentMessaging", () => ({
+  postToParent: (...args: unknown[]) => mockPostToParent(...args),
 }));
 
 const mockedApi = api as jest.Mocked<typeof api>;
@@ -173,7 +178,6 @@ describe("useCodeExecution", () => {
 
   it("checks embedded answers and notifies the parent on success", async () => {
     mockedApi.checkTaskAnswer.mockResolvedValue({ result: true, message: "Done", status: 200 });
-    const postMessage = jest.spyOn(window.parent, "postMessage").mockImplementation();
     const { result, callbacks } = setup({
       taskId: "9", answer_id: "a", clientId: "77", isInIframe: true,
     });
@@ -182,9 +186,8 @@ describe("useCodeExecution", () => {
       client_id: "77", answer_id: "a", program: "print(1)",
     });
     expect(callbacks.setSubmitMessage).toHaveBeenCalledWith("Done");
-    expect(postMessage).toHaveBeenCalledWith(
+    expect(mockPostToParent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "task-completed", taskId: 9 }),
-      "*",
     );
   });
 

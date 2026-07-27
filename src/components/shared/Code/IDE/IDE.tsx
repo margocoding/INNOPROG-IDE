@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { useCodeExecution } from "../../../../hooks/useCodeExecution";
 import { api } from "../../../../services/api";
 import { Answer, Language, Task } from "../../../../types/task";
+import { postToParent } from "../../../../utils/parentMessaging";
 
 import { Socket } from "socket.io-client";
 import CodeEditorSection from "../CodeEditorSection/CodeEditorSection";
@@ -167,17 +168,14 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
 
     const timeoutId = window.setTimeout(() => {
-      window.parent.postMessage(
-        {
-          source: "innoprog-ide",
-          type: "ide-ready",
-          event: "app-rendered",
-          taskId: taskId ? Number(taskId) : null,
-          language,
-          ready: true,
-        },
-        "*"
-      );
+      postToParent({
+        source: "innoprog-ide",
+        type: "ide-ready",
+        event: "app-rendered",
+        taskId: taskId ? Number(taskId) : null,
+        language,
+        ready: true,
+      });
     }, 0);
 
     return () => {
@@ -322,7 +320,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         savedUsername &&
         (!currentMember?.username || currentMember.username.trim() === "")
       ) {
-        console.log("render");
         webSocketData?.sendEditMember?.(savedUsername);
       }
     }
@@ -379,7 +376,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           });
         }
       } catch (error) {
-        console.error("Failed to load task:", error);
+        console.error("Failed to load task");
       }
     };
 
@@ -414,7 +411,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
             setCodeSource("api");
           }
         } catch (error) {
-          console.error("Failed to load answer code:", error);
+          console.error("Failed to load answer code");
         }
       } else if (taskId && !answer_id && codeSource === "none") {
         setCode("");
@@ -508,8 +505,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   const memoizedWebSocketData = useMemo(() => {
     if (!webSocketData) return undefined;
-
-    console.log(webSocketData.isConnected);
 
     return {
       sendSelection: webSocketData.sendSelection,

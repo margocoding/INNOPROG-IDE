@@ -5,6 +5,8 @@ const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), "
 
 const nginx = read("nginx.conf.template");
 const dockerfile = read("Dockerfile");
+const edgeCompose = read("deploy/docker-compose.edge.yml");
+const vite = read("vite.config.ts");
 const api = read("src/services/api.ts");
 
 const checkLocation = nginx.indexOf("location /bot-api/check/");
@@ -55,6 +57,41 @@ assert.match(
   api,
   /const API_URL = \(process\.env\.REACT_APP_BOT_API_URL \|\| "\/bot-api"\)/,
   "frontend must call relative /bot-api so nginx owns backend routing",
+);
+for (const path of ["/bot-api/check", "/bot-api/code/run"]) {
+  const start = vite.indexOf(`'${path}': {`);
+  assert.ok(start >= 0, `${path} development proxy must exist`);
+  const block = vite.slice(start, vite.indexOf("},", start) + 2);
+  assert.ok(
+    block.includes("target: 'https://ide.innoprog.ru'") &&
+      block.includes("changeOrigin: true"),
+    `${path} development proxy must preserve the production Host contract`,
+  );
+}
+for (const name of [
+  "REACT_APP_BOT_API_URL",
+  "REACT_APP_WS_URL",
+  "REACT_APP_PARENT_APP_ORIGIN",
+  "REACT_APP_PARENT_POST_MESSAGE_ALLOWED_ORIGINS",
+]) {
+  assert.ok(
+    dockerfile.includes(`ARG ${name}=`),
+    `Dockerfile must accept ${name} at build time`,
+  );
+  assert.ok(
+    edgeCompose.includes(`${name}: \${${name}:-`),
+    `edge compose must pass ${name} into the frontend build`,
+  );
+}
+assert.doesNotMatch(
+  read("src/components/shared/Code/IDE/IDE.tsx"),
+  /postMessage\([\s\S]*?"\*"/,
+  "IDE must never send parent-window messages with a wildcard target",
+);
+assert.doesNotMatch(
+  read("src/hooks/useCodeExecution.ts"),
+  /postMessage\([\s\S]*?"\*"/,
+  "code execution must never send parent-window messages with a wildcard target",
 );
 
 for (const [name, start] of [
