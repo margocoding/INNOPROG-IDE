@@ -65,11 +65,11 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     desktopPaneSize = 100,
   }) => {
     const selectedAnswer = currentAnswer ?? task?.answers?.[0] ?? null;
-    const hasMultipleAnswers = (task?.answers?.length || 0) > 1;
-    const visualCodeBefore = hasMultipleAnswers
+    const isPasteTask = getTaskType(task) === "paste";
+    const visualCodeBefore = isPasteTask
       ? selectedAnswer?.code_before || ""
       : "";
-    const visualCodeAfter = hasMultipleAnswers && selectedAnswer?.code_after
+    const visualCodeAfter = isPasteTask && selectedAnswer?.code_after
       ? `${selectedAnswer.code_after}\n\n`
       : "";
 

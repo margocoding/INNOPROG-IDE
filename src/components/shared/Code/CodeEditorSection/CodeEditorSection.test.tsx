@@ -45,6 +45,34 @@ describe("CodeEditorSection", () => {
     });
   });
 
+  it("keeps the public function call visible for a single-answer paste payload", () => {
+    render(
+      <CodeEditorSection
+        code="return 1"
+        setCode={jest.fn()}
+        language="py"
+        currentAnswer={null}
+        task={{
+          task_type: "paste",
+          answers: [
+            {
+              code_before: "",
+              code_after: "print(f('public'))",
+            },
+          ],
+        } as any}
+        activeTab="editor"
+        setCurrentCode={jest.fn()}
+        handleLanguageChange={jest.fn()}
+      />,
+    );
+
+    expect(mockedEditor.mock.calls[0][0]).toMatchObject({
+      codeBefore: "",
+      codeAfter: "print(f('public'))\n\n",
+    });
+  });
+
   it("enables teachers and uses the selected answer", () => {
     const answer = { code_before: "b", code_after: "a" } as any;
     render(

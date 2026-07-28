@@ -122,6 +122,48 @@ describe("useCodeExecution", () => {
     );
   });
 
+  it("runs a paste task with its public call but submits only editable code", async () => {
+    mockedApi.runCode.mockResolvedValue({
+      result: true,
+      output: "k L",
+      input: "",
+    } as any);
+    mockedApi.submitCode.mockResolvedValue({} as any);
+    const answer = {
+      code_before: "",
+      code_after: 'print(f("kpVxLVsstFa", "Lkjm"))',
+      output: "k L",
+    };
+    const { result } = setup({
+      taskId: "10046",
+      answer_id: "429",
+      code: "def f(first, second):\n    return 'k L'",
+      currentAnswer: answer,
+      task: {
+        task_type: "paste",
+        answers: [answer],
+      },
+    });
+
+    await act(() => result.current.handleRunCode());
+
+    expect(mockedApi.runCode).toHaveBeenCalledWith(
+      expect.objectContaining({
+        program:
+          "\ndef f(first, second):\n    return 'k L'\nprint(f(\"kpVxLVsstFa\", \"Lkjm\"))",
+      }),
+      Language.PY,
+    );
+
+    await act(() => result.current.onSendCheck());
+
+    expect(mockedApi.submitCode).toHaveBeenCalledWith(
+      expect.objectContaining({
+        program: "def f(first, second):\n    return 'k L'",
+      }),
+    );
+  });
+
   it("reports failed checks and execution exceptions on the output tab", async () => {
     Object.defineProperty(window, "innerWidth", { value: 500, configurable: true });
     mockedApi.checkCode.mockResolvedValue({

@@ -190,7 +190,7 @@ describe("TaskDescription component", () => {
 		fireEvent.mouseUp(document);
 	});
 
-	it("uses the public function call for paste tasks and hides absent tasks", () => {
+	it("keeps paste wrappers in the editor instead of duplicating them in the description", () => {
 		const { rerender } = render(
 			<TaskDescription
 				task={{
@@ -199,7 +199,8 @@ describe("TaskDescription component", () => {
 					answers: [
 						{
 							hint: "f('first', 'second')",
-							code_before: "private setup",
+							code_before: "public setup",
+							code_after: "print(f('first', 'second'))",
 							output: "done",
 						},
 						{},
@@ -208,11 +209,10 @@ describe("TaskDescription component", () => {
 				hideTopSpacing
 			/>
 		);
-		expect(screen.getByText("Входные данные:")).toBeInTheDocument();
-		expect(screen.getByText("f('first', 'second')")).toBeInTheDocument();
-		expect(screen.queryByText("private setup")).toBeNull();
-		rerender(<TaskDescription task={null} />);
+		expect(screen.getByText("public setup")).toBeInTheDocument();
 		expect(screen.queryByText("f('first', 'second')")).toBeNull();
+		rerender(<TaskDescription task={null} />);
+		expect(screen.queryByText("public setup")).toBeNull();
 	});
 
 	it("falls back to code-before for legacy paste payloads without a hint", () => {

@@ -111,7 +111,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	const isPasteTask = getTaskType(task) === "paste";
 	const taskAnswer = task.answers?.[0];
 	const taskInput = isPasteTask
-		? taskAnswer?.hint?.trim() || taskAnswer?.code_before?.trim()
+		? taskAnswer?.code_before?.trim()
 		: taskAnswer?.input?.trim();
 	const hasPublicExample = Boolean(taskInput || taskAnswer?.output?.trim());
 
