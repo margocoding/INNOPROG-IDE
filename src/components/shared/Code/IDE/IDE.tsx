@@ -110,6 +110,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [showStartModal, setShowStartModal] = useState<boolean>(false);
   const [hasJoinedOnce, setHasJoinedOnce] = useState<boolean>(false);
   const [showBlockingLoader, setShowBlockingLoader] = useState<boolean>(true);
+  const [taskDataReady, setTaskDataReady] = useState<boolean>(false);
+  const [initialCodeReady, setInitialCodeReady] = useState<boolean>(false);
   const [isAutoHtmlTemplateActive, setIsAutoHtmlTemplateActive] =
     useState(false);
   const [isAutoBashTemplateActive, setIsAutoBashTemplateActive] =
@@ -118,6 +120,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const roomStateAppliedRef = useRef<boolean>(false);
   const wasHtmlModeRef = useRef(false);
   const wasBashModeRef = useRef(false);
+  const announcedReadyKeyRef = useRef("");
   const [editorWidth, setEditorWidth] = useState<number>(() => {
     const saved = localStorage.getItem("innoprog-editor-width");
     return saved ? parseFloat(saved) : 50;
@@ -161,27 +164,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       return isAppPlatform;
     }
   }, [platform, platforma]);
-
-  useEffect(() => {
-    if (!isEmbeddedApp) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      postToParent({
-        source: "innoprog-ide",
-        type: "ide-ready",
-        event: "app-rendered",
-        taskId: taskId ? Number(taskId) : null,
-        language,
-        ready: true,
-      });
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [isEmbeddedApp, language, taskId]);
 
   const { isRunning, handleRunCode, onSendCheck, setCurrentCode } =
     useCodeExecution({
@@ -364,27 +346,55 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   }, [roomId]);
 
   useEffect(() => {
+    let active = true;
+
     const loadTask = async () => {
+      setTaskDataReady(!taskId);
+      setTask(null);
+      setCurrentAnswer(null);
       if (!taskId) return;
 
       try {
         const taskData = await api.getTask(taskId, clientId);
+        if (!active) return;
         setTask(taskData);
         if (taskData.answers && taskData.answers.length > 0) {
           setCurrentAnswer({
             ...taskData.answers[0],
           });
         }
+        setTaskDataReady(true);
       } catch (error) {
+        if (!active) return;
         console.error("Failed to load task");
+        setTaskDataReady(false);
+        if (isEmbeddedApp) {
+          postToParent({
+            source: "innoprog-ide",
+            type: "ide-load-error",
+            event: "task-load-failed",
+            taskId: Number(taskId),
+            ready: false,
+          });
+        }
       }
     };
 
     loadTask();
-  }, [clientId, taskId]);
+
+    return () => {
+      active = false;
+    };
+  }, [clientId, isEmbeddedApp, taskId]);
+
+  useEffect(() => {
+    setInitialCodeReady(!taskId);
+  }, [answer_id, roomId, taskId]);
 
   // Загрузка кода с приоритетами
   useEffect(() => {
+    let active = true;
+
     const loadCode = async () => {
       // Если есть roomId, ждем сначала загрузки из комнаты
       if (roomId && !roomCodeLoaded) {
@@ -393,6 +403,12 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
       // Если код уже загружен из комнаты, не перезаписываем его
       if (codeSource === "room") {
+        if (active) setInitialCodeReady(true);
+        return;
+      }
+
+      if (codeSource === "api") {
+        if (active) setInitialCodeReady(true);
         return;
       }
 
@@ -412,15 +428,64 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           }
         } catch (error) {
           console.error("Failed to load answer code");
+        } finally {
+          if (active) setInitialCodeReady(true);
         }
       } else if (taskId && !answer_id && codeSource === "none") {
         setCode("");
         setCodeSource("api");
+        if (active) setInitialCodeReady(true);
+      } else if (!taskId) {
+        if (active) setInitialCodeReady(true);
       }
     };
 
     loadCode();
+
+    return () => {
+      active = false;
+    };
   }, [taskId, answer_id, roomId, roomCodeLoaded, codeSource, userId]);
+
+  useEffect(() => {
+    if (!isEmbeddedApp) {
+      return;
+    }
+
+    const readyTaskId = taskId ? Number(taskId) : null;
+    if (
+      taskId &&
+      (!taskDataReady ||
+        !initialCodeReady ||
+        !task ||
+        Number(task.id) !== readyTaskId)
+    ) {
+      return;
+    }
+
+    const readyKey = `${readyTaskId ?? "standalone"}:${answer_id || ""}:${language}`;
+    if (announcedReadyKeyRef.current === readyKey) {
+      return;
+    }
+    announcedReadyKeyRef.current = readyKey;
+
+    postToParent({
+      source: "innoprog-ide",
+      type: "ide-ready",
+      event: "task-rendered",
+      taskId: readyTaskId,
+      language,
+      ready: true,
+    });
+  }, [
+    answer_id,
+    initialCodeReady,
+    isEmbeddedApp,
+    language,
+    task,
+    taskDataReady,
+    taskId,
+  ]);
 
   useEffect(() => {
     const handleRoomStateLoaded = (event: CustomEvent) => {

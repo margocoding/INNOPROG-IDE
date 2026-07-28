@@ -1,11 +1,13 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { api } from "../../../../services/api";
+import { postToParent } from "../../../../utils/parentMessaging";
 import IDE from "./IDE";
 
 const mockHandleRunCode = jest.fn();
 const mockOnSendCheck = jest.fn();
 const mockSendChangeLanguage = jest.fn();
 const mockSendEditMember = jest.fn();
+const mockPostToParent = postToParent as jest.Mock;
 
 jest.mock("@heroui/react", () => ({
   useDisclosure: () => ({
@@ -25,6 +27,9 @@ jest.mock("../../../../hooks/useCodeExecution", () => ({
 }));
 jest.mock("../../../../services/api", () => ({
   api: { getTask: jest.fn(), getSubmitCode: jest.fn() },
+}));
+jest.mock("../../../../utils/parentMessaging", () => ({
+  postToParent: jest.fn(),
 }));
 jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
   __esModule: true,
@@ -150,6 +155,10 @@ describe("IDE", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    Object.defineProperty(window, "self", {
+      configurable: true,
+      value: window,
+    });
     window.history.replaceState({}, "", "/?telegramId=123");
   });
 
@@ -218,6 +227,59 @@ describe("IDE", () => {
     expect(screen.getByTestId("resizer-horizontal")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("resizer-horizontal"));
     expect(localStorage.getItem("innoprog-task-editor-height")).toBe("60");
+  });
+
+  it("announces embedded readiness only after both task and initial code are loaded", async () => {
+    let resolveTask: (value: unknown) => void = () => undefined;
+    let resolveCode: (value: unknown) => void = () => undefined;
+    const taskPromise = new Promise((resolve) => {
+      resolveTask = resolve;
+    });
+    const codePromise = new Promise((resolve) => {
+      resolveCode = resolve;
+    });
+
+    Object.defineProperty(window, "self", {
+      configurable: true,
+      value: {},
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/?telegramId=123&task_id=7&answer_id=a&lang=py&platforma=app",
+    );
+    (api.getTask as jest.Mock).mockReturnValue(taskPromise);
+    (api.getSubmitCode as jest.Mock).mockReturnValue(codePromise);
+
+    render(<IDE telegramId="123" />);
+    expect(mockPostToParent).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveCode({ code: "saved" });
+      await codePromise;
+    });
+    expect(mockPostToParent).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveTask({
+        id: 7,
+        title: "Task",
+        answers: [{ code_before: "", code_after: "" }, {}],
+      });
+      await taskPromise;
+    });
+
+    await waitFor(() => {
+      expect(mockPostToParent).toHaveBeenCalledWith({
+        source: "innoprog-ide",
+        type: "ide-ready",
+        event: "task-rendered",
+        taskId: 7,
+        language: "py",
+        ready: true,
+      });
+    });
+    expect(mockPostToParent).toHaveBeenCalledTimes(1);
   });
 
   it("keeps HTML tasks and standalone IDE in the existing split mode", async () => {
