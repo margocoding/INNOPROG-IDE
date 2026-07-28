@@ -173,6 +173,7 @@ describe("TaskDescription component", () => {
 			<TaskDescription
 				task={{
 					description: "решите задачу",
+					has_multiple_tests: true,
 					answers: [{ input: "1", output: "2" }],
 				} as any}
 			/>
@@ -188,6 +189,25 @@ describe("TaskDescription component", () => {
 		fireEvent.mouseMove(document, { clientY: 310 });
 		expect(outer.style.height).toBe("300px");
 		fireEvent.mouseUp(document);
+	});
+
+	it("does not expose the only test of a regular code task", () => {
+		render(
+			<TaskDescription
+				task={{
+					description: "решите задачу",
+					task_type: "code",
+					has_multiple_tests: false,
+					answers: [{ input: "private input", output: "private output" }],
+				} as any}
+			/>
+		);
+
+		expect(screen.getByText("Решите задачу")).toBeInTheDocument();
+		expect(screen.queryByText("Входные данные:")).toBeNull();
+		expect(screen.queryByText("Выходные данные:")).toBeNull();
+		expect(screen.queryByText("private input")).toBeNull();
+		expect(screen.queryByText("private output")).toBeNull();
 	});
 
 	it("keeps paste wrappers in the editor instead of duplicating them in the description", () => {
@@ -213,6 +233,55 @@ describe("TaskDescription component", () => {
 		expect(screen.queryByText("f('first', 'second')")).toBeNull();
 		rerender(<TaskDescription task={null} />);
 		expect(screen.queryByText("public setup")).toBeNull();
+	});
+
+	it("hides input and output for a paste task with only one test", () => {
+		render(
+			<TaskDescription
+				task={{
+					description: "дополните",
+					task_type: "paste",
+					has_multiple_tests: false,
+					answers: [
+						{
+							code_before: "public setup",
+							code_after: "print(result)",
+							output: "done",
+						},
+					],
+				} as any}
+			/>
+		);
+
+		expect(screen.getByText("Дополните")).toBeInTheDocument();
+		expect(screen.queryByText("Входные данные:")).toBeNull();
+		expect(screen.queryByText("Выходные данные:")).toBeNull();
+		expect(screen.queryByText("public setup")).toBeNull();
+		expect(screen.queryByText("done")).toBeNull();
+	});
+
+	it("keeps the first public example for paste tasks with multiple tests", () => {
+		render(
+			<TaskDescription
+				task={{
+					description: "дополните",
+					task_type: "paste",
+					has_multiple_tests: true,
+					answers: [
+						{
+							code_before: "public setup",
+							code_after: "print(result)",
+							output: "done",
+						},
+					],
+				} as any}
+			/>
+		);
+
+		expect(screen.getByText("Входные данные:")).toBeInTheDocument();
+		expect(screen.getByText("Выходные данные:")).toBeInTheDocument();
+		expect(screen.getByText("public setup")).toBeInTheDocument();
+		expect(screen.getByText("done")).toBeInTheDocument();
 	});
 
 	it("falls back to code-before for legacy paste payloads without a hint", () => {
