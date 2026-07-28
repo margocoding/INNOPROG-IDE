@@ -190,23 +190,43 @@ describe("TaskDescription component", () => {
 		fireEvent.mouseUp(document);
 	});
 
-	it("uses code-before for multi-answer paste tasks and hides absent tasks", () => {
+	it("uses the public function call for paste tasks and hides absent tasks", () => {
 		const { rerender } = render(
 			<TaskDescription
 				task={{
 					description: "дополните",
 					task_type: "paste",
 					answers: [
-						{ code_before: "prefix", output: "done" },
+						{
+							hint: "f('first', 'second')",
+							code_before: "private setup",
+							output: "done",
+						},
 						{},
 					],
 				} as any}
 				hideTopSpacing
 			/>
 		);
-		expect(screen.getByText("prefix")).toBeInTheDocument();
+		expect(screen.getByText("Входные данные:")).toBeInTheDocument();
+		expect(screen.getByText("f('first', 'second')")).toBeInTheDocument();
+		expect(screen.queryByText("private setup")).toBeNull();
 		rerender(<TaskDescription task={null} />);
-		expect(screen.queryByText("prefix")).toBeNull();
+		expect(screen.queryByText("f('first', 'second')")).toBeNull();
+	});
+
+	it("falls back to code-before for legacy paste payloads without a hint", () => {
+		render(
+			<TaskDescription
+				task={{
+					description: "дополните",
+					task_type: "paste",
+					answers: [{ code_before: "legacy prefix", output: "done" }],
+				} as any}
+			/>
+		);
+
+		expect(screen.getByText("legacy prefix")).toBeInTheDocument();
 	});
 
 	it("uses a full-height desktop sidebar without the horizontal resize handle", () => {
