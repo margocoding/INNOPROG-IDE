@@ -704,61 +704,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     return isAutoHtmlTemplateActive ? DEFAULT_HTML_TEMPLATE : "";
   }, [code, isAutoHtmlTemplateActive, isHtmlMode]);
   const desktopTaskMode = Boolean(taskId && task && !isHtmlMode);
-  const syncStatusMessage = useMemo(() => {
-    if (!roomId || !hasJoinedOnce) return null;
-    if (webSocketData?.connectionError) return webSocketData.connectionError;
-    if (webSocketData?.hasDurableStorageError) {
-      return "Не удалось сохранить изменения на устройстве — не закрывайте страницу";
-    }
-    if (webSocketData?.codeSyncState === "waiting-permission") {
-      return "Изменения сохранены на устройстве и ожидают разрешения на редактирование";
-    }
-    if (webSocketData?.isPersistRetrying) {
-      return "Восстанавливаем сохранение изменений";
-    }
-    if (webSocketData?.codeSyncState === "reconnecting") {
-      return "Восстанавливаем связь — изменения сохранены на устройстве";
-    }
-    if (
-      webSocketData?.codeSyncState === "joined" ||
-      webSocketData?.codeSyncState === "synchronizing"
-    ) {
-      return "Синхронизируем изменения";
-    }
-    if (
-      webSocketData?.codeSyncState === "synchronized" &&
-      !webSocketData?.hasPendingCodeChanges &&
-      webSocketData?.showSyncSuccess
-    ) {
-      return "Изменения синхронизированы";
-    }
-    return null;
-  }, [
-    hasJoinedOnce,
-    roomId,
-    webSocketData?.codeSyncState,
-    webSocketData?.connectionError,
-    webSocketData?.hasPendingCodeChanges,
-    webSocketData?.hasDurableStorageError,
-    webSocketData?.isPersistRetrying,
-    webSocketData?.showSyncSuccess,
-  ]);
-  const syncStatusVariant =
-    webSocketData?.connectionError || webSocketData?.hasDurableStorageError
-    ? "error"
-    : webSocketData?.codeSyncState ?? "connecting";
 
   return (
     <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden">
-      {syncStatusMessage && (
-        <div
-          className={`ide-sync-status ide-sync-status--${syncStatusVariant}`}
-          role="status"
-          aria-live="polite"
-        >
-          {syncStatusMessage}
-        </div>
-      )}
       {roomId &&
         !hasJoinedOnce &&
         showBlockingLoader &&

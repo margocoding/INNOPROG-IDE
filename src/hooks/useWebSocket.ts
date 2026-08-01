@@ -21,6 +21,7 @@ const MIN_CONTRAST_WITH_REFERENCE = 1.9;
 const MIN_COLOR_DISTANCE = 95;
 const REMOTE_SYNC_ORIGIN = "remote-websocket";
 const FINAL_CONNECTION_ERROR_DELAY_MS = 120_000;
+const FAST_CODE_EDIT_DELAY_MS = 75;
 
 export type CodeSyncState =
     | "connecting"
@@ -106,9 +107,10 @@ const createSyncSessionId = (): string => {
     return generated.replace(/[^A-Za-z0-9_-]/g, "");
 };
 
-const binaryEquals = (first: Uint8Array, second: Uint8Array): boolean =>
-    first.byteLength === second.byteLength &&
-    first.every((value, index) => value === second[index]);
+const hasYjsUpdateContent = (update: Uint8Array): boolean => {
+    const decoded = Y.decodeUpdate(update);
+    return decoded.structs.length > 0 || decoded.ds.clients.size > 0;
+};
 
 const hslToHex = (h: number, s: number, l: number): string => {
     const saturation = s / 100;
@@ -263,6 +265,12 @@ export const useWebSocket = ({
     const syncRetryTimeoutRef = useRef<number | null>(null);
     const updateRetryTimeoutRef = useRef<number | null>(null);
     const durabilityRetryTimeoutRef = useRef<number | null>(null);
+    const fastCodeEditTimeoutRef = useRef<number | null>(null);
+    const pendingFastCodeEditRef = useRef<Uint8Array | null>(null);
+    const fastCodeEditContextRef = useRef<{
+        roomId: string;
+        generation: number;
+    } | null>(null);
     const syncSuccessTimeoutRef = useRef<number | null>(null);
     const connectionFailureTimeoutRef = useRef<number | null>(null);
     const canUploadCodeRef = useRef(false);
@@ -632,6 +640,80 @@ export const useWebSocket = ({
         [],
     );
 
+    const clearFastCodeEdit = useCallback(() => {
+        if (fastCodeEditTimeoutRef.current !== null) {
+            window.clearTimeout(fastCodeEditTimeoutRef.current);
+            fastCodeEditTimeoutRef.current = null;
+        }
+        pendingFastCodeEditRef.current = null;
+        fastCodeEditContextRef.current = null;
+    }, []);
+
+    const scheduleFastCodeEdit = useCallback(
+        (
+            update: Uint8Array,
+            roomAtEdit: string,
+            generationAtEdit: number,
+        ) => {
+            if (
+                !socketRef.current?.connected ||
+                roomIdRef.current !== roomAtEdit ||
+                syncGenerationRef.current !== generationAtEdit ||
+                !canUploadCodeRef.current ||
+                completedRef.current ||
+                sessionReplacedRef.current
+            ) {
+                return;
+            }
+
+            const activeContext = fastCodeEditContextRef.current;
+            if (
+                activeContext &&
+                (activeContext.roomId !== roomAtEdit ||
+                    activeContext.generation !== generationAtEdit)
+            ) {
+                clearFastCodeEdit();
+            }
+
+            pendingFastCodeEditRef.current = pendingFastCodeEditRef.current
+                ? Y.mergeUpdates([pendingFastCodeEditRef.current, update])
+                : update;
+            if (fastCodeEditTimeoutRef.current !== null) return;
+            fastCodeEditContextRef.current = {
+                roomId: roomAtEdit,
+                generation: generationAtEdit,
+            };
+
+            fastCodeEditTimeoutRef.current = window.setTimeout(() => {
+                fastCodeEditTimeoutRef.current = null;
+                const pendingUpdate = pendingFastCodeEditRef.current;
+                pendingFastCodeEditRef.current = null;
+                fastCodeEditContextRef.current = null;
+                const socket = socketRef.current;
+                const telegramId = getCurrentTelegramId();
+                if (
+                    !pendingUpdate ||
+                    !socket?.connected ||
+                    !telegramId ||
+                    roomIdRef.current !== roomAtEdit ||
+                    syncGenerationRef.current !== generationAtEdit ||
+                    !canUploadCodeRef.current ||
+                    completedRef.current ||
+                    sessionReplacedRef.current
+                ) {
+                    return;
+                }
+
+                socket.emit("code-edit", {
+                    roomId: roomAtEdit,
+                    telegramId,
+                    update: pendingUpdate,
+                });
+            }, FAST_CODE_EDIT_DELAY_MS);
+        },
+        [clearFastCodeEdit, getCurrentTelegramId],
+    );
+
     const flushReliableQueueRef = useRef<() => void>(() => undefined);
 
     const synchronizeCode = useCallback(
@@ -706,10 +788,7 @@ export const useWebSocket = ({
                     serverStateVector,
                 );
 
-                const hasClientDiff = !binaryEquals(
-                    Y.encodeStateVector(doc),
-                    serverStateVector,
-                );
+                const hasClientDiff = hasYjsUpdateContent(clientDiff);
                 const pendingIncludedInDiff = pendingUpdateRef.current;
                 const inFlightIncludedInDiff = inFlightUpdateRef.current;
                 if (hasClientDiff && !canUploadCode) {
@@ -999,6 +1078,7 @@ export const useWebSocket = ({
             shouldReconnectRef.current = false;
             sessionReplacedRef.current = true;
             canUploadCodeRef.current = false;
+            clearFastCodeEdit();
             setIsSessionReplaced(true);
             setConnectionError("Комната открыта в другом окне");
         });
@@ -1011,6 +1091,7 @@ export const useWebSocket = ({
             setIsConnected(false);
             setIsJoinedRoom(false);
             isConnectedRef.current = false;
+            clearFastCodeEdit();
             syncGenerationRef.current += 1;
             setShowSyncSuccess(false);
             setCodeSyncState("reconnecting");
@@ -1274,6 +1355,7 @@ export const useWebSocket = ({
                         (!completedRef.current && eventData.studentEditCodeEnabled),
                     );
                     if (!canUploadCodeRef.current) {
+                        clearFastCodeEdit();
                         if (updateRetryTimeoutRef.current !== null) {
                             window.clearTimeout(updateRetryTimeoutRef.current);
                             updateRetryTimeoutRef.current = null;
@@ -1393,6 +1475,7 @@ export const useWebSocket = ({
         myTelegramId,
         ensureRoomToken,
         synchronizeCode,
+        clearFastCodeEdit,
     ]);
 
     useEffect(() => {
@@ -1411,6 +1494,7 @@ export const useWebSocket = ({
 
         if (roomChanged) {
             syncGenerationRef.current += 1;
+            clearFastCodeEdit();
             if (syncRetryTimeoutRef.current !== null) {
                 window.clearTimeout(syncRetryTimeoutRef.current);
                 syncRetryTimeoutRef.current = null;
@@ -1524,7 +1608,18 @@ export const useWebSocket = ({
             setConnectionError(null);
             joinRoom(myTelegramId);
         }
-    }, [socketUrl, myTelegramId, roomId, roomToken, roomLaunchCode, suggestedUsername, getOrAssignUserColor, joinRoom]);
+    }, [
+        socketUrl,
+        myTelegramId,
+        roomId,
+        roomToken,
+        roomLaunchCode,
+        suggestedUsername,
+        getOrAssignUserColor,
+        joinRoom,
+        clearFastCodeEdit,
+        persistReliableQueue,
+    ]);
 
     useEffect(() => {
         shouldReconnectRef.current = true;
@@ -1555,6 +1650,7 @@ export const useWebSocket = ({
                 event.returnValue = "";
             }
             shouldReconnectRef.current = false;
+            clearFastCodeEdit();
             clearIntervals();
             if (socketRef.current) {
                 socketRef.current.close();
@@ -1638,11 +1734,12 @@ export const useWebSocket = ({
                 window.clearTimeout(connectionFailureTimeoutRef.current);
                 connectionFailureTimeoutRef.current = null;
             }
+            clearFastCodeEdit();
             window.removeEventListener("beforeunload", handleBeforeUnload);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
             window.removeEventListener("focus", handleWindowFocus);
         };
-    }, [roomId, connectWebSocket, clearIntervals, ensureRoomToken, joinRoom]);
+    }, [roomId, connectWebSocket, clearIntervals, clearFastCodeEdit, ensureRoomToken, joinRoom]);
 
     const sendCursorPosition = useCallback(
         (position: [number, number]) => {
@@ -1693,15 +1790,27 @@ export const useWebSocket = ({
                 (!roomPermissions.studentEditCodeEnabled && !isTeacher)
             ) return;
 
+            const roomAtEdit = roomIdRef.current;
+            const generationAtEdit = syncGenerationRef.current;
+
             pendingUpdateRef.current = pendingUpdateRef.current
                 ? Y.mergeUpdates([pendingUpdateRef.current, update])
                 : update;
             setHasPendingCodeChanges(true);
             void persistReliableQueue().then((persisted) => {
-                if (persisted) flushReliableQueueRef.current();
+                if (persisted) {
+                    scheduleFastCodeEdit(update, roomAtEdit, generationAtEdit);
+                    flushReliableQueueRef.current();
+                }
             });
         },
-        [completed, roomPermissions.studentEditCodeEnabled, isTeacher, persistReliableQueue]
+        [
+            completed,
+            roomPermissions.studentEditCodeEnabled,
+            isTeacher,
+            persistReliableQueue,
+            scheduleFastCodeEdit,
+        ]
     );
 
 

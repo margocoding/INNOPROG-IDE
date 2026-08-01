@@ -175,6 +175,21 @@ describe("IDE", () => {
     expect(screen.getByText("changed")).toBeInTheDocument();
   });
 
+  it("does not render synchronization notifications", () => {
+    window.history.replaceState({}, "", "/?telegramId=123&roomId=room-1");
+    render(<IDE telegramId="123" webSocketData={socketData({
+      connectionError: "Не удается восстановить связь с сервером",
+      codeSyncState: "synchronized",
+      showSyncSuccess: true,
+      hasDurableStorageError: true,
+      isPersistRetrying: true,
+    })} />);
+
+    expect(screen.queryByText("Изменения синхронизированы")).toBeNull();
+    expect(screen.queryByText("Не удалось сохранить изменения на устройстве — не закрывайте страницу")).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("loads a task and previously submitted code", async () => {
     window.history.replaceState(
       {}, "", "/?telegramId=123&task_id=7&answer_id=a&lang=py",

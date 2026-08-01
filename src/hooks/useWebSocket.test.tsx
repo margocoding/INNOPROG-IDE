@@ -30,6 +30,7 @@ const createSocket = () => {
     deferNextSyncUpdate: false,
     deferredSyncInits: [],
     deferNextSyncInit: false,
+    serverDoc,
   };
   socket.timeout = jest.fn(() => socket);
   socket.emit = jest.fn((event: string, payload: any, ack?: Function) => {
@@ -309,6 +310,215 @@ describe("useWebSocket", () => {
       expect.anything(),
       expect.anything(),
     );
+    act(() => jest.advanceTimersByTime(75));
+    expect(socket.emit).not.toHaveBeenCalledWith("code-edit", expect.anything());
+  });
+
+  it("batches locally persisted edits into the 75ms fast channel", async () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    const { result } = renderHook(() => useWebSocket({
+      socketUrl: "https://rooms.test",
+      myTelegramId: "student-1",
+      roomId: "room-1",
+      roomToken: "token",
+    }));
+    act(() => result.current.bindYDoc(new Y.Doc()));
+    act(() => socket.handlers.get("connect")?.());
+    act(() => socket.handlers.get("joined")?.({
+      telegramId: "student-1",
+      isTeacher: false,
+      completed: false,
+      roomPermissions: { studentEditCodeEnabled: true },
+    }));
+    await act(flushAsyncWork);
+    socket.emit.mockClear();
+    socket.deferNextSyncUpdate = true;
+
+    const source = new Y.Doc();
+    const updates: Uint8Array[] = [];
+    source.on("update", (update: Uint8Array) => updates.push(update));
+    source.getText("codemirror").insert(0, "a");
+    source.getText("codemirror").insert(1, "b");
+    act(() => {
+      result.current.onSendUpdate?.(updates[0]);
+      result.current.onSendUpdate?.(updates[1]);
+    });
+    await act(flushAsyncWork);
+
+    expect(socket.emit).not.toHaveBeenCalledWith("code-edit", expect.anything());
+    act(() => jest.advanceTimersByTime(74));
+    expect(socket.emit).not.toHaveBeenCalledWith("code-edit", expect.anything());
+    act(() => jest.advanceTimersByTime(1));
+
+    const fastCalls = socket.emit.mock.calls.filter(
+      ([event]: [string]) => event === "code-edit",
+    );
+    expect(fastCalls).toHaveLength(1);
+    const replica = new Y.Doc();
+    Y.applyUpdate(replica, fastCalls[0][1].update);
+    expect(replica.getText("codemirror").toString()).toBe("ab");
+    expect(socket.deferredSyncUpdates).toHaveLength(1);
+  });
+
+  it("cancels a pending fast edit when permission is revoked", async () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    const { result } = renderHook(() => useWebSocket({
+      socketUrl: "https://rooms.test",
+      myTelegramId: "student-1",
+      roomId: "room-1",
+      roomToken: "token",
+    }));
+    act(() => result.current.bindYDoc(new Y.Doc()));
+    act(() => socket.handlers.get("connect")?.());
+    act(() => socket.handlers.get("joined")?.({
+      telegramId: "student-1",
+      isTeacher: false,
+      completed: false,
+      roomPermissions: { studentEditCodeEnabled: true },
+    }));
+    await act(flushAsyncWork);
+    socket.emit.mockClear();
+    socket.deferNextSyncUpdate = true;
+
+    act(() => result.current.onSendUpdate?.(new Uint8Array([1])));
+    await act(flushAsyncWork);
+    act(() => socket.handlers.get("room-edited")?.({
+      studentEditCodeEnabled: false,
+    }));
+    act(() => jest.advanceTimersByTime(75));
+
+    expect(socket.emit).not.toHaveBeenCalledWith("code-edit", expect.anything());
+  });
+
+  it("cancels a pending fast edit when the room session is replaced", async () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    const { result } = renderHook(() => useWebSocket({
+      socketUrl: "https://rooms.test",
+      myTelegramId: "teacher-1",
+      roomId: "room-1",
+      roomToken: "token",
+    }));
+    act(() => result.current.bindYDoc(new Y.Doc()));
+    act(() => socket.handlers.get("connect")?.());
+    act(() => socket.handlers.get("joined")?.({
+      telegramId: "teacher-1",
+      isTeacher: true,
+      completed: false,
+    }));
+    await act(flushAsyncWork);
+    socket.emit.mockClear();
+    socket.deferNextSyncUpdate = true;
+
+    act(() => result.current.onSendUpdate?.(new Uint8Array([1])));
+    await act(flushAsyncWork);
+    act(() => socket.handlers.get("room-session-replaced")?.());
+    act(() => jest.advanceTimersByTime(75));
+
+    expect(socket.emit).not.toHaveBeenCalledWith("code-edit", expect.anything());
+  });
+
+  it("does not send a persisted edit into a room entered while storage was pending", async () => {
+    let resolveStorage: (persisted: boolean) => void = () => undefined;
+    jest
+      .spyOn(reliableCodeQueue, "savePendingCodeUpdate")
+      .mockImplementationOnce(
+        () => new Promise<boolean>((resolve) => { resolveStorage = resolve; }),
+      );
+    const firstSocket = createSocket();
+    const secondSocket = createSocket();
+    mockedIo
+      .mockReturnValueOnce(firstSocket)
+      .mockReturnValueOnce(secondSocket);
+    const { result, rerender } = renderHook(
+      ({ roomId }) => useWebSocket({
+        socketUrl: "https://rooms.test",
+        myTelegramId: "student-1",
+        roomId,
+        roomToken: "token",
+      }),
+      { initialProps: { roomId: "room-a" } },
+    );
+    act(() => result.current.bindYDoc(new Y.Doc()));
+    act(() => firstSocket.handlers.get("connect")?.());
+    act(() => firstSocket.handlers.get("joined")?.({
+      telegramId: "student-1",
+      isTeacher: false,
+      completed: false,
+      roomPermissions: { studentEditCodeEnabled: true },
+    }));
+    await act(flushAsyncWork);
+    firstSocket.emit.mockClear();
+
+    act(() => result.current.onSendUpdate?.(new Uint8Array([1])));
+    rerender({ roomId: "room-b" });
+    act(() => result.current.bindYDoc(new Y.Doc()));
+    act(() => secondSocket.handlers.get("connect")?.());
+    act(() => secondSocket.handlers.get("joined")?.({
+      telegramId: "student-1",
+      isTeacher: false,
+      completed: false,
+      roomPermissions: { studentEditCodeEnabled: true },
+    }));
+    await act(async () => {
+      resolveStorage(true);
+      await flushAsyncWork();
+      jest.advanceTimersByTime(75);
+    });
+
+    expect(firstSocket.emit).not.toHaveBeenCalledWith("code-edit", expect.anything());
+    expect(secondSocket.emit).not.toHaveBeenCalledWith("code-edit", expect.anything());
+  });
+
+  it("does not merge a stale fast batch into a newer synchronization generation", async () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    const { result } = renderHook(() => useWebSocket({
+      socketUrl: "https://rooms.test",
+      myTelegramId: "student-1",
+      roomId: "room-1",
+      roomToken: "token",
+    }));
+    const boundDoc = new Y.Doc();
+    act(() => result.current.bindYDoc(boundDoc));
+    act(() => socket.handlers.get("connect")?.());
+    act(() => socket.handlers.get("joined")?.({
+      telegramId: "student-1",
+      isTeacher: false,
+      completed: false,
+      roomPermissions: { studentEditCodeEnabled: true },
+    }));
+    await act(flushAsyncWork);
+    socket.emit.mockClear();
+
+    const oldSource = new Y.Doc();
+    let oldUpdate = new Uint8Array();
+    oldSource.on("update", (value: Uint8Array) => {
+      oldUpdate = new Uint8Array(value);
+    });
+    oldSource.getText("codemirror").insert(0, "old generation");
+    act(() => result.current.onSendUpdate?.(oldUpdate));
+    await act(flushAsyncWork);
+
+    act(() => result.current.bindYDoc(boundDoc));
+    await act(flushAsyncWork);
+    const newSource = new Y.Doc();
+    let newUpdate = new Uint8Array();
+    newSource.on("update", (value: Uint8Array) => {
+      newUpdate = new Uint8Array(value);
+    });
+    newSource.getText("codemirror").insert(0, "new generation");
+    act(() => result.current.onSendUpdate?.(newUpdate));
+    await act(flushAsyncWork);
+    act(() => jest.advanceTimersByTime(75));
+
+    const fastCalls = socket.emit.mock.calls.filter(
+      ([event]: [string]) => event === "code-edit",
+    );
+    expect(fastCalls).toHaveLength(1);
+    expect(Array.from(fastCalls[0][1].update)).toEqual(Array.from(newUpdate));
   });
 
   it("completes init before the sequenced update and reaches synchronized", async () => {
@@ -455,6 +665,8 @@ describe("useWebSocket", () => {
       expect.anything(),
       expect.anything(),
     );
+    act(() => jest.advanceTimersByTime(75));
+    expect(socket.emit).not.toHaveBeenCalledWith("code-edit", expect.anything());
 
     socket.connected = true;
     socket.disconnected = false;
@@ -471,6 +683,71 @@ describe("useWebSocket", () => {
       expect.any(Function),
     );
     expect(result.current.codeSyncState).toBe("synchronized");
+    expect(result.current.hasPendingCodeChanges).toBe(false);
+  });
+
+  it("replays a deletion-only offline edit after reconnect", async () => {
+    const socket = createSocket();
+    socket.serverDoc.getText("codemirror").insert(0, "delete me");
+    mockedIo.mockReturnValue(socket);
+    const { result } = renderHook(() => useWebSocket({
+      socketUrl: "https://rooms.test",
+      myTelegramId: "student-1",
+      roomId: "room-1",
+      roomToken: "token",
+    }));
+    const clientDoc = new Y.Doc();
+    act(() => result.current.bindYDoc(clientDoc));
+    act(() => socket.handlers.get("connect")?.());
+    act(() => socket.handlers.get("joined")?.({
+      telegramId: "student-1",
+      isTeacher: false,
+      completed: false,
+      roomPermissions: { studentEditCodeEnabled: true },
+    }));
+    await act(flushAsyncWork);
+    expect(clientDoc.getText("codemirror").toString()).toBe("delete me");
+    socket.emit.mockClear();
+
+    socket.connected = false;
+    socket.disconnected = true;
+    socket.active = false;
+    act(() => socket.handlers.get("disconnect")?.("transport close"));
+    let deletionUpdate = new Uint8Array();
+    clientDoc.on("update", (value: Uint8Array) => {
+      deletionUpdate = new Uint8Array(value);
+    });
+    act(() => {
+      clientDoc.getText("codemirror").delete(0, "delete me".length);
+      result.current.onSendUpdate?.(deletionUpdate);
+    });
+    await act(flushAsyncWork);
+    expect(socket.emit).not.toHaveBeenCalledWith(
+      "code-sync:update",
+      expect.anything(),
+      expect.anything(),
+    );
+
+    socket.connected = true;
+    socket.disconnected = false;
+    socket.active = true;
+    act(() => socket.handlers.get("connect")?.());
+    act(() => socket.handlers.get("joined")?.({
+      telegramId: "student-1",
+      isTeacher: false,
+      completed: false,
+      roomPermissions: { studentEditCodeEnabled: true },
+    }));
+    await act(flushAsyncWork);
+
+    const resend = socket.emit.mock.calls.find(
+      ([event]: [string]) => event === "code-sync:update",
+    );
+    expect(resend).toBeDefined();
+    const serverReplica = new Y.Doc();
+    Y.applyUpdate(serverReplica, Y.encodeStateAsUpdate(socket.serverDoc));
+    Y.applyUpdate(serverReplica, resend[1].update);
+    expect(serverReplica.getText("codemirror").toString()).toBe("");
     expect(result.current.hasPendingCodeChanges).toBe(false);
   });
 
