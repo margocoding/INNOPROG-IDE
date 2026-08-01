@@ -78,6 +78,8 @@ interface IProps {
     }
   >;
   onSendUpdate?: (update: Uint8Array) => void;
+  onYDocReady?: (doc: Y.Doc | null) => void;
+  allowLegacyCodeSeed?: boolean;
   updatesFromProps?: unknown[];
   joinedCode?: string;
   activeTypers?: Set<string>;
@@ -226,6 +228,8 @@ const CodeEditor: React.FC<IProps> = React.memo(
     sendSelection,
     selections,
     onSendUpdate,
+    onYDocReady,
+    allowLegacyCodeSeed = true,
     updatesFromProps,
     joinedCode,
     disabled,
@@ -245,7 +249,6 @@ const CodeEditor: React.FC<IProps> = React.memo(
     const lastLocalEditTime = useRef<number>(0);
     const hadTextSelection = useRef<boolean>(false);
     const pendingCodeUpdateRef = useRef<Uint8Array | null>(null);
-    const codeUpdateTimeoutRef = useRef<number | null>(null);
     const pendingSelectionRef = useRef<
       | {
           line?: number;
@@ -277,6 +280,11 @@ const CodeEditor: React.FC<IProps> = React.memo(
     const awareness = useMemo(() => new Awareness(ydoc), [ydoc]);
     const syncDelayMs = 220;
 
+    useEffect(() => {
+      onYDocReady?.(ydoc);
+      return () => onYDocReady?.(null);
+    }, [onYDocReady, ydoc]);
+
     const effectiveReadOnly = useMemo(
       () => disabled || readOnly,
       [readOnly, disabled]
@@ -302,16 +310,11 @@ const CodeEditor: React.FC<IProps> = React.memo(
           ? Y.mergeUpdates([pendingCodeUpdateRef.current, update])
           : update;
 
-        if (codeUpdateTimeoutRef.current !== null) {
-          return;
-        }
-
-        codeUpdateTimeoutRef.current = window.setTimeout(() => {
-          codeUpdateTimeoutRef.current = null;
-          flushPendingCodeUpdate();
-        }, syncDelayMs);
+        // Hand the update to the durable queue in the same input turn. Waiting
+        // for the UI debounce allowed a reload to lose the final keystrokes.
+        flushPendingCodeUpdate();
       },
-      [flushPendingCodeUpdate, syncDelayMs]
+      [flushPendingCodeUpdate]
     );
 
     useEffect(() => {
@@ -342,6 +345,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
         return;
       }
 
+      if (!allowLegacyCodeSeed) {
+        return;
+      }
+
       const hasReadonlyBounds =
         joinedCode.startsWith(codeBefore) && joinedCode.endsWith(codeAfter);
       const fullCode = hasReadonlyBounds
@@ -349,12 +356,12 @@ const CodeEditor: React.FC<IProps> = React.memo(
         : `${codeBefore}${joinedCode}${codeAfter}`;
       const ytext = ydoc.getText("codemirror");
 
-      if (ytext.toString() === fullCode) {
+      const hasYjsHistory = Y.encodeStateVector(ydoc).byteLength > 1;
+      if (ytext.toString() === fullCode || ytext.length > 0 || hasYjsHistory) {
         return;
       }
 
       ydoc.transact(() => {
-        ytext.delete(0, ytext.length);
         ytext.insert(0, fullCode);
       }, REMOTE_WEBSOCKET_ORIGIN);
 
@@ -368,7 +375,14 @@ const CodeEditor: React.FC<IProps> = React.memo(
       }
 
       setCurrentCode(fullCode);
-    }, [joinedCode, codeBefore, codeAfter, ydoc, setCurrentCode]);
+    }, [
+      allowLegacyCodeSeed,
+      joinedCode,
+      codeBefore,
+      codeAfter,
+      ydoc,
+      setCurrentCode,
+    ]);
 
     const flushPendingSelection = () => {
       if (!pendingSelectionRef.current) return;
@@ -410,10 +424,6 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
     useEffect(() => {
       return () => {
-        if (codeUpdateTimeoutRef.current !== null) {
-          window.clearTimeout(codeUpdateTimeoutRef.current);
-          codeUpdateTimeoutRef.current = null;
-        }
         flushPendingCodeUpdate();
         if (selectionTimeoutRef.current !== null) {
           window.clearTimeout(selectionTimeoutRef.current);

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import * as Y from "yjs";
 import CodeEditor from "./CodeEditor";
 
 jest.mock("@heroui/react", () => ({
@@ -105,5 +106,79 @@ describe("CodeEditor", () => {
     );
     rerender(<CodeEditor {...props} value="second" language="java" />);
     expect(container.querySelector(".cm-content")?.textContent).toContain("second");
+  });
+
+  it("hands a local Yjs edit to the durable queue without debounce", () => {
+    const onSendUpdate = jest.fn();
+    let document: Y.Doc | null = null;
+    render(
+      <CodeEditor
+        {...props}
+        language="py"
+        isWebSocket
+        onSendUpdate={onSendUpdate}
+        onYDocReady={(value) => { document = value; }}
+      />,
+    );
+
+    expect(document).not.toBeNull();
+    (document as Y.Doc).getText("codemirror").insert(0, "x");
+    expect(onSendUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not let a delayed legacy snapshot overwrite restored offline code", () => {
+    let document: Y.Doc | null = null;
+    const { rerender } = render(
+      <CodeEditor
+        {...props}
+        language="py"
+        isWebSocket
+        joinedCode="server seed"
+        onYDocReady={(value) => { document = value; }}
+      />,
+    );
+
+    const ytext = (document as Y.Doc).getText("codemirror");
+    ytext.insert(ytext.length, " + offline edit");
+    rerender(
+      <CodeEditor
+        {...props}
+        language="py"
+        isWebSocket
+        joinedCode="late stale snapshot"
+        onYDocReady={(value) => { document = value; }}
+      />,
+    );
+
+    expect(ytext.toString()).toBe("server seed + offline edit");
+  });
+
+  it("does not resurrect legacy code after an offline deletion", () => {
+    let document: Y.Doc | null = null;
+    const { rerender } = render(
+      <CodeEditor
+        {...props}
+        language="py"
+        isWebSocket
+        joinedCode="code deleted offline"
+        allowLegacyCodeSeed
+        onYDocReady={(value) => { document = value; }}
+      />,
+    );
+    const ytext = (document as Y.Doc).getText("codemirror");
+    ytext.delete(0, ytext.length);
+    expect(ytext.toString()).toBe("");
+
+    rerender(
+      <CodeEditor
+        {...props}
+        language="py"
+        isWebSocket
+        joinedCode="stale server code"
+        allowLegacyCodeSeed
+        onYDocReady={(value) => { document = value; }}
+      />,
+    );
+    expect(ytext.toString()).toBe("");
   });
 });

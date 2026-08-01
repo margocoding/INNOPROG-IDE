@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { io, Socket } from "socket.io-client";
+import * as Y from "yjs";
+import {
+    clearPendingCodeUpdate,
+    loadPendingCodeUpdate,
+    savePendingCodeUpdate,
+} from "../services/reliableCodeQueue";
 import { RoomPermissions } from "../types/room";
 import { Language } from "../types/task";
 import { isRoomTokenExpired } from "../utils/roomToken";
@@ -13,6 +19,16 @@ import {
 const REFERENCE_BLUE = "#518bff";
 const MIN_CONTRAST_WITH_REFERENCE = 1.9;
 const MIN_COLOR_DISTANCE = 95;
+const REMOTE_SYNC_ORIGIN = "remote-websocket";
+const FINAL_CONNECTION_ERROR_DELAY_MS = 120_000;
+
+export type CodeSyncState =
+    | "connecting"
+    | "joined"
+    | "synchronizing"
+    | "synchronized"
+    | "reconnecting"
+    | "waiting-permission";
 
 const hexToRgb = (hex: string): [number, number, number] => {
     const cleanHex = hex.replace("#", "");
@@ -81,6 +97,18 @@ const getOrCreateClientInstanceId = (): string => {
     sessionStorage.setItem(key, normalized);
     return normalized;
 };
+
+const createSyncSessionId = (): string => {
+    const generated =
+        typeof crypto?.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return generated.replace(/[^A-Za-z0-9_-]/g, "");
+};
+
+const binaryEquals = (first: Uint8Array, second: Uint8Array): boolean =>
+    first.byteLength === second.byteLength &&
+    first.every((value, index) => value === second[index]);
 
 const hslToHex = (h: number, s: number, l: number): string => {
     const saturation = s / 100;
@@ -183,6 +211,16 @@ export const useWebSocket = ({
     const [completed, setCompleted] = useState<boolean>(false);
     const [language, setLanguage] = useState<Language | undefined>(undefined);
     const [joinedCode, setJoinedCode] = useState<string | undefined>(undefined);
+    const [codeSyncState, setCodeSyncState] =
+        useState<CodeSyncState>("connecting");
+    const [hasPendingCodeChanges, setHasPendingCodeChanges] =
+        useState<boolean>(false);
+    const [showSyncSuccess, setShowSyncSuccess] = useState<boolean>(false);
+    const [hasDurableStorageError, setHasDurableStorageError] =
+        useState<boolean>(false);
+    const [isPersistRetrying, setIsPersistRetrying] = useState<boolean>(false);
+    const [isSessionReplaced, setIsSessionReplaced] = useState<boolean>(false);
+    const [isCodeQueueRestored, setIsCodeQueueRestored] = useState(false);
 
     const socketRef = useRef<Socket | null>(null);
     const socketUrlRef = useRef<string>(socketUrl);
@@ -199,12 +237,50 @@ export const useWebSocket = ({
     const suggestedUsernameRef = useRef<string>(suggestedUsername?.trim() || "");
     const roomTokenRequestRef = useRef<Promise<boolean> | null>(null);
     const clientInstanceIdRef = useRef<string>(getOrCreateClientInstanceId());
+    // A fresh epoch prevents a successful sequence from a previous page load
+    // being mistaken for a retry. The stable ID above remains the durable queue key.
+    const syncSessionIdRef = useRef<string>(createSyncSessionId());
     const isConnectedRef = useRef<boolean>(false);
     const shouldReconnectRef = useRef<boolean>(true);
     const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const connectionAttempts = useRef<number>(0);
     const isRemoteUpdate = useRef<boolean>(false);
+    const ydocRef = useRef<Y.Doc | null>(null);
+    const syncGenerationRef = useRef(0);
+    const pendingUpdateRef = useRef<Uint8Array | null>(null);
+    const inFlightUpdateRef = useRef<
+        {
+            sequence: number;
+            update: Uint8Array;
+            roomId: string;
+            syncSessionId: string;
+            generation: number;
+        } | null
+    >(null);
+    const nextSequenceRef = useRef(1);
+    const queueLoadedForRef = useRef<string>("");
+    const syncRetryTimeoutRef = useRef<number | null>(null);
+    const updateRetryTimeoutRef = useRef<number | null>(null);
+    const durabilityRetryTimeoutRef = useRef<number | null>(null);
+    const syncSuccessTimeoutRef = useRef<number | null>(null);
+    const connectionFailureTimeoutRef = useRef<number | null>(null);
+    const canUploadCodeRef = useRef(false);
+    const isTeacherRef = useRef(false);
+    const completedRef = useRef(false);
+    const sessionReplacedRef = useRef(false);
+    const isMountedRef = useRef(true);
+    const hasDurableStorageErrorRef = useRef(false);
+
+    useEffect(() => () => {
+        isMountedRef.current = false;
+    }, []);
+
+    const updateDurableStorageError = useCallback((value: boolean) => {
+        if (hasDurableStorageErrorRef.current === value) return;
+        hasDurableStorageErrorRef.current = value;
+        if (isMountedRef.current) setHasDurableStorageError(value);
+    }, []);
 
     const getRoomApiBase = useCallback((url: string): string => {
         const fallbackBase = "/api/room";
@@ -344,7 +420,7 @@ export const useWebSocket = ({
                     roomId: roomIdRef.current,
                     roomToken: roomTokenRef.current || undefined,
                     username: resolvedUsername || undefined,
-                    clientInstanceId: clientInstanceIdRef.current,
+                    clientInstanceId: syncSessionIdRef.current,
                 });
             };
 
@@ -504,6 +580,359 @@ export const useWebSocket = ({
         appendUpdate(update);
     }, []);
 
+    const queuePersistenceChainRef = useRef<Promise<boolean>>(Promise.resolve(true));
+
+    const persistReliableQueue = useCallback(() => {
+        const currentRoomId = roomIdRef.current;
+        if (!currentRoomId) return Promise.resolve(true);
+
+        const updates = [
+            inFlightUpdateRef.current?.update,
+            pendingUpdateRef.current,
+        ].filter((value): value is Uint8Array => Boolean(value?.byteLength));
+        const combined = updates.length > 0 ? Y.mergeUpdates(updates) : null;
+        setHasPendingCodeChanges(Boolean(combined));
+
+        queuePersistenceChainRef.current = queuePersistenceChainRef.current
+            .catch(() => false)
+            .then(async () => {
+                if (combined) {
+                    const persisted = await savePendingCodeUpdate(
+                        currentRoomId,
+                        clientInstanceIdRef.current,
+                        combined,
+                        nextSequenceRef.current,
+                    );
+                    updateDurableStorageError(!persisted);
+                    return persisted;
+                } else {
+                    const cleared = await clearPendingCodeUpdate(
+                        currentRoomId,
+                        clientInstanceIdRef.current,
+                    );
+                    updateDurableStorageError(!cleared);
+                    return cleared;
+                }
+            });
+        return queuePersistenceChainRef.current;
+    }, [updateDurableStorageError]);
+
+    const emitWithAck = useCallback(
+        <T,>(socket: Socket, event: string, payload: unknown): Promise<T> =>
+            new Promise<T>((resolve, reject) => {
+                socket.timeout(12_000).emit(
+                    event,
+                    payload,
+                    (error: Error | null, response: T) => {
+                        if (error) reject(error);
+                        else resolve(response);
+                    },
+                );
+            }),
+        [],
+    );
+
+    const flushReliableQueueRef = useRef<() => void>(() => undefined);
+
+    const synchronizeCode = useCallback(
+        async (socket: Socket) => {
+            const doc = ydocRef.current;
+            const currentRoomId = roomIdRef.current;
+            if (!doc || !currentRoomId || !socket.connected) return;
+
+            const generation = ++syncGenerationRef.current;
+            const syncSessionId = syncSessionIdRef.current;
+            const queueClientInstanceId = clientInstanceIdRef.current;
+            const canUploadCode = canUploadCodeRef.current;
+            const isCurrentSynchronization = () =>
+                generation === syncGenerationRef.current &&
+                socketRef.current === socket &&
+                roomIdRef.current === currentRoomId &&
+                syncSessionIdRef.current === syncSessionId &&
+                ydocRef.current === doc &&
+                socket.connected;
+            setCodeSyncState("synchronizing");
+
+            try {
+                const queueKey = `${currentRoomId}:${queueClientInstanceId}`;
+                if (queueLoadedForRef.current !== queueKey) {
+                    const stored = await loadPendingCodeUpdate(
+                        currentRoomId,
+                        queueClientInstanceId,
+                    );
+                    if (!isCurrentSynchronization()) return;
+                    if (stored?.update.byteLength) {
+                        Y.applyUpdate(doc, stored.update, REMOTE_SYNC_ORIGIN);
+                        pendingUpdateRef.current = pendingUpdateRef.current
+                            ? Y.mergeUpdates([pendingUpdateRef.current, stored.update])
+                            : stored.update;
+                        nextSequenceRef.current = Math.max(
+                            nextSequenceRef.current,
+                            stored.nextSequence,
+                        );
+                        setHasPendingCodeChanges(true);
+                    }
+                    queueLoadedForRef.current = queueKey;
+                    setIsCodeQueueRestored(true);
+                }
+
+                const initResponse = await emitWithAck<{
+                    ok: boolean;
+                    error?: string;
+                    serverUpdate: Uint8Array;
+                    serverStateVector: Uint8Array;
+                }>(socket, "code-sync:init", {
+                    roomId: currentRoomId,
+                    telegramId: getCurrentTelegramId(),
+                    clientInstanceId: syncSessionId,
+                    stateVector: Y.encodeStateVector(doc),
+                });
+                if (!initResponse?.ok) {
+                    throw new Error(initResponse?.error || "Code sync init failed");
+                }
+                if (!isCurrentSynchronization()) return;
+
+                Y.applyUpdate(
+                    doc,
+                    new Uint8Array(initResponse.serverUpdate),
+                    REMOTE_SYNC_ORIGIN,
+                );
+
+                const serverStateVector = new Uint8Array(
+                    initResponse.serverStateVector,
+                );
+                const clientDiff = Y.encodeStateAsUpdate(
+                    doc,
+                    serverStateVector,
+                );
+
+                const hasClientDiff = !binaryEquals(
+                    Y.encodeStateVector(doc),
+                    serverStateVector,
+                );
+                const pendingIncludedInDiff = pendingUpdateRef.current;
+                const inFlightIncludedInDiff = inFlightUpdateRef.current;
+                if (hasClientDiff && !canUploadCode) {
+                    await persistReliableQueue();
+                    if (!isCurrentSynchronization()) return;
+                    setCodeSyncState("waiting-permission");
+                    return;
+                }
+                if (hasClientDiff && canUploadCode) {
+                    if (
+                        (pendingUpdateRef.current || inFlightUpdateRef.current) &&
+                        !(await persistReliableQueue())
+                    ) {
+                        throw new Error("Durable code queue is unavailable");
+                    }
+                    if (!isCurrentSynchronization()) return;
+                    const sequence = nextSequenceRef.current++;
+                    const syncResponse = await emitWithAck<{
+                        ok: boolean;
+                        persisted?: boolean;
+                        sequence: number;
+                        error?: string;
+                    }>(socket, "code-sync:update", {
+                        roomId: currentRoomId,
+                        telegramId: getCurrentTelegramId(),
+                        clientInstanceId: syncSessionId,
+                        sequence,
+                        update: clientDiff,
+                    });
+                    if (!syncResponse?.ok || !syncResponse.persisted) {
+                        throw new Error(syncResponse?.error || "Code sync update failed");
+                    }
+                    if (!isCurrentSynchronization()) return;
+                }
+
+                if (!isCurrentSynchronization()) return;
+
+                if (pendingUpdateRef.current === pendingIncludedInDiff) {
+                    pendingUpdateRef.current = null;
+                }
+                if (inFlightUpdateRef.current === inFlightIncludedInDiff) {
+                    inFlightUpdateRef.current = null;
+                }
+
+                await persistReliableQueue();
+                if (!isCurrentSynchronization()) return;
+                setCodeSyncState("synchronized");
+                setShowSyncSuccess(true);
+                if (syncSuccessTimeoutRef.current !== null) {
+                    window.clearTimeout(syncSuccessTimeoutRef.current);
+                }
+                syncSuccessTimeoutRef.current = window.setTimeout(() => {
+                    syncSuccessTimeoutRef.current = null;
+                    setShowSyncSuccess(false);
+                }, 2_400);
+                setConnectionError(null);
+                flushReliableQueueRef.current();
+            } catch (error) {
+                if (generation !== syncGenerationRef.current) return;
+                setCodeSyncState(socket.connected ? "reconnecting" : "connecting");
+                if (syncRetryTimeoutRef.current !== null) {
+                    window.clearTimeout(syncRetryTimeoutRef.current);
+                }
+                syncRetryTimeoutRef.current = window.setTimeout(() => {
+                    syncRetryTimeoutRef.current = null;
+                    if (socketRef.current === socket && socket.connected) {
+                        void synchronizeCode(socket);
+                    }
+                }, 1_500);
+            }
+        },
+        [emitWithAck, getCurrentTelegramId, persistReliableQueue],
+    );
+
+    const sendInFlightUpdate = useCallback(async () => {
+        const socket = socketRef.current;
+        const packet = inFlightUpdateRef.current;
+        if (
+            !socket?.connected ||
+            !packet ||
+            roomIdRef.current !== packet.roomId ||
+            syncSessionIdRef.current !== packet.syncSessionId ||
+            syncGenerationRef.current !== packet.generation ||
+            codeSyncState !== "synchronized" ||
+            !canUploadCodeRef.current
+        ) {
+            if (packet && !canUploadCodeRef.current) {
+                setCodeSyncState("waiting-permission");
+            }
+            return;
+        }
+
+        try {
+            const response = await emitWithAck<{
+                ok: boolean;
+                persisted?: boolean;
+                sequence: number;
+            }>(socket, "code-sync:update", {
+                roomId: packet.roomId,
+                telegramId: getCurrentTelegramId(),
+                clientInstanceId: packet.syncSessionId,
+                sequence: packet.sequence,
+                update: packet.update,
+            });
+            if (
+                !response?.ok ||
+                !response.persisted ||
+                response.sequence !== packet.sequence
+            ) {
+                throw new Error("Code update was not persisted");
+            }
+            if (
+                inFlightUpdateRef.current !== packet ||
+                socketRef.current !== socket ||
+                roomIdRef.current !== packet.roomId ||
+                syncSessionIdRef.current !== packet.syncSessionId ||
+                syncGenerationRef.current !== packet.generation
+            ) {
+                return;
+            }
+            if (updateRetryTimeoutRef.current !== null) {
+                window.clearTimeout(updateRetryTimeoutRef.current);
+                updateRetryTimeoutRef.current = null;
+            }
+            setIsPersistRetrying(false);
+            inFlightUpdateRef.current = null;
+            await persistReliableQueue();
+            flushReliableQueueRef.current();
+        } catch {
+            setIsPersistRetrying(true);
+            if (!canUploadCodeRef.current) {
+                if (updateRetryTimeoutRef.current !== null) {
+                    window.clearTimeout(updateRetryTimeoutRef.current);
+                    updateRetryTimeoutRef.current = null;
+                }
+                setCodeSyncState("waiting-permission");
+                return;
+            }
+            if (
+                inFlightUpdateRef.current === packet &&
+                socketRef.current === socket &&
+                roomIdRef.current === packet.roomId &&
+                syncSessionIdRef.current === packet.syncSessionId &&
+                syncGenerationRef.current === packet.generation &&
+                socketRef.current?.connected &&
+                updateRetryTimeoutRef.current === null
+            ) {
+                updateRetryTimeoutRef.current = window.setTimeout(() => {
+                    updateRetryTimeoutRef.current = null;
+                    void sendInFlightUpdate();
+                }, 1_500);
+            }
+        }
+    }, [codeSyncState, emitWithAck, getCurrentTelegramId, persistReliableQueue]);
+
+    const persistAndSendInFlightUpdate = useCallback(async () => {
+        const packet = inFlightUpdateRef.current;
+        if (!packet) return;
+
+        const persisted = await persistReliableQueue();
+        if (inFlightUpdateRef.current !== packet) return;
+
+        if (persisted) {
+            if (durabilityRetryTimeoutRef.current !== null) {
+                window.clearTimeout(durabilityRetryTimeoutRef.current);
+                durabilityRetryTimeoutRef.current = null;
+            }
+            if (canUploadCodeRef.current) void sendInFlightUpdate();
+            else setCodeSyncState("waiting-permission");
+            return;
+        }
+
+        if (durabilityRetryTimeoutRef.current === null) {
+            durabilityRetryTimeoutRef.current = window.setTimeout(() => {
+                durabilityRetryTimeoutRef.current = null;
+                void persistAndSendInFlightUpdate();
+            }, 1_500);
+        }
+    }, [persistReliableQueue, sendInFlightUpdate]);
+
+    const flushReliableQueue = useCallback(() => {
+        const currentRoomId = roomIdRef.current;
+        if (
+            codeSyncState !== "synchronized" ||
+            !socketRef.current?.connected ||
+            !currentRoomId ||
+            inFlightUpdateRef.current ||
+            !pendingUpdateRef.current ||
+            !canUploadCodeRef.current
+        ) {
+            return;
+        }
+
+        inFlightUpdateRef.current = {
+            sequence: nextSequenceRef.current++,
+            update: pendingUpdateRef.current,
+            roomId: currentRoomId,
+            syncSessionId: syncSessionIdRef.current,
+            generation: syncGenerationRef.current,
+        };
+        pendingUpdateRef.current = null;
+        void persistAndSendInFlightUpdate();
+    }, [codeSyncState, persistAndSendInFlightUpdate]);
+
+    flushReliableQueueRef.current = flushReliableQueue;
+
+    const bindYDoc = useCallback(
+        (doc: Y.Doc | null) => {
+            ydocRef.current = doc;
+            const socket = socketRef.current;
+            if (doc && socket?.connected && isConnectedRef.current) {
+                void synchronizeCode(socket);
+            }
+        },
+        [synchronizeCode],
+    );
+
+    useEffect(() => {
+        if (codeSyncState === "synchronized") {
+            flushReliableQueueRef.current();
+        }
+    }, [codeSyncState]);
+
     const connectWebSocket = useCallback(() => {
         const currentRoomId = roomIdRef.current;
         const currentSocketUrl = socketUrlRef.current;
@@ -541,18 +970,24 @@ export const useWebSocket = ({
         const socket = io(wsUrl, {
             transports: ["websocket"],
             reconnection: true,
-            reconnectionAttempts: 5,
+            reconnectionAttempts: Infinity,
             reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
+            reconnectionDelayMax: 15000,
+            randomizationFactor: 0.35,
             timeout: 10000,
         });
         socketRef.current = socket;
 
         socket.on("connect", () => {
+            if (connectionFailureTimeoutRef.current !== null) {
+                window.clearTimeout(connectionFailureTimeoutRef.current);
+                connectionFailureTimeoutRef.current = null;
+            }
             setIsConnected(true);
             setConnectionError(null);
             isConnectedRef.current = true;
             connectionAttempts.current = 0;
+            setCodeSyncState("connecting");
             joinRoom();
         });
 
@@ -562,6 +997,9 @@ export const useWebSocket = ({
             }
 
             shouldReconnectRef.current = false;
+            sessionReplacedRef.current = true;
+            canUploadCodeRef.current = false;
+            setIsSessionReplaced(true);
             setConnectionError("Комната открыта в другом окне");
         });
 
@@ -573,6 +1011,9 @@ export const useWebSocket = ({
             setIsConnected(false);
             setIsJoinedRoom(false);
             isConnectedRef.current = false;
+            syncGenerationRef.current += 1;
+            setShowSyncSuccess(false);
+            setCodeSyncState("reconnecting");
             clearIntervals();
             if (
                 shouldReconnectRef.current &&
@@ -580,6 +1021,25 @@ export const useWebSocket = ({
                 reason !== "io server disconnect"
             ) {
                 setConnectionError(null);
+                if (connectionFailureTimeoutRef.current === null) {
+                    connectionFailureTimeoutRef.current = window.setTimeout(() => {
+                        connectionFailureTimeoutRef.current = null;
+                        if (!socket.connected && shouldReconnectRef.current) {
+                            setConnectionError("Не удается восстановить связь с сервером");
+                        }
+                    }, FINAL_CONNECTION_ERROR_DELAY_MS);
+                }
+            }
+            if (shouldReconnectRef.current && reason === "io server disconnect") {
+                window.setTimeout(() => {
+                    if (
+                        socketRef.current === socket &&
+                        shouldReconnectRef.current &&
+                        socket.disconnected
+                    ) {
+                        socket.connect();
+                    }
+                }, 1_000);
             }
         });
 
@@ -587,8 +1047,14 @@ export const useWebSocket = ({
             setIsConnected(false);
             isConnectedRef.current = false;
             connectionAttempts.current += 1;
-            if (connectionAttempts.current >= 5) {
-                setConnectionError("Не удается подключиться к серверу");
+            setCodeSyncState("reconnecting");
+            if (connectionFailureTimeoutRef.current === null) {
+                connectionFailureTimeoutRef.current = window.setTimeout(() => {
+                    connectionFailureTimeoutRef.current = null;
+                    if (!socket.connected && shouldReconnectRef.current) {
+                        setConnectionError("Не удается восстановить связь с сервером");
+                    }
+                }, FINAL_CONNECTION_ERROR_DELAY_MS);
             }
         });
 
@@ -596,9 +1062,20 @@ export const useWebSocket = ({
             joinWithoutSavedIdTriedRef.current = false;
             setCodeEdits([]);
             setIsJoinedRoom(true);
+            setCodeSyncState("joined");
             setConnectionError(null);
+            sessionReplacedRef.current = false;
+            setIsSessionReplaced(false);
+            setIsCodeQueueRestored(false);
             setCompleted(eventData.completed);
             setIsTeacher(eventData.isTeacher);
+            isTeacherRef.current = Boolean(eventData.isTeacher);
+            completedRef.current = Boolean(eventData.completed);
+            canUploadCodeRef.current = Boolean(
+                eventData.isTeacher ||
+                (!eventData.completed &&
+                    eventData.roomPermissions?.studentEditCodeEnabled !== false),
+            );
             setLanguage(eventData.language);
             const initialRoomCode =
                 typeof eventData.joinedCode === "string"
@@ -639,6 +1116,10 @@ export const useWebSocket = ({
 
             if (eventData.roomPermissions) {
                 setRoomPermissions(eventData.roomPermissions);
+            }
+
+            if (ydocRef.current) {
+                void synchronizeCode(socket);
             }
 
             const cursorsEnabled =
@@ -787,6 +1268,32 @@ export const useWebSocket = ({
                 eventData.studentEditCodeEnabled !== undefined;
 
             if (hasPermissionsUpdate) {
+                if (eventData.studentEditCodeEnabled !== undefined) {
+                    canUploadCodeRef.current = Boolean(
+                        isTeacherRef.current ||
+                        (!completedRef.current && eventData.studentEditCodeEnabled),
+                    );
+                    if (!canUploadCodeRef.current) {
+                        if (updateRetryTimeoutRef.current !== null) {
+                            window.clearTimeout(updateRetryTimeoutRef.current);
+                            updateRetryTimeoutRef.current = null;
+                        }
+                        if (
+                            pendingUpdateRef.current ||
+                            inFlightUpdateRef.current
+                        ) {
+                            setIsPersistRetrying(false);
+                            setCodeSyncState("waiting-permission");
+                        }
+                    }
+                    if (
+                        canUploadCodeRef.current &&
+                        socket.connected &&
+                        ydocRef.current
+                    ) {
+                        void synchronizeCode(socket);
+                    }
+                }
                 if (eventData.studentCursorEnabled === false) {
                     setCursors(new Map());
                 }
@@ -885,6 +1392,7 @@ export const useWebSocket = ({
         getOrAssignUserColor,
         myTelegramId,
         ensureRoomToken,
+        synchronizeCode,
     ]);
 
     useEffect(() => {
@@ -902,6 +1410,20 @@ export const useWebSocket = ({
         }
 
         if (roomChanged) {
+            syncGenerationRef.current += 1;
+            if (syncRetryTimeoutRef.current !== null) {
+                window.clearTimeout(syncRetryTimeoutRef.current);
+                syncRetryTimeoutRef.current = null;
+            }
+            if (updateRetryTimeoutRef.current !== null) {
+                window.clearTimeout(updateRetryTimeoutRef.current);
+                updateRetryTimeoutRef.current = null;
+            }
+            if (durabilityRetryTimeoutRef.current !== null) {
+                window.clearTimeout(durabilityRetryTimeoutRef.current);
+                durabilityRetryTimeoutRef.current = null;
+            }
+            void persistReliableQueue();
             hasServerTelegramIdRef.current = false;
             roomTokenRefreshTriedRef.current = false;
             roomTokenRequestRef.current = null;
@@ -933,6 +1455,21 @@ export const useWebSocket = ({
             joinWithoutSavedIdTriedRef.current = false;
             setJoinedCode(undefined);
             setCodeEdits([]);
+            setCodeSyncState("connecting");
+            setShowSyncSuccess(false);
+            setHasDurableStorageError(false);
+            hasDurableStorageErrorRef.current = false;
+            setIsPersistRetrying(false);
+            setIsSessionReplaced(false);
+            queueLoadedForRef.current = "";
+            pendingUpdateRef.current = null;
+            inFlightUpdateRef.current = null;
+            nextSequenceRef.current = 1;
+            syncSessionIdRef.current = createSyncSessionId();
+            canUploadCodeRef.current = false;
+            isTeacherRef.current = false;
+            completedRef.current = false;
+            sessionReplacedRef.current = false;
             assignedColorsRef.current.clear();
             if (!roomId) {
                 shouldReconnectRef.current = false;
@@ -1012,7 +1549,11 @@ export const useWebSocket = ({
             }
         }
 
-        const handleBeforeUnload = () => {
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (pendingUpdateRef.current || inFlightUpdateRef.current) {
+                event.preventDefault();
+                event.returnValue = "";
+            }
             shouldReconnectRef.current = false;
             clearIntervals();
             if (socketRef.current) {
@@ -1077,6 +1618,26 @@ export const useWebSocket = ({
                 socketRef.current.close();
                 socketRef.current = null;
             }
+            if (syncRetryTimeoutRef.current !== null) {
+                window.clearTimeout(syncRetryTimeoutRef.current);
+                syncRetryTimeoutRef.current = null;
+            }
+            if (syncSuccessTimeoutRef.current !== null) {
+                window.clearTimeout(syncSuccessTimeoutRef.current);
+                syncSuccessTimeoutRef.current = null;
+            }
+            if (updateRetryTimeoutRef.current !== null) {
+                window.clearTimeout(updateRetryTimeoutRef.current);
+                updateRetryTimeoutRef.current = null;
+            }
+            if (durabilityRetryTimeoutRef.current !== null) {
+                window.clearTimeout(durabilityRetryTimeoutRef.current);
+                durabilityRetryTimeoutRef.current = null;
+            }
+            if (connectionFailureTimeoutRef.current !== null) {
+                window.clearTimeout(connectionFailureTimeoutRef.current);
+                connectionFailureTimeoutRef.current = null;
+            }
             window.removeEventListener("beforeunload", handleBeforeUnload);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
             window.removeEventListener("focus", handleWindowFocus);
@@ -1123,20 +1684,24 @@ export const useWebSocket = ({
         [completed, roomPermissions.studentSelectionEnabled, isTeacher, getCurrentTelegramId]
     );
 
-    const sendCodeEdit = useCallback(
+    const queueCodeEdit = useCallback(
         (update: Uint8Array) => {
-            if (socketRef.current?.connected && roomIdRef.current && !completed && (roomPermissions.studentEditCodeEnabled || isTeacher)) {
-                const telegramId = getCurrentTelegramId();
-                if (!telegramId) return;
+            if (
+                !roomIdRef.current ||
+                sessionReplacedRef.current ||
+                completed ||
+                (!roomPermissions.studentEditCodeEnabled && !isTeacher)
+            ) return;
 
-                socketRef.current.emit("code-edit", {
-                    roomId: roomIdRef.current,
-                    telegramId,
-                    update,
-                });
-            }
+            pendingUpdateRef.current = pendingUpdateRef.current
+                ? Y.mergeUpdates([pendingUpdateRef.current, update])
+                : update;
+            setHasPendingCodeChanges(true);
+            void persistReliableQueue().then((persisted) => {
+                if (persisted) flushReliableQueueRef.current();
+            });
         },
-        [completed, roomPermissions.studentEditCodeEnabled, isTeacher, getCurrentTelegramId]
+        [completed, roomPermissions.studentEditCodeEnabled, isTeacher, persistReliableQueue]
     );
 
 
@@ -1206,7 +1771,7 @@ export const useWebSocket = ({
         sendSelection,
         updatesFromProps: codeEdits,
         telegramId: myTelegramIdRef.current,
-        onSendUpdate: sendCodeEdit,
+        onSendUpdate: queueCodeEdit,
         sendEditMember,
         sendRoomPermissions,
         connectionError,
@@ -1215,6 +1780,14 @@ export const useWebSocket = ({
         sendChangeLanguage,
         language,
         joinedCode,
-        isRemoteUpdate
+        isRemoteUpdate,
+        codeSyncState,
+        hasPendingCodeChanges,
+        showSyncSuccess,
+        hasDurableStorageError,
+        isPersistRetrying,
+        isSessionReplaced,
+        isCodeQueueRestored,
+        bindYDoc,
     };
 };

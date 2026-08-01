@@ -2,6 +2,7 @@ import React, { Dispatch, SetStateAction } from "react";
 import { Answer, Language, Task } from "../../../../types/task";
 import { getTaskType } from "../../../../utils/taskType";
 import CodeEditor from "../CodeEditor/CodeEditor";
+import type * as Y from "yjs";
 
 interface CodeEditorSectionProps {
   code: string;
@@ -40,10 +41,13 @@ interface CodeEditorSectionProps {
       }
     >;
     onSendUpdate?: (update: Uint8Array) => void;
+    onYDocReady?: (doc: Y.Doc | null) => void;
+    isCodeQueueRestored?: boolean;
     updatesFromProps?: unknown[];
     joinedCode?: string;
     myTelegramId: string;
     completed: boolean;
+    isSessionReplaced?: boolean;
   };
   handleLanguageChange: (language: Language) => void;
 }
@@ -104,7 +108,7 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
           setCurrentCode={setCurrentCode}
           handleLanguageChange={handleLanguageChange}
           disabled={
-            !(
+            Boolean(webSocketData?.isSessionReplaced) || !(
               Boolean(
                 webSocketData?.roomPermissions.studentEditCodeEnabled ||
                   webSocketData?.completed
@@ -119,11 +123,13 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
           sendSelection={webSocketData?.sendSelection}
           selections={webSocketData?.selections}
           onSendUpdate={webSocketData?.onSendUpdate}
+          onYDocReady={webSocketData?.onYDocReady}
+          allowLegacyCodeSeed={webSocketData?.isCodeQueueRestored}
           updatesFromProps={webSocketData?.updatesFromProps}
           joinedCode={webSocketData?.joinedCode}
           myTelegramId={webSocketData?.myTelegramId}
           isTeacher={webSocketData?.isTeacher}
-          isWebSocket={!!webSocketData?.isConnected}
+          isWebSocket={Boolean(webSocketData)}
         />
       </div>
     );
