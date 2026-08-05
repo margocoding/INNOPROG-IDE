@@ -16,9 +16,12 @@ interface CodeEditorSectionProps {
   desktopSinglePane?: boolean;
   desktopStackedPane?: boolean;
   desktopPaneSize?: number;
+  collaborativeCodeSeed?: string;
+  canInitializeCollaborativeCode?: boolean;
   webSocketData?: {
     isTeacher?: boolean;
     isConnected?: boolean;
+    isJoinedRoom?: boolean;
     roomPermissions: {
       studentEditCodeEnabled: boolean;
     };
@@ -67,6 +70,8 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     desktopSinglePane = false,
     desktopStackedPane = false,
     desktopPaneSize = 100,
+    collaborativeCodeSeed,
+    canInitializeCollaborativeCode = false,
   }) => {
     const selectedAnswer = currentAnswer ?? task?.answers?.[0] ?? null;
     const isPasteTask = getTaskType(task) === "paste";
@@ -107,14 +112,14 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
           codeAfter={visualCodeAfter}
           setCurrentCode={setCurrentCode}
           handleLanguageChange={handleLanguageChange}
-          disabled={
+          disabled={Boolean(webSocketData) && (
             Boolean(webSocketData?.isSessionReplaced) || !(
               Boolean(
                 webSocketData?.roomPermissions.studentEditCodeEnabled ||
                   webSocketData?.completed
               ) || Boolean(webSocketData?.isTeacher)
             )
-          }
+          )}
           readOnly={
             getTaskType(task) === "paste" && (task?.answers?.length || 0) > 1
               ? !selectedAnswer
@@ -125,6 +130,12 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
           onSendUpdate={webSocketData?.onSendUpdate}
           onYDocReady={webSocketData?.onYDocReady}
           allowLegacyCodeSeed={webSocketData?.isCodeQueueRestored}
+          collaborativeCodeSeed={collaborativeCodeSeed}
+          canInitializeCollaborativeCode={canInitializeCollaborativeCode}
+          isCollaborativeStateReady={Boolean(
+            webSocketData?.isJoinedRoom &&
+              typeof webSocketData?.joinedCode === "string"
+          )}
           updatesFromProps={webSocketData?.updatesFromProps}
           joinedCode={webSocketData?.joinedCode}
           myTelegramId={webSocketData?.myTelegramId}

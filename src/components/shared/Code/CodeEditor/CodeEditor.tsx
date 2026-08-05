@@ -80,6 +80,9 @@ interface IProps {
   onSendUpdate?: (update: Uint8Array) => void;
   onYDocReady?: (doc: Y.Doc | null) => void;
   allowLegacyCodeSeed?: boolean;
+  collaborativeCodeSeed?: string;
+  canInitializeCollaborativeCode?: boolean;
+  isCollaborativeStateReady?: boolean;
   updatesFromProps?: unknown[];
   joinedCode?: string;
   activeTypers?: Set<string>;
@@ -230,6 +233,9 @@ const CodeEditor: React.FC<IProps> = React.memo(
     onSendUpdate,
     onYDocReady,
     allowLegacyCodeSeed = true,
+    collaborativeCodeSeed,
+    canInitializeCollaborativeCode = false,
+    isCollaborativeStateReady = false,
     updatesFromProps,
     joinedCode,
     disabled,
@@ -382,6 +388,38 @@ const CodeEditor: React.FC<IProps> = React.memo(
       codeAfter,
       ydoc,
       setCurrentCode,
+    ]);
+
+    useEffect(() => {
+      if (
+        !isWebSocketRef.current ||
+        !allowLegacyCodeSeed ||
+        !isCollaborativeStateReady ||
+        !canInitializeCollaborativeCode ||
+        !collaborativeCodeSeed
+      ) {
+        return;
+      }
+
+      const ytext = ydoc.getText("codemirror");
+      if (ytext.length > 0) {
+        return;
+      }
+
+      // Only the server-designated room teacher reaches this branch. Having a
+      // single initializer prevents concurrent empty clients from duplicating
+      // the template when their Yjs updates merge.
+      ydoc.transact(() => {
+        if (ytext.length === 0) {
+          ytext.insert(0, collaborativeCodeSeed);
+        }
+      });
+    }, [
+      allowLegacyCodeSeed,
+      canInitializeCollaborativeCode,
+      collaborativeCodeSeed,
+      isCollaborativeStateReady,
+      ydoc,
     ]);
 
     const flushPendingSelection = () => {

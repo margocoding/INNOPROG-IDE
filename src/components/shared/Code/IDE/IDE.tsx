@@ -584,7 +584,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   );
 
   const memoizedWebSocketData = useMemo(() => {
-    if (!webSocketData) return undefined;
+    if (!roomId || !webSocketData) return undefined;
 
     return {
       sendSelection: webSocketData.sendSelection,
@@ -597,6 +597,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       isTeacher: webSocketData.isTeacher,
       joinedCode: webSocketData.joinedCode,
       isConnected: webSocketData.isConnected,
+      isJoinedRoom: webSocketData.isJoinedRoom,
       isSessionReplaced: webSocketData.isSessionReplaced,
       isCodeQueueRestored: webSocketData.isCodeQueueRestored,
       onYDocReady: webSocketData.bindYDoc,
@@ -613,6 +614,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     webSocketData?.updatesFromProps,
     webSocketData?.joinedCode,
     webSocketData?.isConnected,
+    webSocketData?.isJoinedRoom,
     webSocketData?.isSessionReplaced,
     webSocketData?.isCodeQueueRestored,
     webSocketData?.bindYDoc,
@@ -814,6 +816,14 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
                   ? desktopEditorHeight
                   : 100
               }
+              collaborativeCodeSeed={
+                roomId && isAutoHtmlTemplateActive
+                  ? DEFAULT_HTML_TEMPLATE
+                  : undefined
+              }
+              canInitializeCollaborativeCode={Boolean(
+                webSocketData?.isTeacher && !webSocketData?.isSessionReplaced
+              )}
             />
 
             {desktopTaskMode && activeTab === "output" ? (

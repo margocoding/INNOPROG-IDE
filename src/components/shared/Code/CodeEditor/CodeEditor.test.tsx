@@ -108,6 +108,91 @@ describe("CodeEditor", () => {
     expect(container.querySelector(".cm-content")?.textContent).toContain("second");
   });
 
+  it("seeds an empty collaborative document only after room recovery is ready", () => {
+    const onSendUpdate = jest.fn();
+    let document: Y.Doc | null = null;
+    const seed = "<!DOCTYPE html><html><body></body></html>";
+    const { container, rerender } = render(
+      <CodeEditor
+        {...props}
+        value=""
+        language="html"
+        isWebSocket
+        joinedCode=""
+        allowLegacyCodeSeed={false}
+        canInitializeCollaborativeCode
+        isCollaborativeStateReady
+        onSendUpdate={onSendUpdate}
+        onYDocReady={(value) => { document = value; }}
+      />,
+    );
+
+    expect(container.querySelector(".cm-content")?.textContent).toBe("");
+    expect(onSendUpdate).not.toHaveBeenCalled();
+
+    rerender(
+      <CodeEditor
+        {...props}
+        value={seed}
+        language="html"
+        isWebSocket
+        joinedCode=""
+        allowLegacyCodeSeed={false}
+        collaborativeCodeSeed={seed}
+        canInitializeCollaborativeCode
+        isCollaborativeStateReady
+        onSendUpdate={onSendUpdate}
+        onYDocReady={(value) => { document = value; }}
+      />,
+    );
+
+    expect(container.querySelector(".cm-content")?.textContent).toBe("");
+    expect(onSendUpdate).not.toHaveBeenCalled();
+
+    rerender(
+      <CodeEditor
+        {...props}
+        value={seed}
+        language="html"
+        isWebSocket
+        joinedCode=""
+        allowLegacyCodeSeed
+        collaborativeCodeSeed={seed}
+        canInitializeCollaborativeCode
+        isCollaborativeStateReady
+        onSendUpdate={onSendUpdate}
+        onYDocReady={(value) => { document = value; }}
+      />,
+    );
+
+    expect((document as Y.Doc).getText("codemirror").toString()).toBe(seed);
+    expect(container.querySelector(".cm-content")?.textContent).toContain("DOCTYPE html");
+    expect(onSendUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not let a non-initiator seed a collaborative document", () => {
+    const onSendUpdate = jest.fn();
+    let document: Y.Doc | null = null;
+    render(
+      <CodeEditor
+        {...props}
+        value="template"
+        language="html"
+        isWebSocket
+        joinedCode=""
+        allowLegacyCodeSeed
+        collaborativeCodeSeed="template"
+        canInitializeCollaborativeCode={false}
+        isCollaborativeStateReady
+        onSendUpdate={onSendUpdate}
+        onYDocReady={(value) => { document = value; }}
+      />,
+    );
+
+    expect((document as Y.Doc).getText("codemirror").toString()).toBe("");
+    expect(onSendUpdate).not.toHaveBeenCalled();
+  });
+
   it("hands a local Yjs edit to the durable queue without debounce", () => {
     const onSendUpdate = jest.fn();
     let document: Y.Doc | null = null;

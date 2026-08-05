@@ -37,6 +37,9 @@ jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
     code,
     setCode,
     handleLanguageChange,
+    webSocketData,
+    collaborativeCodeSeed,
+    canInitializeCollaborativeCode,
     desktopSinglePane,
     desktopStackedPane,
     desktopPaneSize,
@@ -46,8 +49,11 @@ jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
       data-desktop-single-pane={String(Boolean(desktopSinglePane))}
       data-desktop-stacked-pane={String(Boolean(desktopStackedPane))}
       data-desktop-pane-size={desktopPaneSize}
+      data-has-websocket={String(Boolean(webSocketData))}
+      data-can-initialize={String(Boolean(canInitializeCollaborativeCode))}
     >
       <span>{code}</span>
+      <span data-testid="collaborative-seed">{collaborativeCodeSeed}</span>
       <button onClick={() => setCode("changed")}>change-code</button>
       <button onClick={() => handleLanguageChange("js")}>change-language</button>
     </section>
@@ -244,6 +250,34 @@ describe("IDE", () => {
     expect(localStorage.getItem("innoprog-task-editor-height")).toBe("60");
   });
 
+  it("loads submitted code when the app supplies an inactive socket facade", async () => {
+    let resolveCode: (value: unknown) => void = () => undefined;
+    const codePromise = new Promise((resolve) => {
+      resolveCode = resolve;
+    });
+    window.history.replaceState(
+      {}, "", "/?telegramId=123&task_id=7&answer_id=a&lang=py",
+    );
+    (api.getTask as jest.Mock).mockResolvedValue({
+      id: 7,
+      title: "Task",
+      answers: [{ code_before: "", code_after: "" }],
+    });
+    (api.getSubmitCode as jest.Mock).mockReturnValue(codePromise);
+
+    render(<IDE telegramId="123" webSocketData={socketData()} />);
+    expect(screen.getByTestId("editor")).toHaveAttribute(
+      "data-has-websocket",
+      "false",
+    );
+
+    await act(async () => {
+      resolveCode({ code: "restored answer" });
+      await codePromise;
+    });
+    expect(screen.getByText("restored answer")).toBeInTheDocument();
+  });
+
   it("announces embedded readiness only after both task and initial code are loaded", async () => {
     let resolveTask: (value: unknown) => void = () => undefined;
     let resolveCode: (value: unknown) => void = () => undefined;
@@ -357,6 +391,19 @@ describe("IDE", () => {
     window.history.replaceState({}, "", "/?lang=bash&telegramId=123");
     render(<IDE telegramId="123" />);
     expect(screen.getByText("#!/bin/bash")).toBeInTheDocument();
+  });
+
+  it("offers the HTML template to the recovered room only through the teacher", () => {
+    window.history.replaceState({}, "", "/?lang=html&roomId=r1&telegramId=123");
+    render(<IDE telegramId="123" webSocketData={socketData({
+      joinedCode: "",
+      isCodeQueueRestored: true,
+      isTeacher: true,
+    })} />);
+
+    expect(screen.getByTestId("editor")).toHaveAttribute("data-has-websocket", "true");
+    expect(screen.getByTestId("editor")).toHaveAttribute("data-can-initialize", "true");
+    expect(screen.getByTestId("collaborative-seed")).toHaveTextContent("<!DOCTYPE html>");
   });
 
   it("applies room state custom events once", () => {

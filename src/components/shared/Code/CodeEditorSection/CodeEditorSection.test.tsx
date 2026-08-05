@@ -70,6 +70,8 @@ describe("CodeEditorSection", () => {
     expect(mockedEditor.mock.calls[0][0]).toMatchObject({
       codeBefore: "",
       codeAfter: "print(f('public'))\n\n",
+      disabled: false,
+      isWebSocket: false,
     });
   });
 
