@@ -4,6 +4,11 @@ import assert from "node:assert/strict";
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 
 const nginx = read("nginx.conf.template");
+assert.match(
+  nginx,
+  /large_client_header_buffers\s+8\s+32k;/,
+  "nginx must accept legacy accumulated room cookies during migration",
+);
 const dockerfile = read("Dockerfile");
 const edgeCompose = read("deploy/docker-compose.edge.yml");
 const vite = read("vite.config.ts");

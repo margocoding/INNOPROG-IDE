@@ -6,6 +6,10 @@ server {
   index index.html;
 
   client_max_body_size 10m;
+  # Older IDE versions stored one root-scoped session cookie per room. Accept
+  # those accumulated cookies long enough for the room API to migrate and
+  # expire them; new room cookies are scoped to their own API path.
+  large_client_header_buffers 8 32k;
   # Room credentials are never written to this container's access log. The
   # outer proxy logs only the path configured by infrastructure, without args.
   access_log off;
