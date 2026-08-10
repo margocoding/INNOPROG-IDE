@@ -97,6 +97,31 @@ describe("useCodeExecution", () => {
     );
   });
 
+  it("runs Java task examples with the Java runtime", async () => {
+    mockedApi.checkCode.mockResolvedValue({ result: true, output: "42" } as any);
+    const answer = {
+      code_before: "public class Main { public static void main(String[] args) {",
+      code_after: "} }",
+      input: "",
+      output: "42",
+      timeout: 5,
+    };
+    const { result } = setup({
+      taskId: "230001",
+      language: Language.JAVA,
+      code: 'System.out.println(42);',
+      currentAnswer: answer,
+      task: { answers: [answer] },
+    });
+
+    await act(() => result.current.handleRunCode());
+
+    expect(mockedApi.checkCode).toHaveBeenCalledWith(
+      expect.objectContaining({ program: expect.stringContaining("System.out.println(42);") }),
+      Language.JAVA,
+    );
+  });
+
   it("uses the first-test guidance for task runs without a public expected output", async () => {
     mockedApi.runCode.mockResolvedValue({
       result: true,

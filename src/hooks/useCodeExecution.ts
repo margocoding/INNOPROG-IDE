@@ -90,7 +90,9 @@ export const useCodeExecution = ({
 
 		try {
 			const runLanguage =
-				taskId && language !== Language.CPP ? Language.PY : language;
+				taskId && language !== Language.CPP && language !== Language.JAVA
+					? Language.PY
+					: language;
 			const selectedAnswer = getSelectedAnswer();
 			const codeBefore = selectedAnswer?.code_before || "";
 			const codeAfter = selectedAnswer?.code_after || "";

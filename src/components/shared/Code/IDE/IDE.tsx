@@ -5,6 +5,7 @@ import { useCodeExecution } from "../../../../hooks/useCodeExecution";
 import { api } from "../../../../services/api";
 import { Answer, Language, Task } from "../../../../types/task";
 import { postToParent } from "../../../../utils/parentMessaging";
+import { resolveTaskLanguage } from "../../../../utils/taskLanguage";
 
 import { Socket } from "socket.io-client";
 import type * as Y from "yjs";
@@ -152,7 +153,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const { onOpen, onOpenChange, isOpen, onClose } = useDisclosure();
 
   const taskId = searchParams.get("task_id") || null;
-  const language = searchParams.get("lang") || "py";
+  const language = resolveTaskLanguage(taskId, searchParams.get("lang"));
   const answer_id = searchParams.get("answer_id");
   const roomId = searchParams.get("roomId");
   const isHtmlMode = language === Language.HTML;
