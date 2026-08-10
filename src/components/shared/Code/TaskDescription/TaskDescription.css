@@ -72,7 +72,8 @@
   content: none;
 }
 
-.task-description-content :not(pre) > code {
+.task-description-content :not(pre) > code,
+.task-description-content code.task-description-inline-code {
   display: inline;
   padding: 1px 5px;
   border-radius: 4px;

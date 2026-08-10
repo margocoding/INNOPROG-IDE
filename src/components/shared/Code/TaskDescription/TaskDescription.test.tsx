@@ -97,6 +97,20 @@ describe("processTaskDescription", () => {
 		expect(container.querySelector("code")).toHaveTextContent("while");
 	});
 
+	it("renders text in backticks with the inline code style", () => {
+		const description = "создайте класс `Main` и выведите `<готово>`";
+		const container = document.createElement("div");
+
+		container.innerHTML = processTaskDescription(description);
+
+		const codeElements = container.querySelectorAll("code.task-description-inline-code");
+		expect(codeElements).toHaveLength(2);
+		expect(codeElements[0]).toHaveTextContent("Main");
+		expect(codeElements[1]).toHaveTextContent("<готово>");
+		expect(container.querySelector("готово")).not.toBeInTheDocument();
+		expect(container.textContent).not.toContain("`");
+	});
+
 	it("renders multiline code as a code block and preserves indentation", () => {
 		const description = `имеется код:
 <code>
@@ -200,6 +214,25 @@ describe("TaskDescription component", () => {
 		expect(outer.style.height).toBe("300px");
 		fireEvent.mouseUp(document);
 	});
+
+	it.each(["-", "–", "—"])(
+		"hides the technical %s input placeholder and keeps the output",
+		(input) => {
+			render(
+				<TaskDescription
+					task={{
+						description: "выведите результат",
+						has_multiple_tests: true,
+						answers: [{ input, output: "Java готова к работе" }],
+					} as any}
+				/>
+			);
+
+			expect(screen.queryByText("Входные данные:")).toBeNull();
+			expect(screen.getByText("Выходные данные:")).toBeInTheDocument();
+			expect(screen.getByText("Java готова к работе")).toBeInTheDocument();
+		}
+	);
 
 	it("does not expose the only test of a regular code task", () => {
 		render(

@@ -98,6 +98,24 @@ const escapeText = (text: string): string =>
 const escapeCode = (text: string): string =>
 	text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+const renderTextWithInlineCode = (text: string): string => {
+	const inlineCodePattern = /`([^`\n]+)`/g;
+	const renderedParts: string[] = [];
+	let lastIndex = 0;
+	let match: RegExpExecArray | null;
+
+	while ((match = inlineCodePattern.exec(text)) !== null) {
+		renderedParts.push(escapeText(text.slice(lastIndex, match.index)));
+		renderedParts.push(
+			`<code class="task-description-inline-code">${escapeCode(match[1])}</code>`
+		);
+		lastIndex = inlineCodePattern.lastIndex;
+	}
+
+	renderedParts.push(escapeText(text.slice(lastIndex)));
+	return renderedParts.join("").replace(/\n/g, "<br>");
+};
+
 const escapeAttribute = (text: string): string =>
 	text
 		.replace(/&/g, "&amp;")
@@ -448,7 +466,7 @@ export const processTaskDescription = (description: string): string => {
 			hasCapitalizedFirstTextCharacter = true;
 		}
 
-		renderedParts.push(escapeText(normalizedText).replace(/\n/g, "<br>"));
+		renderedParts.push(renderTextWithInlineCode(normalizedText));
 	}
 
 	return renderedParts.join("");
