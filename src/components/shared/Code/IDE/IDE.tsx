@@ -727,6 +727,19 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     return isAutoHtmlTemplateActive ? DEFAULT_HTML_TEMPLATE : "";
   }, [code, isAutoHtmlTemplateActive, isHtmlMode]);
   const desktopTaskMode = Boolean(taskId && task && !isHtmlMode);
+  const handleEmbeddedTaskNext = useCallback(() => {
+    if (!isEmbeddedApp || !taskId) {
+      return;
+    }
+
+    onClose();
+    postToParent({
+      source: "innoprog-ide",
+      type: "task-next-requested",
+      event: "advance-to-next-task",
+      taskId: Number(taskId),
+    });
+  }, [isEmbeddedApp, onClose, taskId]);
 
   return (
     <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden">
@@ -762,6 +775,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         isOutputData={isOutputData}
         setIsOutputData={setIsOutputData}
         onApply={handleRunCode}
+        showNextAction={isEmbeddedApp && Boolean(taskId)}
+        onNext={handleEmbeddedTaskNext}
       />
 
       {roomId &&

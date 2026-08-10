@@ -78,7 +78,12 @@ jest.mock("../OutputSection/OutputSection", () => ({
   ),
 }));
 jest.mock("../SubmitModal/SubmitModal", () => ({
-  __esModule: true, default: () => <div data-testid="submit-modal" />,
+	__esModule: true,
+	default: ({ showNextAction, onNext }: any) => (
+		<div data-testid="submit-modal">
+			{showNextAction ? <button onClick={onNext}>modal-next</button> : null}
+		</div>
+	),
 }));
 jest.mock("../TaskDescription/TaskDescription", () => ({
   __esModule: true,
@@ -375,6 +380,35 @@ describe("IDE", () => {
       });
     });
     expect(mockPostToParent).toHaveBeenCalledTimes(1);
+  });
+
+  it("requests the next platform task from the successful result action", async () => {
+    Object.defineProperty(window, "self", {
+      configurable: true,
+      value: {},
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/?telegramId=123&task_id=230024&answer_id=a&lang=java&platforma=app",
+    );
+    (api.getTask as jest.Mock).mockResolvedValue({
+      id: 230024,
+      title: "Task",
+      answers: [{ code_before: "", code_after: "" }, {}],
+    });
+    (api.getSubmitCode as jest.Mock).mockResolvedValue({ code: "saved" });
+
+    render(<IDE telegramId="123" />);
+    await screen.findByText("Task");
+    fireEvent.click(screen.getByText("modal-next"));
+
+    expect(mockPostToParent).toHaveBeenCalledWith({
+      source: "innoprog-ide",
+      type: "task-next-requested",
+      event: "advance-to-next-task",
+      taskId: 230024,
+    });
   });
 
   it("keeps HTML tasks and standalone IDE in the existing split mode", async () => {

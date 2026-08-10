@@ -27,6 +27,8 @@ interface SubmitModalProps {
 	isOutputData: boolean;
 	setIsOutputData: (value: boolean) => void;
 	onApply: () => Promise<void>;
+	showNextAction?: boolean;
+	onNext?: () => void;
 }
 
 const SubmitModal: React.FC<SubmitModalProps> = ({
@@ -45,6 +47,8 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 	isOutputData,
 	setIsOutputData,
 	onApply,
+	showNextAction = false,
+	onNext,
 }) => {
 	const handleConfirm = useCallback(async () => {
 		if (isRunning) {
@@ -199,6 +203,18 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 							<div className="flex gap-2 items-center">
 								{isRunning && <Spinner />} Применить
 							</div>
+						</Button>
+					</ModalFooter>
+				)}
+				{submitResult === "success" && showNextAction && onNext && (
+					<ModalFooter className="flex justify-center w-full">
+						<Button
+							size="lg"
+							onPress={onNext}
+							className="w-full font-semibold"
+							color="secondary"
+						>
+							Дальше
 						</Button>
 					</ModalFooter>
 				)}

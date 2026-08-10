@@ -37,6 +37,8 @@ const props = (overrides: Record<string, unknown> = {}) => ({
   isOutputData: true,
   setIsOutputData: jest.fn(),
   onApply: jest.fn().mockResolvedValue(undefined),
+  showNextAction: false,
+  onNext: jest.fn(),
   ...overrides,
 });
 
@@ -79,5 +81,14 @@ describe("SubmitModal", () => {
     render(<SubmitModal {...state} />);
     fireEvent.click(screen.getByText("Применить"));
     expect(state.onApply).not.toHaveBeenCalled();
+  });
+
+  it("renders the embedded task next action under a successful result", () => {
+    const state = props({ submitResult: "success", showNextAction: true });
+    render(<SubmitModal {...state} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Дальше" }));
+
+    expect(state.onNext).toHaveBeenCalledTimes(1);
   });
 });
