@@ -45,7 +45,7 @@ describe("CodeEditorSection", () => {
     });
   });
 
-  it("keeps the public function call visible for a single-answer paste payload", () => {
+  it("hides private wrappers for a paste task with one server-side test", () => {
     render(
       <CodeEditorSection
         code="return 1"
@@ -54,6 +54,7 @@ describe("CodeEditorSection", () => {
         currentAnswer={null}
         task={{
           task_type: "paste",
+          has_multiple_tests: false,
           answers: [
             {
               code_before: "",
@@ -69,7 +70,7 @@ describe("CodeEditorSection", () => {
 
     expect(mockedEditor.mock.calls[0][0]).toMatchObject({
       codeBefore: "",
-      codeAfter: "print(f('public'))\n\n",
+      codeAfter: "",
       disabled: false,
       isWebSocket: false,
     });

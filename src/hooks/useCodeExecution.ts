@@ -75,6 +75,10 @@ export const useCodeExecution = ({
 	};
 
 	const handleRunCode = async () => {
+		if (isInIframe && taskId && task?.has_multiple_tests === false) {
+			await onSendCheck();
+			return;
+		}
 		if (status === "success" && taskId) {
 			await onSendCheck();
 			return;

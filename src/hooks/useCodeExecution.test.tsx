@@ -122,6 +122,37 @@ describe("useCodeExecution", () => {
     );
   });
 
+  it("submits an iframe task with a hidden single validator without running private wrappers", async () => {
+    mockedApi.checkTaskAnswer.mockResolvedValue({
+      result: true,
+      message: "Верно",
+      status: 200,
+    });
+    const { result } = setup({
+      isInIframe: true,
+      taskId: "180068",
+      clientId: "77",
+      answer_id: "answer",
+      language: Language.JS,
+      code: "function Settings() { return null; }",
+      task: {
+        task_type: "paste",
+        has_multiple_tests: false,
+        answers: [{ id: 1, hint: "hint" }],
+      },
+    });
+
+    await act(() => result.current.handleRunCode());
+
+    expect(mockedApi.checkTaskAnswer).toHaveBeenCalledWith(180068, {
+      client_id: "77",
+      answer_id: "answer",
+      program: "function Settings() { return null; }",
+    });
+    expect(mockedApi.runCode).not.toHaveBeenCalled();
+    expect(mockedApi.checkCode).not.toHaveBeenCalled();
+  });
+
   it("runs a paste task with its public call but submits only editable code", async () => {
     mockedApi.runCode.mockResolvedValue({
       result: true,
