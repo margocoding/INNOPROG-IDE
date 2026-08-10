@@ -411,6 +411,12 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     let active = true;
 
     const loadCode = async () => {
+      // The task response carries the starter file for file-based completion
+      // tasks, so wait for it before deciding what an empty saved answer means.
+      if (taskId && !taskDataReady) {
+        return;
+      }
+
       // Если есть roomId, ждем сначала загрузки из комнаты
       if (roomId && !roomCodeLoaded) {
         return;
@@ -437,8 +443,13 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           );
 
           // Проверяем, что код из комнаты не был загружен между запросом и ответом
-          if (data.code) {
-            setCode(data.code);
+          if (active) {
+            const hasSavedCode = data.has_saved_code === true
+              || (typeof data.has_saved_code !== "boolean" && Boolean(data.code));
+            const initialCode = typeof task?.initial_code === "string"
+              ? task.initial_code
+              : "";
+            setCode(hasSavedCode ? data.code : (initialCode ? "" : (data.code || "")));
             setCodeSource("api");
           }
         } catch (error) {
@@ -460,7 +471,16 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     return () => {
       active = false;
     };
-  }, [taskId, answer_id, roomId, roomCodeLoaded, codeSource, userId]);
+  }, [
+    taskId,
+    answer_id,
+    roomId,
+    roomCodeLoaded,
+    codeSource,
+    userId,
+    taskDataReady,
+    task?.initial_code,
+  ]);
 
   useEffect(() => {
     if (!isEmbeddedApp) {

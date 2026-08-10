@@ -52,7 +52,7 @@ jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
       data-has-websocket={String(Boolean(webSocketData))}
       data-can-initialize={String(Boolean(canInitializeCollaborativeCode))}
     >
-      <span>{code}</span>
+      <span data-testid="editable-code">{code}</span>
       <span data-testid="collaborative-seed">{collaborativeCodeSeed}</span>
       <button onClick={() => setCode("changed")}>change-code</button>
       <button onClick={() => handleLanguageChange("js")}>change-language</button>
@@ -248,6 +248,52 @@ describe("IDE", () => {
     expect(screen.getByTestId("resizer-horizontal")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("resizer-horizontal"));
     expect(localStorage.getItem("innoprog-task-editor-height")).toBe("60");
+  });
+
+  it("opens an attached starter file when no submitted code exists", async () => {
+    window.history.replaceState(
+      {}, "", "/?telegramId=123&task_id=80026&answer_id=a&lang=py",
+    );
+    (api.getTask as jest.Mock).mockResolvedValue({
+      id: 80026,
+      title: "Complete the file",
+      type: "Дополнение кода",
+      initial_code: "from sklearn.datasets import load_wine\n\nX = wine.data",
+      answers: [{ code_before: "", code_after: "" }],
+    });
+    (api.getSubmitCode as jest.Mock).mockResolvedValue({
+      code: "\n# Напишите код здесь\n\n",
+      has_saved_code: false,
+    });
+
+    render(<IDE telegramId="123" />);
+
+    await screen.findByText("Complete the file");
+    await waitFor(() => expect(api.getSubmitCode).toHaveBeenCalled());
+    expect(screen.getByTestId("editable-code")).toHaveTextContent("");
+    expect(screen.queryByText(/Напишите код здесь/)).toBeNull();
+  });
+
+  it("keeps a saved answer instead of replacing it with the starter file", async () => {
+    window.history.replaceState(
+      {}, "", "/?telegramId=123&task_id=80026&answer_id=a&lang=py",
+    );
+    (api.getTask as jest.Mock).mockResolvedValue({
+      id: 80026,
+      title: "Complete the file",
+      type: "Дополнение кода",
+      initial_code: "starter code",
+      answers: [{ code_before: "", code_after: "" }],
+    });
+    (api.getSubmitCode as jest.Mock).mockResolvedValue({
+      code: "student solution",
+      has_saved_code: true,
+    });
+
+    render(<IDE telegramId="123" />);
+
+    await screen.findByText("student solution");
+    expect(screen.getByTestId("editable-code")).toHaveTextContent("student solution");
   });
 
   it("loads submitted code when the app supplies an inactive socket facade", async () => {

@@ -76,6 +76,32 @@ describe("CodeEditorSection", () => {
     });
   });
 
+  it("shows an attached starter file while keeping private test code hidden", () => {
+    render(
+      <CodeEditorSection
+        code="student addition"
+        setCode={jest.fn()}
+        language="py"
+        currentAnswer={null}
+        task={{
+          task_type: "paste",
+          has_multiple_tests: false,
+          initial_code: "from sklearn.datasets import load_wine",
+          answers: [{ code_after: "print(secret_result)" }],
+        } as any}
+        activeTab="editor"
+        setCurrentCode={jest.fn()}
+        handleLanguageChange={jest.fn()}
+      />,
+    );
+
+    expect(mockedEditor.mock.calls[0][0]).toMatchObject({
+      value: "student addition",
+      codeBefore: "from sklearn.datasets import load_wine\n\n",
+      codeAfter: "",
+    });
+  });
+
   it("enables teachers and uses the selected answer", () => {
     const answer = { code_before: "b", code_after: "a" } as any;
     render(

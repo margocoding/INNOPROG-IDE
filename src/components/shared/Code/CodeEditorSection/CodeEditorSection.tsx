@@ -76,9 +76,14 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     const selectedAnswer = currentAnswer ?? task?.answers?.[0] ?? null;
     const isPasteTask = getTaskType(task) === "paste";
     const showPasteWrappers = isPasteTask && task?.has_multiple_tests !== false;
+    const attachedStarterCode = isPasteTask && typeof task?.initial_code === "string"
+      ? task.initial_code
+      : "";
     const visualCodeBefore = showPasteWrappers
       ? selectedAnswer?.code_before || ""
-      : "";
+      : attachedStarterCode
+        ? `${attachedStarterCode}\n\n`
+        : "";
     const visualCodeAfter = showPasteWrappers && selectedAnswer?.code_after
       ? `${selectedAnswer.code_after}\n\n`
       : "";
