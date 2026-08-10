@@ -26,6 +26,16 @@ describe("processTaskDescription", () => {
 		expect(processed).not.toContain("Моноширинный");
 	});
 
+	it("removes the legacy red marker with its emoji variation selector", () => {
+		const description =
+			'Условие задания.\n\n❗️ При отправке кода текстом, примените форматирование <b>Моноширинный</b> к коду';
+
+		expect(stripInlineIdeFormattingHint(description)).toBe("Условие задания.");
+		const processed = processTaskDescription(description);
+		expect(processed).toBe("Условие задания.");
+		expect(processed).not.toContain("❗");
+	});
+
 	it("removes inline IDE monospace formatting hint when the keyword is formatted as html", () => {
 		const description =
 			"<p>Условие задания</p><p>❗ При отправке кода текстом, примените форматирование <b>Моноширинный</b> к коду</p>";
