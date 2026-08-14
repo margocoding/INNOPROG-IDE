@@ -165,14 +165,40 @@ describe("IDE API", () => {
   });
 
   it("loads submitted code with URL encoded parameters", async () => {
-    const json = jest.fn().mockResolvedValue({ program: "print(1)" });
-    global.fetch = jest.fn().mockResolvedValue({ json } as any);
+    const json = jest.fn().mockResolvedValue({
+      status: "success",
+      code: "print(1)",
+      has_saved_code: true,
+    });
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json } as any);
     await expect(api.getSubmitCode("a b", 2, 3)).resolves.toEqual({
-      program: "print(1)",
+      status: "success",
+      code: "print(1)",
+      has_saved_code: true,
     });
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining("answer_id=a+b&user_id=2&task_id=3"),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it("rejects non-success submitted-code responses", async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: jest.fn().mockResolvedValue({ status: "error" }),
+    } as any);
+    await expect(api.getSubmitCode("a", 2, 3)).rejects.toThrow(
+      "Failed to load submitted code: 500",
+    );
+
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({ status: "error", message: "failed" }),
+    } as any);
+    await expect(api.getSubmitCode("a", 2, 3)).rejects.toThrow(
+      "Invalid submitted-code response",
     );
   });
 });

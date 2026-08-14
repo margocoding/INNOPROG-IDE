@@ -10,6 +10,9 @@ describe("CodeEditor import helpers", () => {
   it("detects editor languages by file extension", () => {
     expect(getLanguageFromFileName("solution.py")).toBe(Language.PY);
     expect(getLanguageFromFileName("index.HTML")).toBe(Language.HTML);
+    expect(getLanguageFromFileName("Dockerfile")).toBe(Language.DOCKERFILE);
+    expect(getLanguageFromFileName("service.dockerfile")).toBe(Language.DOCKERFILE);
+    expect(getLanguageFromFileName("compose.yaml")).toBe(Language.YAML);
     expect(getLanguageFromFileName("main.cpp")).toBe(Language.CPP);
     expect(getLanguageFromFileName("README.md")).toBeNull();
   });

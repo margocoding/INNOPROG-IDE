@@ -27,6 +27,8 @@ export const CODE_FILE_ACCEPT = [
   ".xml",
   ".yaml",
   ".yml",
+  ".dockerfile",
+  "text/plain",
 ].join(",");
 
 const languageByExtension: Record<string, Language> = {
@@ -48,6 +50,9 @@ const languageByExtension: Record<string, Language> = {
   sh: Language.BASH,
   bash: Language.BASH,
   dart: Language.DART,
+  yaml: Language.YAML,
+  yml: Language.YAML,
+  dockerfile: Language.DOCKERFILE,
 };
 
 export interface ImportedCodeMergeResult {
@@ -57,6 +62,9 @@ export interface ImportedCodeMergeResult {
 }
 
 export const getLanguageFromFileName = (fileName: string): Language | null => {
+  if (fileName.trim().toLocaleLowerCase() === "dockerfile") {
+    return Language.DOCKERFILE;
+  }
   const extension = fileName.trim().toLocaleLowerCase().split(".").pop();
 
   if (!extension || extension === fileName) {

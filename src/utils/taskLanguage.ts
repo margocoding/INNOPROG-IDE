@@ -13,10 +13,31 @@ const isJavaTask = (taskId: string | null): boolean => {
   );
 };
 
+export const resolveConfigurationTaskLanguage = (
+  taskId: string | null
+): Language | null => {
+  const numericTaskId = Number(taskId);
+  if (!Number.isInteger(numericTaskId)) return null;
+  if (numericTaskId >= 360145 && numericTaskId <= 360155) {
+    return Language.DOCKERFILE;
+  }
+  if (numericTaskId >= 360156 && numericTaskId <= 360168) {
+    return Language.YAML;
+  }
+  return null;
+};
+
 export const resolveTaskLanguage = (
   taskId: string | null,
   requestedLanguage: string | null
 ): string => {
+  // Configuration tasks have a fixed file format. A stale launcher query
+  // parameter must not turn their contents into executable code.
+  const configurationLanguage = resolveConfigurationTaskLanguage(taskId);
+  if (configurationLanguage) {
+    return configurationLanguage;
+  }
+
   const normalizedLanguage = requestedLanguage?.trim();
   if (normalizedLanguage) {
     return normalizedLanguage;

@@ -276,7 +276,18 @@ export const api = {
 			task_id: String(task_id),
 		});
 		const response = await fetchWithTimeout(`${API_URL}/answer/code?${params.toString()}`);
+		if (!response.ok) {
+			throw new Error(`Failed to load submitted code: ${response.status}`);
+		}
 		const data = await response.json();
+		if (
+			!data ||
+			typeof data !== "object" ||
+			(data.status && data.status !== "success") ||
+			typeof data.code !== "string"
+		) {
+			throw new Error("Invalid submitted-code response");
+		}
 		return data;
 	},
 };

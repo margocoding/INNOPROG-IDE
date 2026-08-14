@@ -21,7 +21,9 @@ import {
   indentRange,
 } from "@codemirror/language";
 import { dart } from "@codemirror/legacy-modes/mode/clike";
+import { dockerFile } from "@codemirror/legacy-modes/mode/dockerfile";
 import { shell } from "@codemirror/legacy-modes/mode/shell";
+import { yaml } from "@codemirror/legacy-modes/mode/yaml";
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import {
@@ -89,6 +91,8 @@ interface IProps {
   myTelegramId?: string;
   disabled: boolean;
   handleLanguageChange: (language: Language) => void;
+  languageLocked?: boolean;
+  fileName?: string;
   isTeacher?: boolean;
   isWebSocket: boolean;
 }
@@ -104,6 +108,8 @@ const fileExtensionByLanguage: Record<string, string> = {
   [Language.PY]: "py",
   [Language.SQL]: "sql",
   [Language.DART]: "dart",
+  [Language.DOCKERFILE]: "Dockerfile",
+  [Language.YAML]: "yaml",
 };
 
 const selectionHighlightField = StateField.define<DecorationSet>({
@@ -240,6 +246,8 @@ const CodeEditor: React.FC<IProps> = React.memo(
     joinedCode,
     disabled,
     handleLanguageChange,
+    languageLocked = false,
+    fileName,
     isTeacher,
     setCurrentCode,
     isWebSocket,
@@ -648,6 +656,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
               autoCloseTags: true,
               selfClosingTags: true,
             });
+          case Language.DOCKERFILE:
+            return StreamLanguage.define(dockerFile);
+          case Language.YAML:
+            return StreamLanguage.define(yaml);
           default:
             return python();
         }
@@ -1358,7 +1370,12 @@ const CodeEditor: React.FC<IProps> = React.memo(
           if (
             fileLanguage &&
             fileLanguage !== language &&
-            isTeacher !== false
+            isTeacher !== false &&
+            !(
+              isWebSocket &&
+              (fileLanguage === Language.DOCKERFILE ||
+                fileLanguage === Language.YAML)
+            )
           ) {
             handleLanguageChange(fileLanguage);
           }
@@ -1369,7 +1386,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
           window.alert("Не удалось прочитать файл с кодом.");
         }
       },
-      [handleLanguageChange, insertImportedCode, isTeacher, language]
+      [handleLanguageChange, insertImportedCode, isTeacher, isWebSocket, language]
     );
 
     const getEditableCodeFromEditor = useCallback(() => {
@@ -1402,12 +1419,26 @@ const CodeEditor: React.FC<IProps> = React.memo(
       const link = document.createElement("a");
 
       link.href = url;
-      link.download = `script.${fileExtension}`;
+      link.download =
+        fileName ||
+        (language === Language.DOCKERFILE
+          ? "Dockerfile"
+          : language === Language.YAML
+          ? "config.yaml"
+          : `script.${fileExtension}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-    }, [fileExtension, getEditableCodeFromEditor]);
+    }, [fileExtension, fileName, getEditableCodeFromEditor, language]);
+
+    const displayedFileName =
+      fileName ||
+      (language === Language.DOCKERFILE
+        ? "Dockerfile"
+        : language === Language.YAML
+        ? "config.yaml"
+        : `script.${fileExtension}`);
 
     return (
       <div
@@ -1416,7 +1447,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
       >
         <div className="px-3 py-2 border-b border-ide-border bg-ide-secondary flex justify-between items-center">
           <span className="text-ide-text-secondary text-sm">
-            {`script.${fileExtension}`}
+            {displayedFileName}
           </span>
           <div className="flex items-center gap-4">
             <input
@@ -1476,22 +1507,31 @@ const CodeEditor: React.FC<IProps> = React.memo(
               </button>
             </div>
             <Select
+              items={[
+                { key: Language.JS, label: "JS" },
+                { key: Language.BASH, label: "Bash" },
+                { key: Language.CPP, label: "C++" },
+                { key: Language.PY, label: "Python" },
+                { key: Language.JAVA, label: "Java" },
+                { key: Language.SQL, label: "SQL" },
+                { key: Language.DART, label: "Dart" },
+                { key: Language.HTML, label: "HTML" },
+                ...(!isWebSocket
+                  ? [
+                      { key: Language.DOCKERFILE, label: "Dockerfile" },
+                      { key: Language.YAML, label: "YAML" },
+                    ]
+                  : []),
+              ]}
               selectedKeys={[language]}
-              isDisabled={isTeacher === false}
+              isDisabled={isTeacher === false || languageLocked}
               onChange={(e) => handleLanguageChange(e.target.value as Language)}
               size={"sm"}
               className={"min-w-[100px] w-auto bg-[#333] rounded-xl"}
               variant={"bordered"}
               placeholder={"Язык программирования"}
             >
-              <SelectItem key={Language.JS}>JS</SelectItem>
-              <SelectItem key={Language.BASH}>Bash</SelectItem>
-              <SelectItem key={Language.CPP}>C++</SelectItem>
-              <SelectItem key={Language.PY}>Python</SelectItem>
-              <SelectItem key={Language.JAVA}>Java</SelectItem>
-              <SelectItem key={Language.SQL}>SQL</SelectItem>
-              <SelectItem key={Language.DART}>Dart</SelectItem>
-              <SelectItem key={Language.HTML}>HTML</SelectItem>
+              {(item) => <SelectItem key={item.key}>{item.label}</SelectItem>}
             </Select>
           </div>
         </div>

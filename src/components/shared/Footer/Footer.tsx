@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Button } from "@heroui/react";
 import { isDesktop } from "../../..";
 
@@ -13,6 +13,8 @@ interface FooterProps {
   setActiveTab: (tab: "editor" | "output") => void;
   setStatus: (status: "idle" | "success" | "error") => void;
   desktopTaskMode?: boolean;
+  submitOnly?: boolean;
+  onPrimaryAction?: () => Promise<void>;
 }
 
 const Footer: React.FC<FooterProps> = ({
@@ -26,24 +28,40 @@ const Footer: React.FC<FooterProps> = ({
   setActiveTab,
   setStatus,
   desktopTaskMode = false,
+  submitOnly = false,
+  onPrimaryAction,
 }) => {
+  const actionPendingRef = useRef(false);
   const isHtmlMode = language === "html";
+  const isSubmitOnlyMode = isHtmlMode || submitOnly;
   const hasTask = Boolean(taskId);
 
   const handleButtonClick = async () => {
-    if (isHtmlMode && hasTask) {
-      await onSubmitCheck();
-      return;
-    }
+    if (isRunning || actionPendingRef.current) return;
 
-    if (status === "success" && taskId) {
-      await onSubmitCheck();
-    } else {
-      await onRunCode();
+    actionPendingRef.current = true;
+    try {
+      if (onPrimaryAction) {
+        await onPrimaryAction();
+        return;
+      }
+
+      if (isSubmitOnlyMode && hasTask) {
+        await onSubmitCheck();
+        return;
+      }
+
+      if (status === "success" && taskId) {
+        await onSubmitCheck();
+      } else {
+        await onRunCode();
+      }
+    } finally {
+      actionPendingRef.current = false;
     }
   };
 
-  if (isHtmlMode && !hasTask) {
+  if (isSubmitOnlyMode && !hasTask) {
     return null;
   }
 
@@ -62,7 +80,7 @@ const Footer: React.FC<FooterProps> = ({
           onPress={handleButtonClick}
           disabled={isRunning}
           color={
-            isHtmlMode || (status === "success" && taskId)
+            isSubmitOnlyMode || (status === "success" && taskId)
               ? "secondary"
               : "success"
           }
@@ -108,7 +126,7 @@ const Footer: React.FC<FooterProps> = ({
               />
             </svg>
           )}
-          {isHtmlMode
+          {isSubmitOnlyMode
             ? isRunning
               ? "Отправка..."
               : "Отправить решение"
@@ -125,7 +143,7 @@ const Footer: React.FC<FooterProps> = ({
             ? "Выполняется..."
             : "Выполнить"}
         </Button>
-        {!isHtmlMode && activeTab === "output" && (
+        {!isSubmitOnlyMode && activeTab === "output" && (
           <div
             className={
               desktopTaskMode

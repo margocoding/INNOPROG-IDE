@@ -83,8 +83,19 @@ const randomInt = (min: number, max: number): number => {
 const isRoomGeneratedTelegramId = (telegramId?: string | null): boolean =>
     Boolean(telegramId && /^i\d+$/.test(telegramId));
 
+const supportedRoomLanguages = new Set<Language>([
+    Language.JS,
+    Language.PY,
+    Language.BASH,
+    Language.CPP,
+    Language.SQL,
+    Language.DART,
+    Language.JAVA,
+    Language.HTML,
+]);
+
 const isSupportedRoomLanguage = (language: unknown): language is Language =>
-    typeof language === "string" && Object.values(Language).includes(language as Language);
+    typeof language === "string" && supportedRoomLanguages.has(language as Language);
 
 const getOrCreateClientInstanceId = (): string => {
     const key = "innoprog-ide-client-instance";

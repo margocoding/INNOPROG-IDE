@@ -5,7 +5,10 @@ import { useCodeExecution } from "../../../../hooks/useCodeExecution";
 import { api } from "../../../../services/api";
 import { Answer, Language, Task } from "../../../../types/task";
 import { postToParent } from "../../../../utils/parentMessaging";
-import { resolveTaskLanguage } from "../../../../utils/taskLanguage";
+import {
+  resolveConfigurationTaskLanguage,
+  resolveTaskLanguage,
+} from "../../../../utils/taskLanguage";
 
 import { Socket } from "socket.io-client";
 import type * as Y from "yjs";
@@ -128,6 +131,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [showBlockingLoader, setShowBlockingLoader] = useState<boolean>(true);
   const [taskDataReady, setTaskDataReady] = useState<boolean>(false);
   const [initialCodeReady, setInitialCodeReady] = useState<boolean>(false);
+  const [initialCodeLoadFailed, setInitialCodeLoadFailed] =
+    useState<boolean>(false);
   const [isAutoHtmlTemplateActive, setIsAutoHtmlTemplateActive] =
     useState(false);
   const [isAutoBashTemplateActive, setIsAutoBashTemplateActive] =
@@ -137,6 +142,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const wasHtmlModeRef = useRef(false);
   const wasBashModeRef = useRef(false);
   const announcedReadyKeyRef = useRef("");
+  const primaryActionPendingRef = useRef(false);
   const [editorWidth, setEditorWidth] = useState<number>(() => {
     const saved = localStorage.getItem("innoprog-editor-width");
     return saved ? parseFloat(saved) : 50;
@@ -153,10 +159,29 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const { onOpen, onOpenChange, isOpen, onClose } = useDisclosure();
 
   const taskId = searchParams.get("task_id") || null;
-  const language = resolveTaskLanguage(taskId, searchParams.get("lang"));
+  const fixedConfigurationLanguage = resolveConfigurationTaskLanguage(taskId);
+  const metadataConfigurationLanguage =
+    task?.submission_ui === "ide" &&
+    (task.editor_language === Language.DOCKERFILE ||
+      task.editor_language === Language.YAML)
+      ? task.editor_language
+      : null;
+  const configurationLanguage =
+    fixedConfigurationLanguage || metadataConfigurationLanguage;
+  const language =
+    configurationLanguage ||
+    resolveTaskLanguage(taskId, searchParams.get("lang"));
   const answer_id = searchParams.get("answer_id");
   const roomId = searchParams.get("roomId");
   const isHtmlMode = language === Language.HTML;
+  const isConfigurationMode = Boolean(configurationLanguage);
+  const configurationFileName = isConfigurationMode
+    ? language === Language.DOCKERFILE
+      ? "Dockerfile"
+      : fixedConfigurationLanguage === Language.YAML
+      ? "compose.yaml"
+      : undefined
+    : undefined;
   const isBashMode = language === Language.BASH;
   const telegramWebAppUserId = roomId
     ? null
@@ -213,21 +238,45 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   }, [handleRunCode, onOpen, task?.answers?.length, taskId]);
 
   const runPrimaryAction = useCallback(async () => {
-    if (isHtmlMode) {
+    if (
+      primaryActionPendingRef.current ||
+      isRunning ||
+      isOpen ||
+      (taskId &&
+        (!taskDataReady || !initialCodeReady || initialCodeLoadFailed))
+    ) {
       return;
     }
 
-    if (isRunning || isOpen) {
-      return;
-    }
+    primaryActionPendingRef.current = true;
+    try {
+      if (isHtmlMode || isConfigurationMode) {
+        if (taskId) await onSendCheck();
+        return;
+      }
 
-    if (status === "success" && taskId) {
-      await onSendCheck();
-      return;
-    }
+      if (status === "success" && taskId) {
+        await onSendCheck();
+        return;
+      }
 
-    await onModalRunCode();
-  }, [isHtmlMode, isOpen, isRunning, onModalRunCode, onSendCheck, status, taskId]);
+      await onModalRunCode();
+    } finally {
+      primaryActionPendingRef.current = false;
+    }
+  }, [
+    initialCodeReady,
+    initialCodeLoadFailed,
+    isConfigurationMode,
+    isHtmlMode,
+    isOpen,
+    isRunning,
+    onModalRunCode,
+    onSendCheck,
+    status,
+    taskDataReady,
+    taskId,
+  ]);
 
   useEffect(() => {
     const handleRunShortcut = (event: KeyboardEvent) => {
@@ -405,6 +454,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   useEffect(() => {
     setInitialCodeReady(!taskId);
+    setInitialCodeLoadFailed(false);
   }, [answer_id, roomId, taskId]);
 
   // Загрузка кода с приоритетами
@@ -437,11 +487,19 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       // Загружаем код из API
       if (taskId && answer_id) {
         try {
+          setInitialCodeLoadFailed(false);
           const data = await api.getSubmitCode(
             answer_id,
             userId,
             Number(taskId)
           );
+          if (
+            !data ||
+            (data.status && data.status !== "success") ||
+            typeof data.code !== "string"
+          ) {
+            throw new Error("Invalid submitted-code response");
+          }
 
           // Проверяем, что код из комнаты не был загружен между запросом и ответом
           if (active) {
@@ -455,6 +513,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           }
         } catch (error) {
           console.error("Failed to load answer code");
+          if (active) setInitialCodeLoadFailed(true);
         } finally {
           if (active) setInitialCodeReady(true);
         }
@@ -493,6 +552,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       taskId &&
       (!taskDataReady ||
         !initialCodeReady ||
+        initialCodeLoadFailed ||
         !task ||
         Number(task.id) !== readyTaskId)
     ) {
@@ -516,6 +576,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   }, [
     answer_id,
     initialCodeReady,
+    initialCodeLoadFailed,
     isEmbeddedApp,
     language,
     task,
@@ -593,6 +654,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   const handleLanguageChange = useCallback(
     (lang: Language) => {
+      if (configurationLanguage) {
+        return;
+      }
       setSearchParams((prev) => {
         prev.set("lang", lang);
         return prev;
@@ -601,7 +665,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         webSocketData.sendChangeLanguage(lang);
       }
     },
-    [setSearchParams, webSocketData]
+    [configurationLanguage, setSearchParams, webSocketData]
   );
 
   const memoizedWebSocketData = useMemo(() => {
@@ -845,6 +909,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               activeTab={activeTab}
               webSocketData={memoizedWebSocketData}
               handleLanguageChange={handleLanguageChange}
+              languageLocked={Boolean(configurationLanguage)}
+              fileName={configurationFileName}
               width={editorWidth}
               desktopStackedPane={desktopTaskMode}
               desktopPaneSize={
@@ -894,7 +960,11 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       <Footer
         status={status}
         taskId={taskId}
-        isRunning={isRunning}
+        isRunning={Boolean(
+          isRunning ||
+            (taskId &&
+              (!taskDataReady || !initialCodeReady || initialCodeLoadFailed))
+        )}
         activeTab={activeTab}
         language={language}
         onRunCode={onModalRunCode}
@@ -902,6 +972,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         setActiveTab={setActiveTab}
         setStatus={setStatus}
         desktopTaskMode={desktopTaskMode}
+        submitOnly={isConfigurationMode}
+        onPrimaryAction={runPrimaryAction}
       />
     </div>
   );

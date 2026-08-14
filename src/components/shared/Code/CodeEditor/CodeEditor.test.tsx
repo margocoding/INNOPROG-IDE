@@ -43,6 +43,15 @@ describe("CodeEditor", () => {
     );
   });
 
+  it("uses semantic config filenames instead of treating every YAML file as Compose", () => {
+    const generic = render(<CodeEditor {...props} language="yaml" />);
+    expect(screen.getByText("config.yaml")).toBeInTheDocument();
+    generic.unmount();
+
+    render(<CodeEditor {...props} language="yaml" fileName="compose.yaml" />);
+    expect(screen.getByText("compose.yaml")).toBeInTheDocument();
+  });
+
   it("switches language through the teacher selector", () => {
     const { container } = render(<CodeEditor {...props} language="py" isTeacher />);
     const select = container.querySelector("select") as HTMLSelectElement;
@@ -74,6 +83,25 @@ describe("CodeEditor", () => {
     await screen.findByText("script.py");
     await waitFor(() => expect(props.handleLanguageChange).toHaveBeenCalled());
     expect(props.onChange).toHaveBeenCalledWith(expect.stringContaining("const x = 1"));
+  });
+
+  it("does not switch a collaborative room to an unsupported config language", async () => {
+    const { container } = render(
+      <CodeEditor {...props} language="py" isTeacher isWebSocket value="existing" />,
+    );
+    const file = new File(["services: {}"], "compose.yaml", {
+      type: "application/yaml",
+    });
+    Object.defineProperty(file, "text", {
+      value: jest.fn().mockResolvedValue("services: {}"),
+    });
+
+    fireEvent.change(container.querySelector('input[type="file"]')!, {
+      target: { files: [file] },
+    });
+
+    await waitFor(() => expect(props.onChange).toHaveBeenCalled());
+    expect(props.handleLanguageChange).not.toHaveBeenCalled();
   });
 
   it("rejects oversized imports and downloads editable code", () => {

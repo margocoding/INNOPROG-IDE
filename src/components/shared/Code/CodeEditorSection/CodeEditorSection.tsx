@@ -53,6 +53,8 @@ interface CodeEditorSectionProps {
     isSessionReplaced?: boolean;
   };
   handleLanguageChange: (language: Language) => void;
+  languageLocked?: boolean;
+  fileName?: string;
 }
 
 const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
@@ -65,6 +67,8 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     activeTab,
     webSocketData,
     handleLanguageChange,
+    languageLocked = false,
+    fileName,
     setCurrentCode,
     width = 50,
     desktopSinglePane = false,
@@ -118,6 +122,8 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
           codeAfter={visualCodeAfter}
           setCurrentCode={setCurrentCode}
           handleLanguageChange={handleLanguageChange}
+          languageLocked={languageLocked}
+          fileName={fileName}
           disabled={Boolean(webSocketData) && (
             Boolean(webSocketData?.isSessionReplaced) || !(
               Boolean(

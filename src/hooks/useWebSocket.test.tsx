@@ -254,6 +254,7 @@ describe("useWebSocket", () => {
       result.current.onSendUpdate?.(new Uint8Array([1]));
       result.current.sendEditMember("Name");
       result.current.sendChangeLanguage("js" as any);
+      result.current.sendChangeLanguage("dockerfile" as any);
       result.current.sendChangeLanguage("" as any);
       result.current.sendRoomPermissions({
         studentCursorEnabled: false,

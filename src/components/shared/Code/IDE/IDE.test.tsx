@@ -43,6 +43,7 @@ jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
     desktopSinglePane,
     desktopStackedPane,
     desktopPaneSize,
+    fileName,
   }: any) => (
     <section
       data-testid="editor"
@@ -51,6 +52,7 @@ jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
       data-desktop-pane-size={desktopPaneSize}
       data-has-websocket={String(Boolean(webSocketData))}
       data-can-initialize={String(Boolean(canInitializeCollaborativeCode))}
+      data-file-name={fileName || ""}
     >
       <span data-testid="editable-code">{code}</span>
       <span data-testid="collaborative-seed">{collaborativeCodeSeed}</span>
@@ -118,10 +120,17 @@ jest.mock("../../Footer/Footer", () => ({
     onSubmitCheck,
     desktopTaskMode,
     setActiveTab,
+    isRunning,
+    onPrimaryAction,
   }: any) => (
-    <footer data-desktop-task-mode={String(Boolean(desktopTaskMode))}>
+    <footer
+      data-desktop-task-mode={String(Boolean(desktopTaskMode))
+      }
+      data-action-disabled={String(Boolean(isRunning))}
+    >
       <button onClick={onRunCode}>run</button>
       <button onClick={onSubmitCheck}>submit</button>
+      <button onClick={onPrimaryAction}>primary</button>
       <button onClick={() => setActiveTab("output")}>show-output</button>
     </footer>
   ),
@@ -435,6 +444,200 @@ describe("IDE", () => {
       "data-desktop-task-mode",
       "false",
     );
+  });
+
+  it.each([
+    ["360145", "dockerfile"],
+    ["360156", "yaml"],
+  ])(
+    "submits task %s as %s with Ctrl+Enter without running it",
+    async (taskId) => {
+      window.history.replaceState(
+        {},
+        "",
+        `/?telegramId=123&task_id=${taskId}&answer_id=a&lang=py`,
+      );
+      (api.getTask as jest.Mock).mockResolvedValue({
+        id: Number(taskId),
+        title: "Docker configuration",
+        answers: [{ code_before: "", code_after: "" }],
+      });
+      (api.getSubmitCode as jest.Mock).mockResolvedValue({ code: "saved" });
+
+      render(<IDE telegramId="123" />);
+      await screen.findByText("Docker configuration");
+      await screen.findByText("saved");
+      await waitFor(() => expect(screen.getByRole("contentinfo")).toHaveAttribute(
+        "data-action-disabled",
+        "false",
+      ));
+      fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+
+      await waitFor(() => expect(mockOnSendCheck).toHaveBeenCalledTimes(1));
+      expect(mockHandleRunCode).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not submit a configuration task before task and code hydration", async () => {
+    let resolveTask: (value: unknown) => void = () => undefined;
+    let resolveCode: (value: unknown) => void = () => undefined;
+    window.history.replaceState(
+      {},
+      "",
+      "/?telegramId=123&task_id=360145&answer_id=a&lang=py",
+    );
+    (api.getTask as jest.Mock).mockReturnValue(new Promise((resolve) => {
+      resolveTask = resolve;
+    }));
+    (api.getSubmitCode as jest.Mock).mockReturnValue(new Promise((resolve) => {
+      resolveCode = resolve;
+    }));
+
+    render(<IDE telegramId="123" />);
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+    expect(mockOnSendCheck).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveTask({
+        id: 360145,
+        title: "Docker configuration",
+        answers: [{ code_before: "", code_after: "" }],
+      });
+    });
+    await screen.findByText("Docker configuration");
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+    expect(mockOnSendCheck).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveCode({ code: "FROM alpine", has_saved_code: true });
+    });
+    await screen.findByText("FROM alpine");
+    await waitFor(() => expect(screen.getByRole("contentinfo")).toHaveAttribute(
+      "data-action-disabled",
+      "false",
+    ));
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+    await waitFor(() => expect(mockOnSendCheck).toHaveBeenCalledTimes(1));
+    expect(mockHandleRunCode).not.toHaveBeenCalled();
+  });
+
+  it("keeps configuration submission blocked when saved-code hydration fails", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?telegramId=123&task_id=360145&answer_id=a",
+    );
+    (api.getTask as jest.Mock).mockResolvedValue({
+      id: 360145,
+      title: "Docker configuration",
+      answers: [{ code_before: "", code_after: "" }],
+    });
+    (api.getSubmitCode as jest.Mock).mockRejectedValue(new Error("network"));
+
+    render(<IDE telegramId="123" />);
+    await screen.findByText("Docker configuration");
+    await waitFor(() => expect(api.getSubmitCode).toHaveBeenCalled());
+    expect(screen.getByRole("contentinfo")).toHaveAttribute(
+      "data-action-disabled",
+      "true",
+    );
+
+    fireEvent.click(screen.getByText("primary"));
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+    expect(mockOnSendCheck).not.toHaveBeenCalled();
+    expect(mockHandleRunCode).not.toHaveBeenCalled();
+  });
+
+  it("keeps submission blocked for a fulfilled hydration error payload", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?telegramId=123&task_id=360145&answer_id=a",
+    );
+    (api.getTask as jest.Mock).mockResolvedValue({
+      id: 360145,
+      title: "Docker configuration",
+      answers: [{ code_before: "", code_after: "" }],
+    });
+    (api.getSubmitCode as jest.Mock).mockResolvedValue({
+      status: "error",
+      message: "backend failed",
+    });
+
+    render(<IDE telegramId="123" />);
+    await screen.findByText("Docker configuration");
+    await waitFor(() => expect(api.getSubmitCode).toHaveBeenCalled());
+    expect(screen.getByRole("contentinfo")).toHaveAttribute(
+      "data-action-disabled",
+      "true",
+    );
+    fireEvent.click(screen.getByText("primary"));
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+    expect(mockOnSendCheck).not.toHaveBeenCalled();
+  });
+
+  it("uses server presentation metadata for rebuilt configuration tasks", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?telegramId=123&task_id=361376&answer_id=a&lang=py",
+    );
+    (api.getTask as jest.Mock).mockResolvedValue({
+      id: 361376,
+      title: "Compose configuration",
+      submission_ui: "ide",
+      editor_language: "yaml",
+      answers: [{ code_before: "", code_after: "" }],
+    });
+    (api.getSubmitCode as jest.Mock).mockResolvedValue({
+      code: "services: {}",
+      has_saved_code: true,
+    });
+
+    render(<IDE telegramId="123" />);
+    await screen.findByText("services: {}");
+    expect(screen.getByTestId("editor")).toHaveAttribute("data-file-name", "");
+    await waitFor(() => expect(screen.getByRole("contentinfo")).toHaveAttribute(
+      "data-action-disabled",
+      "false",
+    ));
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+
+    await waitFor(() => expect(mockOnSendCheck).toHaveBeenCalledTimes(1));
+    expect(mockHandleRunCode).not.toHaveBeenCalled();
+  });
+
+  it("single-flights a mixed footer and keyboard submission", async () => {
+    let resolveSubmission: () => void = () => undefined;
+    mockOnSendCheck.mockReturnValueOnce(new Promise<void>((resolve) => {
+      resolveSubmission = resolve;
+    }));
+    window.history.replaceState(
+      {},
+      "",
+      "/?telegramId=123&task_id=360145&answer_id=a",
+    );
+    (api.getTask as jest.Mock).mockResolvedValue({
+      id: 360145,
+      title: "Docker configuration",
+      answers: [{ code_before: "", code_after: "" }],
+    });
+    (api.getSubmitCode as jest.Mock).mockResolvedValue({
+      code: "FROM alpine",
+      has_saved_code: true,
+    });
+
+    render(<IDE telegramId="123" />);
+    await screen.findByText("FROM alpine");
+    await waitFor(() => expect(screen.getByRole("contentinfo")).toHaveAttribute(
+      "data-action-disabled",
+      "false",
+    ));
+    fireEvent.click(screen.getByText("primary"));
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+    expect(mockOnSendCheck).toHaveBeenCalledTimes(1);
+
+    await act(async () => resolveSubmission());
   });
 
   it("uses joined room code, synchronizes username and language", () => {

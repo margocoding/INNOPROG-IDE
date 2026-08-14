@@ -22,6 +22,8 @@ export interface Task {
   has_multiple_tests?: boolean;
   examples?: Example[];
   initial_code?: string;
+  editor_language?: string;
+  submission_ui?: string;
   tests?: Test[];
   answers?: Answer[];
 }
@@ -100,5 +102,7 @@ export enum Language {
   SQL = 'sql',
   PY = 'py',
   DART = 'dart',
-  HTML = 'html'
+  HTML = 'html',
+  DOCKERFILE = 'dockerfile',
+  YAML = 'yaml'
 }
