@@ -12,6 +12,8 @@ import {
 
 const API_URL = (process.env.REACT_APP_BOT_API_URL || "/bot-api").replace(/\/$/, "");
 const API_REQUEST_TIMEOUT_MS = 15000;
+const CODE_EXECUTION_TIMEOUT_MS = 45000;
+const TASK_CHECK_TIMEOUT_MS = 90000;
 const BASE_API = axios.create({
 	baseURL: API_URL,
 	timeout: API_REQUEST_TIMEOUT_MS,
@@ -217,6 +219,7 @@ export const api = {
 			`/check/${language}`,
 			data,
 			{
+				timeout: CODE_EXECUTION_TIMEOUT_MS,
 				headers: {
 					"Content-Type": "application/json",
 				},
@@ -234,6 +237,7 @@ export const api = {
 			`/code/run/${runLanguage}`,
 			data,
 			{
+				timeout: CODE_EXECUTION_TIMEOUT_MS,
 				headers: {
 					"Content-Type": "application/json",
 				},
@@ -255,6 +259,7 @@ export const api = {
 			`/task/${taskId}/check-answer`,
 			data,
 			{
+				timeout: TASK_CHECK_TIMEOUT_MS,
 				headers: {
 					"Content-Type": "application/json",
 					...await protectedTaskHeaders(),

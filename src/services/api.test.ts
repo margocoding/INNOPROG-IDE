@@ -159,10 +159,13 @@ describe("IDE API", () => {
     await expect(api.checkTaskAnswer(3, {} as any)).resolves.toEqual({
       result: false, status: 422,
     });
-    expect(post.mock.calls[3][2].headers).toEqual(expect.objectContaining({
-      Authorization: "Bearer short-access-token",
-    }));
-  });
+		expect(post.mock.calls[3][2].headers).toEqual(expect.objectContaining({
+			Authorization: "Bearer short-access-token",
+		}));
+		expect(post.mock.calls[0][2].timeout).toBe(45000);
+		expect(post.mock.calls[1][2].timeout).toBe(45000);
+		expect(post.mock.calls[3][2].timeout).toBe(90000);
+	});
 
   it("loads submitted code with URL encoded parameters", async () => {
     const json = jest.fn().mockResolvedValue({

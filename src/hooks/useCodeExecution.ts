@@ -75,7 +75,22 @@ export const useCodeExecution = ({
 	};
 
 	const handleRunCode = async () => {
-		if (isInIframe && taskId && task?.has_multiple_tests === false) {
+		const selectedAnswer = getSelectedAnswer();
+		const hasPublicTaskExample = Boolean(
+			taskId && selectedAnswer?.input != null && selectedAnswer?.output?.trim()
+		);
+		const shouldAutoSubmitAfterPublicTest = Boolean(
+			isInIframe &&
+			taskId &&
+			task?.has_multiple_tests === false &&
+			hasPublicTaskExample
+		);
+		if (
+			isInIframe &&
+			taskId &&
+			task?.has_multiple_tests === false &&
+			!hasPublicTaskExample
+		) {
 			await onSendCheck();
 			return;
 		}
@@ -93,7 +108,6 @@ export const useCodeExecution = ({
 				taskId && language !== Language.CPP && language !== Language.JAVA
 					? Language.PY
 					: language;
-			const selectedAnswer = getSelectedAnswer();
 			const codeBefore = selectedAnswer?.code_before || "";
 			const codeAfter = selectedAnswer?.code_after || "";
 			const editableCode = extractEditableCode(
@@ -112,9 +126,7 @@ export const useCodeExecution = ({
 				timeout: selectedAnswer?.timeout || 30,
 			};
 
-			const canCheckPublicTaskExample = Boolean(
-				taskId && selectedAnswer?.input != null && selectedAnswer?.output?.trim()
-			);
+			const canCheckPublicTaskExample = hasPublicTaskExample;
 
 			if (!canCheckPublicTaskExample && (taskId || !outputData.trim())) {
 				const runInputData = inputData || "";
@@ -130,10 +142,16 @@ export const useCodeExecution = ({
 				setRunInputData(result.input ?? runInputData);
 				setOutput(
 					taskId && result.result
-						? "Первый тест пройден. Для сдачи задания отправь решение на полную проверку"
+						? shouldAutoSubmitAfterPublicTest
+							? "Первый тест пройден. Идёт полная проверка решения"
+							: "Первый тест пройден. Для сдачи задания отправь решение на полную проверку"
 						: result.output || result.comment || ""
 				);
 				setStatus(result.result ? (taskId ? "success" : "idle") : "error");
+				if (result.result && shouldAutoSubmitAfterPublicTest) {
+					setActiveTab("output");
+					await onSendCheck();
+				}
 				return;
 			}
 
@@ -147,10 +165,16 @@ export const useCodeExecution = ({
 				}
 				setOutput(
 					taskId
-						? "Первый тест пройден. Для сдачи задания отправь решение на полную проверку"
+						? shouldAutoSubmitAfterPublicTest
+							? "Первый тест пройден. Идёт полная проверка решения"
+							: "Первый тест пройден. Для сдачи задания отправь решение на полную проверку"
 						: `Программа успешно выполнена${result.output ? `\nРезультат программы: ${result.output}` : ""}`
 				);
 				setStatus("success");
+				if (shouldAutoSubmitAfterPublicTest) {
+					setActiveTab("output");
+					await onSendCheck();
+				}
 			} else {
 				setOutput(
 					`Ошибка: ${result.comment || "Неверный результат"}${result.output !== "error"

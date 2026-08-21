@@ -106,7 +106,7 @@ describe("useCodeExecution", () => {
       output: "42",
       timeout: 5,
     };
-    const { result } = setup({
+    const { result, callbacks } = setup({
       taskId: "230001",
       language: Language.JAVA,
       code: 'System.out.println(42);',
@@ -147,36 +147,100 @@ describe("useCodeExecution", () => {
     );
   });
 
-  it("submits an iframe task with a hidden single validator without running private wrappers", async () => {
-    mockedApi.checkTaskAnswer.mockResolvedValue({
-      result: true,
-      message: "Верно",
-      status: 200,
-    });
-    const { result } = setup({
+	it("checks the public example before submitting an iframe task with one server validator", async () => {
+		mockedApi.checkCode.mockResolvedValue({ result: true, output: "42" } as any);
+		let resolveFullCheck!: (value: any) => void;
+		mockedApi.checkTaskAnswer.mockImplementation(
+			() => new Promise((resolve) => { resolveFullCheck = resolve; }),
+		);
+    const { result, callbacks } = setup({
       isInIframe: true,
       taskId: "180068",
       clientId: "77",
       answer_id: "answer",
       language: Language.JS,
       code: "function Settings() { return null; }",
-      task: {
-        task_type: "paste",
-        has_multiple_tests: false,
-        answers: [{ id: 1, hint: "hint" }],
-      },
+			task: {
+				task_type: "code",
+				has_multiple_tests: false,
+				answers: [{ id: 1, input: "21", output: "42", hint: "hint" }],
+			},
     });
 
-    await act(() => result.current.handleRunCode());
+		let runPromise!: Promise<void>;
+		await act(async () => {
+			runPromise = result.current.handleRunCode();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
 
     expect(mockedApi.checkTaskAnswer).toHaveBeenCalledWith(180068, {
       client_id: "77",
       answer_id: "answer",
       program: "function Settings() { return null; }",
     });
-    expect(mockedApi.runCode).not.toHaveBeenCalled();
-    expect(mockedApi.checkCode).not.toHaveBeenCalled();
-  });
+		expect(mockedApi.checkCode).toHaveBeenCalled();
+		expect(callbacks.setOutput).toHaveBeenCalledWith(
+			"Первый тест пройден. Идёт полная проверка решения",
+		);
+		expect(callbacks.setStatus).toHaveBeenCalledWith("success");
+		expect(callbacks.setActiveTab).toHaveBeenCalledWith("output");
+
+		resolveFullCheck({ result: true, message: "Верно", status: 200 });
+		await act(() => runPromise);
+	});
+
+	it("submits a single hidden validator directly when no public example is available", async () => {
+		mockedApi.checkTaskAnswer.mockResolvedValue({
+			result: true,
+			message: "Верно",
+			status: 200,
+		});
+		const { result } = setup({
+			isInIframe: true,
+			taskId: "180068",
+			clientId: "77",
+			answer_id: "answer",
+			code: "function Settings() { return null; }",
+			task: {
+				task_type: "paste",
+				has_multiple_tests: false,
+				answers: [{ id: 1, hint: "hint" }],
+			},
+		});
+
+		await act(() => result.current.handleRunCode());
+
+		expect(mockedApi.checkTaskAnswer).toHaveBeenCalled();
+		expect(mockedApi.runCode).not.toHaveBeenCalled();
+		expect(mockedApi.checkCode).not.toHaveBeenCalled();
+	});
+
+	it("does not start the full check when the public example fails", async () => {
+		mockedApi.checkCode.mockResolvedValue({
+			result: false,
+			comment: "Неверный ответ",
+			output: "0",
+		} as any);
+		const { result, callbacks } = setup({
+			isInIframe: true,
+			taskId: "180068",
+			clientId: "77",
+			answer_id: "answer",
+			code: "print(0)",
+			task: {
+				task_type: "code",
+				has_multiple_tests: false,
+				answers: [{ id: 1, input: "21", output: "42", hint: "hint" }],
+			},
+		});
+
+		await act(() => result.current.handleRunCode());
+
+		expect(mockedApi.checkCode).toHaveBeenCalled();
+		expect(mockedApi.checkTaskAnswer).not.toHaveBeenCalled();
+		expect(callbacks.setStatus).toHaveBeenLastCalledWith("error");
+	});
 
   it("runs a paste task with its public call but submits only editable code", async () => {
     mockedApi.runCode.mockResolvedValue({
