@@ -255,6 +255,7 @@ export const useWebSocket = ({
     const syncSessionIdRef = useRef<string>(createSyncSessionId());
     const isConnectedRef = useRef<boolean>(false);
     const shouldReconnectRef = useRef<boolean>(true);
+    const isHiddenPausedRef = useRef<boolean>(false);
     const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const connectionAttempts = useRef<number>(0);
@@ -1033,7 +1034,11 @@ export const useWebSocket = ({
             return;
         }
 
-        if (!shouldReconnectRef.current) return;
+        if (
+            !shouldReconnectRef.current ||
+            isHiddenPausedRef.current ||
+            document.hidden
+        ) return;
         if (!roomTokenRef.current) {
             return;
         }
@@ -1109,6 +1114,7 @@ export const useWebSocket = ({
             clearIntervals();
             if (
                 shouldReconnectRef.current &&
+                !isHiddenPausedRef.current &&
                 reason !== "io client disconnect" &&
                 reason !== "io server disconnect"
             ) {
@@ -1122,7 +1128,11 @@ export const useWebSocket = ({
                     }, FINAL_CONNECTION_ERROR_DELAY_MS);
                 }
             }
-            if (shouldReconnectRef.current && reason === "io server disconnect") {
+            if (
+                shouldReconnectRef.current &&
+                !isHiddenPausedRef.current &&
+                reason === "io server disconnect"
+            ) {
                 window.setTimeout(() => {
                     if (
                         socketRef.current === socket &&
@@ -1140,6 +1150,9 @@ export const useWebSocket = ({
             isConnectedRef.current = false;
             connectionAttempts.current += 1;
             setCodeSyncState("reconnecting");
+            if (isHiddenPausedRef.current || document.hidden) {
+                return;
+            }
             if (connectionFailureTimeoutRef.current === null) {
                 connectionFailureTimeoutRef.current = window.setTimeout(() => {
                     connectionFailureTimeoutRef.current = null;
@@ -1635,7 +1648,7 @@ export const useWebSocket = ({
     useEffect(() => {
         shouldReconnectRef.current = true;
         let cancelled = false;
-        if (roomId) {
+        if (roomId && !document.hidden) {
             setConnectionError(null);
             connectionAttempts.current = 0;
             if (roomTokenRef.current) {
@@ -1653,6 +1666,8 @@ export const useWebSocket = ({
                         }
                     });
             }
+        } else if (roomId) {
+            isHiddenPausedRef.current = true;
         }
 
         const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -1703,13 +1718,33 @@ export const useWebSocket = ({
 
         const handleVisibilityChange = () => {
             if (document.hidden) {
+                isHiddenPausedRef.current = true;
+                if (connectionFailureTimeoutRef.current !== null) {
+                    window.clearTimeout(connectionFailureTimeoutRef.current);
+                    connectionFailureTimeoutRef.current = null;
+                }
+                setConnectionError(null);
+                void persistReliableQueue();
+                clearFastCodeEdit();
+                const socket = socketRef.current;
+                if (socket?.connected) {
+                    socket.emit("client-lifecycle", {
+                        state: "hidden",
+                        roomId: roomIdRef.current,
+                        telegramId: getCurrentTelegramId(),
+                        clientInstanceId: syncSessionIdRef.current,
+                    });
+                    socket.disconnect();
+                }
                 return;
             }
 
+            isHiddenPausedRef.current = false;
             syncOnActiveTab();
         };
 
         const handleWindowFocus = () => {
+            if (document.hidden) return;
             syncOnActiveTab();
         };
 
@@ -1750,7 +1785,16 @@ export const useWebSocket = ({
             document.removeEventListener("visibilitychange", handleVisibilityChange);
             window.removeEventListener("focus", handleWindowFocus);
         };
-    }, [roomId, connectWebSocket, clearIntervals, clearFastCodeEdit, ensureRoomToken, joinRoom]);
+    }, [
+        roomId,
+        connectWebSocket,
+        clearIntervals,
+        clearFastCodeEdit,
+        ensureRoomToken,
+        getCurrentTelegramId,
+        joinRoom,
+        persistReliableQueue,
+    ]);
 
     const sendCursorPosition = useCallback(
         (position: [number, number]) => {

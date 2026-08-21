@@ -23,6 +23,7 @@ const createSocket = () => {
       return socket;
     }),
     connect: jest.fn(),
+    disconnect: jest.fn(),
     close: jest.fn(),
     handlers,
     syncUpdateResponses: [],
@@ -1150,6 +1151,46 @@ describe("useWebSocket", () => {
     act(() => socket.handlers.get("disconnect")?.("transport close"));
     act(() => jest.advanceTimersByTime(10_000));
 
+    expect(mockedIo).toHaveBeenCalledTimes(1);
+  });
+
+  it("pauses a hidden tab and reconnects the same socket when it becomes visible", async () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    renderHook(() => useWebSocket({
+      socketUrl: "wss://rooms.test",
+      myTelegramId: "teacher-1",
+      roomId: "room-1",
+      roomToken: "teacher-token",
+    }));
+    act(() => socket.handlers.get("connect")?.());
+
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+
+    expect(socket.emit).toHaveBeenCalledWith(
+      "client-lifecycle",
+      expect.objectContaining({
+        state: "hidden",
+        roomId: "room-1",
+        telegramId: "teacher-1",
+      }),
+    );
+    expect(socket.disconnect).toHaveBeenCalledTimes(1);
+
+    socket.connected = false;
+    socket.disconnected = true;
+    socket.active = false;
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: false,
+    });
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+
+    expect(socket.connect).toHaveBeenCalledTimes(1);
     expect(mockedIo).toHaveBeenCalledTimes(1);
   });
 
