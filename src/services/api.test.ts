@@ -156,12 +156,19 @@ describe("IDE API", () => {
     await expect(api.runCode({} as any, "sql")).resolves.toEqual({ output: "ok" });
     expect(post.mock.calls[1][0]).toBe("/code/run/sqlite");
     await expect(api.submitCode({} as any)).resolves.toEqual({ saved: true });
+    expect(post.mock.calls[2][2]).toEqual(expect.objectContaining({
+      withCredentials: true,
+      headers: expect.objectContaining({
+        Authorization: "Bearer short-access-token",
+      }),
+    }));
     await expect(api.checkTaskAnswer(3, {} as any)).resolves.toEqual({
       result: false, status: 422,
     });
 		expect(post.mock.calls[3][2].headers).toEqual(expect.objectContaining({
 			Authorization: "Bearer short-access-token",
 		}));
+		expect(post.mock.calls[3][2].withCredentials).toBe(true);
 		expect(post.mock.calls[0][2].timeout).toBe(45000);
 		expect(post.mock.calls[1][2].timeout).toBe(45000);
 		expect(post.mock.calls[3][2].timeout).toBe(90000);
@@ -173,33 +180,109 @@ describe("IDE API", () => {
       code: "print(1)",
       has_saved_code: true,
     });
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json } as any);
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ access_token: "short-access-token" }),
+      } as any)
+      .mockResolvedValueOnce({ ok: true, status: 200, json } as any);
     await expect(api.getSubmitCode("a b", 2, 3)).resolves.toEqual({
       status: "success",
       code: "print(1)",
       has_saved_code: true,
     });
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
       expect.stringContaining("answer_id=a+b&user_id=2&task_id=3"),
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        credentials: "include",
+        headers: expect.objectContaining({
+          Authorization: "Bearer short-access-token",
+        }),
+      }),
     );
   });
 
+  it("refreshes once and retries submitted-code writes after 401", async () => {
+    const post = (axios as any).__post as jest.Mock;
+    post
+      .mockRejectedValueOnce({ response: { status: 401 } })
+      .mockResolvedValueOnce({ data: { saved: true } });
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ access_token: "expired-access-token" }),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ access_token: "fresh-access-token" }),
+      } as any);
+
+    await expect(api.submitCode({} as any)).resolves.toEqual({ saved: true });
+
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post.mock.calls[0][2].headers.Authorization).toBe("Bearer expired-access-token");
+    expect(post.mock.calls[1][2].headers.Authorization).toBe("Bearer fresh-access-token");
+  });
+
+  it("refreshes once and retries submitted-code reads after 401", async () => {
+    const successJson = jest.fn().mockResolvedValue({
+      status: "success",
+      code: "print(1)",
+    });
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ access_token: "expired-access-token" }),
+      } as any)
+      .mockResolvedValueOnce({ ok: false, status: 401 } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ access_token: "fresh-access-token" }),
+      } as any)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: successJson } as any);
+
+    await expect(api.getSubmitCode("answer", 2, 3)).resolves.toEqual({
+      status: "success",
+      code: "print(1)",
+    });
+
+    expect((global.fetch as jest.Mock).mock.calls[1][1].headers.Authorization)
+      .toBe("Bearer expired-access-token");
+    expect((global.fetch as jest.Mock).mock.calls[3][1].headers.Authorization)
+      .toBe("Bearer fresh-access-token");
+  });
+
   it("rejects non-success submitted-code responses", async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      json: jest.fn().mockResolvedValue({ status: "error" }),
-    } as any);
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ access_token: "short-access-token" }),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: jest.fn().mockResolvedValue({ status: "error" }),
+      } as any);
     await expect(api.getSubmitCode("a", 2, 3)).rejects.toThrow(
       "Failed to load submitted code: 500",
     );
 
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: jest.fn().mockResolvedValue({ status: "error", message: "failed" }),
-    } as any);
+    clearPlatformAccessSession();
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ access_token: "short-access-token" }),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ status: "error", message: "failed" }),
+      } as any);
     await expect(api.getSubmitCode("a", 2, 3)).rejects.toThrow(
       "Invalid submitted-code response",
     );

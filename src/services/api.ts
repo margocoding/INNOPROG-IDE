@@ -168,6 +168,24 @@ async function protectedTaskHeaders(): Promise<Record<string, string>> {
 	return headers;
 }
 
+function isUnauthorizedResponse(value: any): boolean {
+	return Number(value?.status ?? value?.response?.status) === 401;
+}
+
+async function withProtectedTaskRetry<T>(
+	request: (headers: Record<string, string>) => Promise<T>,
+): Promise<T> {
+	try {
+		const response = await request(await protectedTaskHeaders());
+		if (!isUnauthorizedResponse(response)) return response;
+	} catch (error) {
+		if (!isUnauthorizedResponse(error)) throw error;
+	}
+
+	clearPlatformAccessSession();
+	return request(await protectedTaskHeaders());
+}
+
 async function fetchWithTimeout(url: string, options: RequestInit = {}) {
 	const controller = new AbortController();
 	const timeoutId = window.setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
@@ -247,7 +265,15 @@ export const api = {
 	},
 
 	async submitCode(data: SubmitRequest) {
-		const response = await BASE_API.post(`/answer/code`, data);
+		const response = await withProtectedTaskRetry((headers) =>
+			BASE_API.post(`/answer/code`, data, {
+				headers: {
+					"Content-Type": "application/json",
+					...headers,
+				},
+				withCredentials: true,
+			}),
+		);
 		return response.data;
 	},
 
@@ -255,17 +281,20 @@ export const api = {
 		taskId: number,
 		data: TaskAnswerCheckRequest
 	): Promise<TaskAnswerCheckResult> {
-		const response = await BASE_API.post(
-			`/task/${taskId}/check-answer`,
-			data,
-			{
-				timeout: TASK_CHECK_TIMEOUT_MS,
-				headers: {
+		const response = await withProtectedTaskRetry((headers) =>
+			BASE_API.post(
+				`/task/${taskId}/check-answer`,
+				data,
+				{
+					timeout: TASK_CHECK_TIMEOUT_MS,
+					withCredentials: true,
+					headers: {
 					"Content-Type": "application/json",
-					...await protectedTaskHeaders(),
+					...headers,
 				},
 				validateStatus: (status) => status < 500,
-			}
+				},
+			),
 		);
 
 		return {
@@ -280,7 +309,12 @@ export const api = {
 			user_id: String(user_id),
 			task_id: String(task_id),
 		});
-		const response = await fetchWithTimeout(`${API_URL}/answer/code?${params.toString()}`);
+		const response = await withProtectedTaskRetry((headers) =>
+			fetchWithTimeout(`${API_URL}/answer/code?${params.toString()}`, {
+				headers,
+				credentials: "include",
+			}),
+		);
 		if (!response.ok) {
 			throw new Error(`Failed to load submitted code: ${response.status}`);
 		}
