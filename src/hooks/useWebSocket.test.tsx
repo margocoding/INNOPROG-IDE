@@ -94,6 +94,10 @@ describe("useWebSocket", () => {
     localStorage.clear();
     sessionStorage.clear();
     window.history.replaceState({}, "", "/?roomId=room-1");
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: false,
+    });
   });
 
   afterEach(async () => {
@@ -1171,14 +1175,16 @@ describe("useWebSocket", () => {
     });
     act(() => document.dispatchEvent(new Event("visibilitychange")));
 
-    expect(socket.emit).toHaveBeenCalledWith(
-      "client-lifecycle",
-      expect.objectContaining({
-        state: "hidden",
-        roomId: "room-1",
-        telegramId: "teacher-1",
-      }),
+    const lifecycleCall = socket.emit.mock.calls.find(
+      ([event]: [string]) => event === "client-lifecycle",
     );
+    expect(lifecycleCall?.[1]).toEqual(expect.objectContaining({
+      state: "hidden",
+      roomId: "room-1",
+      telegramId: "teacher-1",
+    }));
+    expect(socket.disconnect).not.toHaveBeenCalled();
+    act(() => lifecycleCall?.[2]?.(null, { ok: true, persisted: true }));
     expect(socket.disconnect).toHaveBeenCalledTimes(1);
 
     socket.connected = false;
@@ -1192,6 +1198,55 @@ describe("useWebSocket", () => {
 
     expect(socket.connect).toHaveBeenCalledTimes(1);
     expect(mockedIo).toHaveBeenCalledTimes(1);
+  });
+
+  it("disconnects a hidden tab after the snapshot acknowledgement timeout", () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    renderHook(() => useWebSocket({
+      socketUrl: "wss://rooms.test",
+      myTelegramId: "teacher-1",
+      roomId: "room-1",
+      roomToken: "teacher-token",
+    }));
+    act(() => socket.handlers.get("connect")?.());
+
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    expect(socket.disconnect).not.toHaveBeenCalled();
+
+    act(() => jest.advanceTimersByTime(1_500));
+    expect(socket.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not join when the socket connects after the tab became hidden", () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    renderHook(() => useWebSocket({
+      socketUrl: "wss://rooms.test",
+      myTelegramId: "teacher-1",
+      roomId: "room-1",
+      roomToken: "teacher-token",
+    }));
+
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    act(() => socket.handlers.get("connect")?.());
+
+    expect(socket.emit).not.toHaveBeenCalledWith(
+      "join-room",
+      expect.anything(),
+    );
+    const lifecycleCall = socket.emit.mock.calls.find(
+      ([event]: [string]) => event === "client-lifecycle",
+    );
+    act(() => lifecycleCall?.[2]?.(null, { ok: true, persisted: true }));
+    expect(socket.disconnect).toHaveBeenCalledTimes(1);
   });
 
   it("uses a fresh connection epoch after a page-level remount", () => {

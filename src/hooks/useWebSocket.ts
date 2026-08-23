@@ -22,6 +22,7 @@ const MIN_COLOR_DISTANCE = 95;
 const REMOTE_SYNC_ORIGIN = "remote-websocket";
 const FINAL_CONNECTION_ERROR_DELAY_MS = 120_000;
 const FAST_CODE_EDIT_DELAY_MS = 75;
+const HIDDEN_TAB_SNAPSHOT_TIMEOUT_MS = 1_500;
 
 export type CodeSyncState =
     | "connecting"
@@ -285,6 +286,7 @@ export const useWebSocket = ({
     } | null>(null);
     const syncSuccessTimeoutRef = useRef<number | null>(null);
     const connectionFailureTimeoutRef = useRef<number | null>(null);
+    const hiddenSuspendTimeoutRef = useRef<number | null>(null);
     const canUploadCodeRef = useRef(false);
     const isTeacherRef = useRef(false);
     const completedRef = useRef(false);
@@ -1024,6 +1026,50 @@ export const useWebSocket = ({
         }
     }, [codeSyncState]);
 
+    const suspendHiddenSocket = useCallback((socket: Socket) => {
+        isHiddenPausedRef.current = true;
+        if (connectionFailureTimeoutRef.current !== null) {
+            window.clearTimeout(connectionFailureTimeoutRef.current);
+            connectionFailureTimeoutRef.current = null;
+        }
+        setConnectionError(null);
+        void persistReliableQueue();
+        clearFastCodeEdit();
+
+        let finished = false;
+        const disconnect = () => {
+            if (finished) return;
+            finished = true;
+            if (hiddenSuspendTimeoutRef.current !== null) {
+                window.clearTimeout(hiddenSuspendTimeoutRef.current);
+                hiddenSuspendTimeoutRef.current = null;
+            }
+            if (document.hidden && socketRef.current === socket) {
+                socket.disconnect();
+            }
+        };
+
+        hiddenSuspendTimeoutRef.current = window.setTimeout(
+            disconnect,
+            HIDDEN_TAB_SNAPSHOT_TIMEOUT_MS,
+        );
+        if (!socket.connected || !roomIdRef.current || !myTelegramIdRef.current) {
+            disconnect();
+            return;
+        }
+
+        socket.timeout(HIDDEN_TAB_SNAPSHOT_TIMEOUT_MS).emit(
+            "client-lifecycle",
+            {
+                state: "hidden",
+                roomId: roomIdRef.current,
+                telegramId: myTelegramIdRef.current,
+                clientInstanceId: syncSessionIdRef.current,
+            },
+            () => disconnect(),
+        );
+    }, [clearFastCodeEdit, persistReliableQueue]);
+
     const connectWebSocket = useCallback(() => {
         const currentRoomId = roomIdRef.current;
         const currentSocketUrl = socketUrlRef.current;
@@ -1074,6 +1120,10 @@ export const useWebSocket = ({
         socketRef.current = socket;
 
         socket.on("connect", () => {
+            if (document.hidden || isHiddenPausedRef.current) {
+                suspendHiddenSocket(socket);
+                return;
+            }
             if (connectionFailureTimeoutRef.current !== null) {
                 window.clearTimeout(connectionFailureTimeoutRef.current);
                 connectionFailureTimeoutRef.current = null;
@@ -1500,6 +1550,7 @@ export const useWebSocket = ({
         ensureRoomToken,
         synchronizeCode,
         clearFastCodeEdit,
+        suspendHiddenSocket,
     ]);
 
     useEffect(() => {
@@ -1718,27 +1769,16 @@ export const useWebSocket = ({
 
         const handleVisibilityChange = () => {
             if (document.hidden) {
-                isHiddenPausedRef.current = true;
-                if (connectionFailureTimeoutRef.current !== null) {
-                    window.clearTimeout(connectionFailureTimeoutRef.current);
-                    connectionFailureTimeoutRef.current = null;
-                }
-                setConnectionError(null);
-                void persistReliableQueue();
-                clearFastCodeEdit();
                 const socket = socketRef.current;
-                if (socket?.connected) {
-                    socket.emit("client-lifecycle", {
-                        state: "hidden",
-                        roomId: roomIdRef.current,
-                        telegramId: getCurrentTelegramId(),
-                        clientInstanceId: syncSessionIdRef.current,
-                    });
-                    socket.disconnect();
-                }
+                if (socket) suspendHiddenSocket(socket);
+                else isHiddenPausedRef.current = true;
                 return;
             }
 
+            if (hiddenSuspendTimeoutRef.current !== null) {
+                window.clearTimeout(hiddenSuspendTimeoutRef.current);
+                hiddenSuspendTimeoutRef.current = null;
+            }
             isHiddenPausedRef.current = false;
             syncOnActiveTab();
         };
@@ -1780,6 +1820,10 @@ export const useWebSocket = ({
                 window.clearTimeout(connectionFailureTimeoutRef.current);
                 connectionFailureTimeoutRef.current = null;
             }
+            if (hiddenSuspendTimeoutRef.current !== null) {
+                window.clearTimeout(hiddenSuspendTimeoutRef.current);
+                hiddenSuspendTimeoutRef.current = null;
+            }
             clearFastCodeEdit();
             window.removeEventListener("beforeunload", handleBeforeUnload);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -1791,9 +1835,8 @@ export const useWebSocket = ({
         clearIntervals,
         clearFastCodeEdit,
         ensureRoomToken,
-        getCurrentTelegramId,
         joinRoom,
-        persistReliableQueue,
+        suspendHiddenSocket,
     ]);
 
     const sendCursorPosition = useCallback(
