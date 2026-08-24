@@ -1173,7 +1173,10 @@ describe("useWebSocket", () => {
       configurable: true,
       value: true,
     });
-    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await flushAsyncWork();
+    });
 
     const lifecycleCall = socket.emit.mock.calls.find(
       ([event]: [string]) => event === "client-lifecycle",
@@ -1200,7 +1203,7 @@ describe("useWebSocket", () => {
     expect(mockedIo).toHaveBeenCalledTimes(1);
   });
 
-  it("disconnects a hidden tab after the snapshot acknowledgement timeout", () => {
+  it("disconnects a hidden tab after the snapshot acknowledgement timeout", async () => {
     const socket = createSocket();
     mockedIo.mockReturnValue(socket);
     renderHook(() => useWebSocket({
@@ -1215,14 +1218,54 @@ describe("useWebSocket", () => {
       configurable: true,
       value: true,
     });
-    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await flushAsyncWork();
+    });
     expect(socket.disconnect).not.toHaveBeenCalled();
 
+    act(() => jest.advanceTimersByTime(1_500));
+    expect(socket.disconnect).not.toHaveBeenCalled();
     act(() => jest.advanceTimersByTime(1_500));
     expect(socket.disconnect).toHaveBeenCalledTimes(1);
   });
 
-  it("does not join when the socket connects after the tab became hidden", () => {
+  it("retries a negative hidden snapshot acknowledgement before disconnecting", async () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    renderHook(() => useWebSocket({
+      socketUrl: "wss://rooms.test",
+      myTelegramId: "teacher-1",
+      roomId: "room-1",
+      roomToken: "teacher-token",
+    }));
+    act(() => socket.handlers.get("connect")?.());
+
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await flushAsyncWork();
+    });
+
+    let lifecycleCalls = socket.emit.mock.calls.filter(
+      ([event]: [string]) => event === "client-lifecycle",
+    );
+    expect(lifecycleCalls).toHaveLength(1);
+    act(() => lifecycleCalls[0]?.[2]?.(null, { ok: false, persisted: false }));
+    expect(socket.disconnect).not.toHaveBeenCalled();
+
+    lifecycleCalls = socket.emit.mock.calls.filter(
+      ([event]: [string]) => event === "client-lifecycle",
+    );
+    expect(lifecycleCalls).toHaveLength(2);
+    act(() => lifecycleCalls[1]?.[2]?.(null, { ok: true, persisted: true }));
+    expect(socket.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not join when the socket connects after the tab became hidden", async () => {
     const socket = createSocket();
     mockedIo.mockReturnValue(socket);
     renderHook(() => useWebSocket({
@@ -1236,7 +1279,10 @@ describe("useWebSocket", () => {
       configurable: true,
       value: true,
     });
-    act(() => socket.handlers.get("connect")?.());
+    await act(async () => {
+      socket.handlers.get("connect")?.();
+      await flushAsyncWork();
+    });
 
     expect(socket.emit).not.toHaveBeenCalledWith(
       "join-room",
@@ -1247,6 +1293,38 @@ describe("useWebSocket", () => {
     );
     act(() => lifecycleCall?.[2]?.(null, { ok: true, persisted: true }));
     expect(socket.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a hidden socket connected when the reliable queue is not durable", async () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    jest
+      .spyOn(reliableCodeQueue, "clearPendingCodeUpdate")
+      .mockResolvedValue(false);
+    renderHook(() => useWebSocket({
+      socketUrl: "wss://rooms.test",
+      myTelegramId: "teacher-1",
+      roomId: "room-1",
+      roomToken: "teacher-token",
+    }));
+    act(() => socket.handlers.get("connect")?.());
+
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await flushAsyncWork();
+      jest.advanceTimersByTime(2_000);
+    });
+
+    expect(socket.emit).not.toHaveBeenCalledWith(
+      "client-lifecycle",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(socket.disconnect).not.toHaveBeenCalled();
   });
 
   it("uses a fresh connection epoch after a page-level remount", () => {

@@ -1033,41 +1033,80 @@ export const useWebSocket = ({
             connectionFailureTimeoutRef.current = null;
         }
         setConnectionError(null);
-        void persistReliableQueue();
         clearFastCodeEdit();
 
-        let finished = false;
-        const disconnect = () => {
-            if (finished) return;
-            finished = true;
-            if (hiddenSuspendTimeoutRef.current !== null) {
-                window.clearTimeout(hiddenSuspendTimeoutRef.current);
-                hiddenSuspendTimeoutRef.current = null;
+        const persistThenSuspend = async () => {
+            let persisted = false;
+            try {
+                persisted = await persistReliableQueue();
+            } catch (error) {
+                console.error("Failed to persist code before hidden-tab suspension:", error);
             }
-            if (document.hidden && socketRef.current === socket) {
-                socket.disconnect();
+            // Losing the last local edit is worse than keeping a hidden socket
+            // alive. A later visibility change or unmount will retry storage.
+            if (!persisted || !document.hidden || socketRef.current !== socket) {
+                return;
             }
+
+            let finished = false;
+            let lifecycleAttempt = 0;
+            const clearLifecycleTimeout = () => {
+                if (hiddenSuspendTimeoutRef.current !== null) {
+                    window.clearTimeout(hiddenSuspendTimeoutRef.current);
+                    hiddenSuspendTimeoutRef.current = null;
+                }
+            };
+            const disconnect = () => {
+                if (finished) return;
+                finished = true;
+                clearLifecycleTimeout();
+                if (document.hidden && socketRef.current === socket) {
+                    socket.disconnect();
+                }
+            };
+
+            if (!socket.connected || !roomIdRef.current || !myTelegramIdRef.current) {
+                disconnect();
+                return;
+            }
+
+            const persistServerSnapshot = () => {
+                if (finished || !document.hidden || socketRef.current !== socket) return;
+                const attempt = ++lifecycleAttempt;
+                clearLifecycleTimeout();
+                hiddenSuspendTimeoutRef.current = window.setTimeout(() => {
+                    if (attempt !== lifecycleAttempt || finished) return;
+                    if (lifecycleAttempt < 2) persistServerSnapshot();
+                    else disconnect();
+                }, HIDDEN_TAB_SNAPSHOT_TIMEOUT_MS);
+
+                socket.timeout(HIDDEN_TAB_SNAPSHOT_TIMEOUT_MS).emit(
+                    "client-lifecycle",
+                    {
+                        state: "hidden",
+                        roomId: roomIdRef.current,
+                        telegramId: myTelegramIdRef.current,
+                        clientInstanceId: syncSessionIdRef.current,
+                    },
+                    (error?: unknown, response?: { ok?: boolean; persisted?: boolean }) => {
+                        if (attempt !== lifecycleAttempt || finished) return;
+                        clearLifecycleTimeout();
+                        if (!error && response?.ok === true && response.persisted === true) {
+                            disconnect();
+                        } else if (lifecycleAttempt < 2) {
+                            persistServerSnapshot();
+                        } else {
+                            // Local IndexedDB is already durable. After two
+                            // explicit server failures, suspend and replay it
+                            // on the next visible reconnect.
+                            disconnect();
+                        }
+                    },
+                );
+            };
+            persistServerSnapshot();
         };
-
-        hiddenSuspendTimeoutRef.current = window.setTimeout(
-            disconnect,
-            HIDDEN_TAB_SNAPSHOT_TIMEOUT_MS,
-        );
-        if (!socket.connected || !roomIdRef.current || !myTelegramIdRef.current) {
-            disconnect();
-            return;
-        }
-
-        socket.timeout(HIDDEN_TAB_SNAPSHOT_TIMEOUT_MS).emit(
-            "client-lifecycle",
-            {
-                state: "hidden",
-                roomId: roomIdRef.current,
-                telegramId: myTelegramIdRef.current,
-                clientInstanceId: syncSessionIdRef.current,
-            },
-            () => disconnect(),
-        );
+        void persistThenSuspend();
     }, [clearFastCodeEdit, persistReliableQueue]);
 
     const connectWebSocket = useCallback(() => {
