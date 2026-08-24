@@ -82,6 +82,7 @@ export interface TaskAnswerCheckResult {
   result: boolean;
   message: string;
   status: number;
+  completion_token?: string;
 }
 
 export interface Answer {

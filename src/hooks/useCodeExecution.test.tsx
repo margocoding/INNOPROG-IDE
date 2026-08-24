@@ -339,7 +339,12 @@ describe("useCodeExecution", () => {
   });
 
   it("checks embedded answers and notifies the parent on success", async () => {
-    mockedApi.checkTaskAnswer.mockResolvedValue({ result: true, message: "Done", status: 200 });
+    mockedApi.checkTaskAnswer.mockResolvedValue({
+      result: true,
+      message: "Done",
+      status: 200,
+      completion_token: "signed-completion-token",
+    });
     const { result, callbacks } = setup({
       taskId: "9", answer_id: "a", clientId: "77", isInIframe: true,
     });
@@ -349,7 +354,11 @@ describe("useCodeExecution", () => {
     });
     expect(callbacks.setSubmitMessage).toHaveBeenCalledWith("Done");
     expect(mockPostToParent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "task-completed", taskId: 9 }),
+      expect.objectContaining({
+        type: "task-completed",
+        taskId: 9,
+        completion_token: "signed-completion-token",
+      }),
     );
   });
 

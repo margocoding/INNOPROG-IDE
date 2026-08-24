@@ -226,6 +226,7 @@ export const useCodeExecution = ({
 						taskCompleted: true,
 						status: "success",
 						message: result.message,
+						completion_token: result.completion_token,
 					});
 					return;
 				}
