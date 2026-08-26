@@ -232,6 +232,7 @@ export const useCodeExecution = ({
 				}
 
 				setSubmitResult("error");
+				setOutput("");
 				setStatus("idle");
 				return;
 			}
@@ -252,6 +253,7 @@ export const useCodeExecution = ({
 					: ""
 			);
 			setSubmitResult("error");
+			setOutput("");
 			setStatus("idle");
 			shouldOpenModal = true;
 		} finally {

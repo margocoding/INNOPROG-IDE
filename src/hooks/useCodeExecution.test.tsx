@@ -372,6 +372,29 @@ describe("useCodeExecution", () => {
       "Не удалось проверить решение. Попробуйте еще раз",
     );
     expect(callbacks.setSubmitResult).toHaveBeenCalledWith("error");
+    expect(callbacks.setOutput).toHaveBeenLastCalledWith("");
+    expect(callbacks.onOpen).toHaveBeenCalled();
+  });
+
+  it("clears a previous output message when the embedded check rejects the solution", async () => {
+    mockedApi.checkTaskAnswer.mockResolvedValue({
+      result: false,
+      message: "AttributeError: 'int' object has no attribute 'strip'",
+      status: 200,
+    });
+    const { result, callbacks } = setup({
+      taskId: "290045",
+      answer_id: "answer",
+      clientId: "77",
+      isInIframe: true,
+      status: "success",
+    });
+
+    await act(() => result.current.onSendCheck());
+
+    expect(callbacks.setSubmitResult).toHaveBeenCalledWith("error");
+    expect(callbacks.setOutput).toHaveBeenLastCalledWith("");
+    expect(callbacks.setStatus).toHaveBeenLastCalledWith("idle");
     expect(callbacks.onOpen).toHaveBeenCalled();
   });
 });
