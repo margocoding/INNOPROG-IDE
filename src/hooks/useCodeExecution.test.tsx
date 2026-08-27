@@ -147,6 +147,32 @@ describe("useCodeExecution", () => {
     );
   });
 
+  it("runs a SQL task as SQLite with its task fixture", async () => {
+    mockedApi.runCode.mockResolvedValue({
+      result: true,
+      output: "Книга,1000",
+      input: "",
+    } as any);
+    const { result } = setup({
+      isInIframe: true,
+      taskId: "70105",
+      language: Language.SQL,
+      code: "SELECT item, unit_price * units FROM sales",
+      task: { has_multiple_tests: false, answers: [{ hint: "" }] },
+    });
+
+    await act(() => result.current.handleRunCode());
+
+    expect(mockedApi.runCode).toHaveBeenCalledWith(
+      expect.objectContaining({
+        task_id: 70105,
+        program: expect.stringContaining("SELECT item"),
+      }),
+      Language.SQL,
+    );
+    expect(mockedApi.checkTaskAnswer).not.toHaveBeenCalled();
+  });
+
 	it("checks the public example before submitting an iframe task with one server validator", async () => {
 		mockedApi.checkCode.mockResolvedValue({ result: true, output: "42" } as any);
 		let resolveFullCheck!: (value: any) => void;

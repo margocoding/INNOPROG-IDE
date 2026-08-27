@@ -51,6 +51,7 @@ export interface RunCodeRequest {
   input_data?: string;
   program: string;
   timeout?: number;
+  task_id?: number;
 }
 
 export interface SubmitRequest {

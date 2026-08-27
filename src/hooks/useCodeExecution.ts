@@ -89,7 +89,8 @@ export const useCodeExecution = ({
 			isInIframe &&
 			taskId &&
 			task?.has_multiple_tests === false &&
-			!hasPublicTaskExample
+			!hasPublicTaskExample &&
+			language !== Language.SQL
 		) {
 			await onSendCheck();
 			return;
@@ -105,7 +106,10 @@ export const useCodeExecution = ({
 
 		try {
 			const runLanguage =
-				taskId && language !== Language.CPP && language !== Language.JAVA
+				taskId &&
+				language !== Language.CPP &&
+				language !== Language.JAVA &&
+				language !== Language.SQL
 					? Language.PY
 					: language;
 			const codeBefore = selectedAnswer?.code_before || "";
@@ -135,6 +139,7 @@ export const useCodeExecution = ({
 						input_data: runInputData,
 						program: fullCode,
 						timeout: selectedAnswer?.timeout || 30,
+						task_id: taskId ? Number(taskId) : undefined,
 					},
 					runLanguage
 				);
