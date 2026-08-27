@@ -13,6 +13,8 @@ const dockerfile = read("Dockerfile");
 const edgeCompose = read("deploy/docker-compose.edge.yml");
 const vite = read("vite.config.ts");
 const api = read("src/services/api.ts");
+const hostInstaller = read("deploy/install-host-nginx-timeouts.sh");
+const hostPatcher = read("deploy/patch_nginx_proxy_timeout.py");
 
 const checkLocation = nginx.indexOf("location /bot-api/check/");
 const runLocation = nginx.indexOf("location /bot-api/code/run/");
@@ -39,7 +41,20 @@ for (const [name, start, end] of [
     /proxy_set_header Authorization "Bearer \$\{CODE_RUNNER_AUTH_TOKEN\}";/,
     `${name} must send server-side code runner token`,
   );
+  assert.match(
+    block,
+    /proxy_set_header X-Request-ID \$ide_request_id;/,
+    `${name} must forward the edge request ID`,
+  );
+  assert.match(block, /proxy_read_timeout 130s;/, `${name} must outlive the 120s API deadline`);
+  assert.match(block, /proxy_send_timeout 130s;/, `${name} must outlive the 120s API deadline`);
 }
+
+assert.match(
+  nginx,
+  /map \$http_x_request_id \$ide_request_id \{[\s\S]*?"" \$request_id;[\s\S]*?\}/,
+  "nginx must preserve an outer request ID or generate one at the IDE edge",
+);
 
 const genericBlock = nginx.slice(genericLocation);
 assert.match(genericBlock, /proxy_pass \$\{BOT_API_PROXY_URL\};/, "generic bot routes must proxy to BOT_API_PROXY_URL");
@@ -63,6 +78,12 @@ assert.match(
   /const API_URL = \(process\.env\.REACT_APP_BOT_API_URL \|\| "\/bot-api"\)/,
   "frontend must call relative /bot-api so nginx owns backend routing",
 );
+assert.match(api, /const CODE_EXECUTION_TIMEOUT_MS = 140000;/, "browser must outlive both nginx proxies");
+assert.match(hostInstaller, /--server-name ide\.innoprog\.ru --location \/bot-api\/ --timeout 130s;/);
+assert.match(hostInstaller, /sudo nginx -t/);
+assert.match(hostInstaller, /restore/);
+assert.match(hostPatcher, /proxy_read_timeout/);
+assert.match(hostPatcher, /proxy_send_timeout/);
 for (const path of ["/bot-api/check", "/bot-api/code/run"]) {
   const start = vite.indexOf(`'${path}': {`);
   assert.ok(start >= 0, `${path} development proxy must exist`);

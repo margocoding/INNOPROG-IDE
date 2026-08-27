@@ -12,7 +12,9 @@ import {
 
 const API_URL = (process.env.REACT_APP_BOT_API_URL || "/bot-api").replace(/\/$/, "");
 const API_REQUEST_TIMEOUT_MS = 15000;
-const CODE_EXECUTION_TIMEOUT_MS = 45000;
+// The runner can spend up to 15s compiling and 95s executing. Allow the
+// server-side 120s API and 130s proxy deadlines to produce the final response.
+const CODE_EXECUTION_TIMEOUT_MS = 140000;
 const TASK_CHECK_TIMEOUT_MS = 90000;
 const BASE_API = axios.create({
 	baseURL: API_URL,

@@ -169,8 +169,8 @@ describe("IDE API", () => {
 			Authorization: "Bearer short-access-token",
 		}));
 		expect(post.mock.calls[3][2].withCredentials).toBe(true);
-		expect(post.mock.calls[0][2].timeout).toBe(45000);
-		expect(post.mock.calls[1][2].timeout).toBe(45000);
+		expect(post.mock.calls[0][2].timeout).toBe(140000);
+		expect(post.mock.calls[1][2].timeout).toBe(140000);
 		expect(post.mock.calls[3][2].timeout).toBe(90000);
 	});
 

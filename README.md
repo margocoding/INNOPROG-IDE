@@ -34,3 +34,14 @@ The public bundle reads `REACT_APP_BOT_API_URL`, `REACT_APP_WS_URL`,
 `REACT_APP_PARENT_POST_MESSAGE_ALLOWED_ORIGINS` at build
 time. `deploy/docker-compose.edge.yml` passes both values as Docker build
 arguments; changing them requires rebuilding the frontend image.
+
+When the code-execution timeout budget changes, update the outer TLS nginx
+after pulling the release:
+
+```bash
+./deploy/install-host-nginx-timeouts.sh
+```
+
+The installer edits only the timeout directives in the existing
+`ide.innoprog.ru` `/bot-api/` block, validates nginx before reload, and restores
+the previous file automatically if validation or reload fails.
