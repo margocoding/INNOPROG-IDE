@@ -521,6 +521,19 @@ describe("IDE", () => {
     expect(mockHandleRunCode).not.toHaveBeenCalled();
   });
 
+  it("reports saved-code failure to the platform instead of leaving its loader forever", async () => {
+    Object.defineProperty(window, "self", { configurable: true, value: {} });
+    window.history.replaceState({}, "", "/?client_id=123&task_id=10030&answer_id=a&platforma=app");
+    (api.getTask as jest.Mock).mockResolvedValue({ id: 10030, title: "Операции со списками", answers: [{}] });
+    (api.getSubmitCode as jest.Mock).mockRejectedValue(new Error("network"));
+    render(<IDE telegramId="123" />);
+    await waitFor(() => expect(mockPostToParent).toHaveBeenCalledWith(expect.objectContaining({
+      type: "ide-load-error", event: "saved-code-load-failed", taskId: 10030, ready: false,
+    })));
+    expect(mockPostToParent).not.toHaveBeenCalledWith(expect.objectContaining({ type: "ide-ready" }));
+    expect(screen.getByRole("contentinfo")).toHaveAttribute("data-action-disabled", "true");
+  });
+
   it("keeps configuration submission blocked when saved-code hydration fails", async () => {
     window.history.replaceState(
       {},

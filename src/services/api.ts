@@ -212,6 +212,7 @@ export const api = {
 		try {
 			const headers = await protectedTaskHeaders();
 			const response = await axios.get(`https://api.innoprog.ru/task/${taskId}`, {
+				timeout: API_REQUEST_TIMEOUT_MS,
 				params: { client_id: clientId },
 				headers,
 				withCredentials: true,
@@ -223,6 +224,7 @@ export const api = {
 			const headers = await protectedTaskHeaders();
 			if (!headers.Authorization && !headers["X-Telegram-Init-Data"]) throw error;
 			const response = await axios.get(`https://api.innoprog.ru/task/${taskId}`, {
+				timeout: API_REQUEST_TIMEOUT_MS,
 				params: { client_id: clientId },
 				headers,
 				withCredentials: true,
@@ -311,12 +313,21 @@ export const api = {
 			user_id: String(user_id),
 			task_id: String(task_id),
 		});
-		const response = await withProtectedTaskRetry((headers) =>
-			fetchWithTimeout(`${API_URL}/answer/code?${params.toString()}`, {
-				headers,
-				credentials: "include",
-			}),
-		);
+		const response = await withProtectedTaskRetry(async (headers) => {
+			const read = () => fetchWithTimeout(`${API_URL}/answer/code?${params.toString()}`, {
+				headers, credentials: "include",
+			});
+			// This GET is safe to repeat. Do not retry writes, invalid payloads,
+			// or permission failures, and never substitute an empty saved answer.
+			let result: Response;
+			try {
+				result = await read();
+			} catch (error) {
+				if (!(error instanceof TypeError) && (error as Error)?.name !== "AbortError") throw error;
+				return read();
+			}
+			return result.status >= 500 ? read() : result;
+		});
 		if (!response.ok) {
 			throw new Error(`Failed to load submitted code: ${response.status}`);
 		}

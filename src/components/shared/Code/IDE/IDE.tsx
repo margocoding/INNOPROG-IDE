@@ -513,7 +513,18 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           }
         } catch (error) {
           console.error("Failed to load answer code");
-          if (active) setInitialCodeLoadFailed(true);
+          if (active) {
+            setInitialCodeLoadFailed(true);
+            if (isEmbeddedApp) {
+              postToParent({
+                source: "innoprog-ide",
+                type: "ide-load-error",
+                event: "saved-code-load-failed",
+                taskId: Number(taskId),
+                ready: false,
+              });
+            }
+          }
         } finally {
           if (active) setInitialCodeReady(true);
         }
@@ -540,6 +551,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     userId,
     taskDataReady,
     task?.initial_code,
+    isEmbeddedApp,
   ]);
 
   useEffect(() => {

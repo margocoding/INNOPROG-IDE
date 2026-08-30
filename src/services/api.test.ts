@@ -35,6 +35,7 @@ describe("IDE API", () => {
       "https://api.innoprog.ru/task/1",
       expect.objectContaining({
         params: { client_id: "42" },
+        timeout: 15000,
         headers: { Authorization: "Bearer short-access-token" },
       }),
     );
@@ -255,6 +256,18 @@ describe("IDE API", () => {
       .toBe("Bearer fresh-access-token");
   });
 
+  it.each(["network", "server"])("recovers a transient %s failure while restoring code", async (kind) => {
+    const fetchMock = jest.fn().mockResolvedValueOnce({
+      ok: true, json: async () => ({ access_token: "token" }),
+    });
+    if (kind === "network") fetchMock.mockRejectedValueOnce(new TypeError("Load failed"));
+    else fetchMock.mockResolvedValueOnce({ ok: false, status: 503 });
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ code: "saved" }) });
+    global.fetch = fetchMock;
+    await expect(api.getSubmitCode("a", 2, 10030)).resolves.toEqual({ code: "saved" });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("rejects non-success submitted-code responses", async () => {
     global.fetch = jest.fn()
       .mockResolvedValueOnce({
@@ -262,7 +275,7 @@ describe("IDE API", () => {
         status: 200,
         json: jest.fn().mockResolvedValue({ access_token: "short-access-token" }),
       } as any)
-      .mockResolvedValueOnce({
+      .mockResolvedValue({
         ok: false,
         status: 500,
         json: jest.fn().mockResolvedValue({ status: "error" }),
