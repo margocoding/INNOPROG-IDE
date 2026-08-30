@@ -7,6 +7,10 @@ server {
   listen 80;
   server_name _;
 
+  # API virtual hosts reject TLS clients without SNI. The HTTP Host header
+  # alone is too late: nginx must name the upstream during the handshake.
+  proxy_ssl_server_name on;
+
   root /usr/share/nginx/html;
   index index.html;
 

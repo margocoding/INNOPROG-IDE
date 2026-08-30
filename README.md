@@ -20,6 +20,15 @@ npm test -- --runInBand
 npm run test:contracts
 ```
 
+After deployment, verify the saved-code proxy as well as the static page:
+
+```bash
+node scripts/smoke-task-proxy.mjs https://ide.innoprog.ru
+```
+
+The probe sends no credentials and expects the application's 401 response,
+not a proxy 502. HTTPS upstreams must receive TLS SNI.
+
 ## Production build
 
 ```bash

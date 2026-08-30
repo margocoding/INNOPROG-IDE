@@ -6,6 +6,7 @@ interface FooterProps {
   status: "idle" | "success" | "error";
   taskId: string | null;
   isRunning: boolean;
+  blockedReason?: string;
   activeTab: "editor" | "output";
   language?: string;
   onRunCode: () => Promise<void>;
@@ -21,6 +22,7 @@ const Footer: React.FC<FooterProps> = ({
   status,
   taskId,
   isRunning,
+  blockedReason,
   activeTab,
   language,
   onRunCode,
@@ -37,7 +39,7 @@ const Footer: React.FC<FooterProps> = ({
   const hasTask = Boolean(taskId);
 
   const handleButtonClick = async () => {
-    if (isRunning || actionPendingRef.current) return;
+    if (isRunning || blockedReason || actionPendingRef.current) return;
 
     actionPendingRef.current = true;
     try {
@@ -78,7 +80,7 @@ const Footer: React.FC<FooterProps> = ({
       >
         <Button
           onPress={handleButtonClick}
-          disabled={isRunning}
+          disabled={isRunning || Boolean(blockedReason)}
           color={
             isSubmitOnlyMode || (status === "success" && taskId)
               ? "secondary"
@@ -126,7 +128,7 @@ const Footer: React.FC<FooterProps> = ({
               />
             </svg>
           )}
-          {isSubmitOnlyMode
+          {blockedReason || (isSubmitOnlyMode
             ? isRunning
               ? "Отправка..."
               : "Отправить решение"
@@ -141,7 +143,7 @@ const Footer: React.FC<FooterProps> = ({
               : "Отправить на проверку"
             : isRunning
             ? "Выполняется..."
-            : "Выполнить"}
+            : "Выполнить")}
         </Button>
         {!isSubmitOnlyMode && activeTab === "output" && (
           <div

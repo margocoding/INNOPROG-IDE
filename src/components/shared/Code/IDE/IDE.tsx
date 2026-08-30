@@ -972,11 +972,12 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       <Footer
         status={status}
         taskId={taskId}
-        isRunning={Boolean(
-          isRunning ||
-            (taskId &&
-              (!taskDataReady || !initialCodeReady || initialCodeLoadFailed))
-        )}
+        isRunning={isRunning}
+        blockedReason={taskId && initialCodeLoadFailed
+          ? "Решение не загружено"
+          : taskId && (!taskDataReady || !initialCodeReady)
+          ? "Загружаем задание…"
+          : undefined}
         activeTab={activeTab}
         language={language}
         onRunCode={onModalRunCode}

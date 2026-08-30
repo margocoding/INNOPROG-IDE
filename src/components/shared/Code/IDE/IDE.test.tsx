@@ -121,12 +121,13 @@ jest.mock("../../Footer/Footer", () => ({
     desktopTaskMode,
     setActiveTab,
     isRunning,
+    blockedReason,
     onPrimaryAction,
   }: any) => (
     <footer
       data-desktop-task-mode={String(Boolean(desktopTaskMode))
       }
-      data-action-disabled={String(Boolean(isRunning))}
+      data-action-disabled={String(Boolean(isRunning || blockedReason))}
     >
       <button onClick={onRunCode}>run</button>
       <button onClick={onSubmitCheck}>submit</button>

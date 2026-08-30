@@ -21,6 +21,15 @@ const props = () => ({
 });
 
 describe("Footer", () => {
+  it("does not pretend code is executing when saved-code loading failed", () => {
+    const values = props();
+    render(<Footer {...values} taskId="10030" blockedReason="Решение не загружено" />);
+    const button = screen.getByRole("button", { name: "Решение не загружено" });
+    expect(button).toBeDisabled();
+    expect(screen.queryByText("Выполняется...")).not.toBeInTheDocument();
+    fireEvent.click(button);
+    expect(values.onRunCode).not.toHaveBeenCalled();
+  });
   it("runs code and submits a successful task", async () => {
     const first = props();
     const { rerender } = render(<Footer {...first} />);

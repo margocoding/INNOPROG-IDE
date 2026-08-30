@@ -5,6 +5,11 @@ const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), "
 
 const nginx = read("nginx.conf.template");
 assert.match(
+  nginx.slice(nginx.indexOf("server {"), nginx.indexOf("location")),
+  /proxy_ssl_server_name\s+on;/,
+  "all HTTPS upstreams must receive TLS SNI before routing requests",
+);
+assert.match(
   nginx,
   /large_client_header_buffers\s+8\s+32k;/,
   "nginx must accept legacy accumulated room cookies during migration",
