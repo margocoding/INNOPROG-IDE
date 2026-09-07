@@ -1141,6 +1141,54 @@ describe("useWebSocket", () => {
     }));
   });
 
+  it("joins as a participant when a launch link is expired or already redeemed", async () => {
+    const socket = createSocket();
+    mockedIo.mockReturnValue(socket);
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: false, status: 404 } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: jest.fn().mockResolvedValue({
+          roomToken: "participant-token",
+          telegramId: "i12345",
+        }),
+      } as any);
+
+    renderHook(() => useWebSocket({
+      socketUrl: "wss://rooms.test",
+      myTelegramId: null,
+      roomId: "room-1",
+      roomToken: null,
+      roomLaunchCode: "expired-launch-code",
+    }));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    act(() => socket.handlers.get("connect")?.());
+
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      "https://rooms.test/api/room/room-1/launch",
+      expect.objectContaining({ method: "POST", credentials: "include" }),
+    );
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      "https://rooms.test/api/room/room-1/token",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: "{}",
+      }),
+    );
+    expect(socket.emit).toHaveBeenCalledWith("join-room", expect.objectContaining({
+      telegramId: "i12345",
+      roomToken: "participant-token",
+    }));
+  });
+
   it("lets Socket.IO reconnect without constructing a competing socket", async () => {
     const socket = createSocket();
     mockedIo.mockReturnValue(socket);

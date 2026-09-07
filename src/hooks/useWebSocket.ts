@@ -345,13 +345,13 @@ export const useWebSocket = ({
 
         const request = (async () => {
             const launchCode = roomLaunchCodeRef.current;
-            const requestRoomToken = () => fetch(
-                `${getRoomApiBase(socketUrlRef.current)}/${encodeURIComponent(currentRoomId)}/${launchCode ? "launch" : "token"}`,
+            const requestRoomToken = (useLaunchCode = Boolean(launchCode)) => fetch(
+                `${getRoomApiBase(socketUrlRef.current)}/${encodeURIComponent(currentRoomId)}/${useLaunchCode ? "launch" : "token"}`,
                 {
                     method: "POST",
                     credentials: "include",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(launchCode
+                    body: JSON.stringify(useLaunchCode
                         ? {
                             launchCode,
                             browserNonce: clientInstanceIdRef.current,
@@ -371,6 +371,14 @@ export const useWebSocket = ({
                 // interrupted. A single retry lets the backend recover that
                 // same teacher identity without issuing another credential.
                 response = await requestRoomToken();
+            }
+            if (launchCode && [404, 410].includes(response.status)) {
+                // Launch links are intentionally short-lived and single-browser.
+                // When an old or already redeemed link still points to a live
+                // room, join as a regular participant instead of leaving the UI
+                // behind a permanent connection error. Never reuse teacher
+                // privileges without a valid launch credential.
+                response = await requestRoomToken(false);
             }
             if (!response.ok) {
                 throw new Error("Не удалось подготовить безопасный вход в комнату");
