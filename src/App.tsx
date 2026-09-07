@@ -4,6 +4,7 @@ import "./App.css";
 import Cursor from "./components/shared/Room/Cursor/Cursor";
 import IDE from "./components/shared/Code/IDE/IDE";
 import { useWebSocket } from "./hooks/useWebSocket";
+import { postPlatformActivityToParent } from "./utils/parentMessaging";
 import {
   readRoomSessionBootstrap,
   RoomSessionBootstrap,
@@ -50,6 +51,12 @@ const App = React.memo(() => {
       localStorage.removeItem(`innoprog-room-client-id:${activeRoomId}`);
     }
   }, [activeRoomId, urlTelegramId]);
+
+  useEffect(() => {
+    const events = ["pointerdown", "keydown", "touchstart", "scroll"];
+    events.forEach((name) => window.addEventListener(name, postPlatformActivityToParent, { passive: true }));
+    return () => events.forEach((name) => window.removeEventListener(name, postPlatformActivityToParent));
+  }, []);
 
   const webSocketParams = useMemo(
     () => ({

@@ -1,4 +1,4 @@
-import { postToParent, resolveParentOrigin } from "./parentMessaging";
+import { postPlatformActivityToParent, postToParent, resolveParentOrigin } from "./parentMessaging";
 
 describe("parent messaging", () => {
   const originalParentOrigin = process.env.REACT_APP_PARENT_APP_ORIGIN;
@@ -37,6 +37,18 @@ describe("parent messaging", () => {
     expect(postToParent({ type: "ide-ready" })).toBe(true);
     expect(postMessage).toHaveBeenCalledWith(
       { type: "ide-ready" },
+      "https://app.innoprog.ru",
+    );
+  });
+
+  it("sends an activity fact without editor content", () => {
+    const postMessage = jest.fn();
+    Object.defineProperty(window, "parent", { configurable: true, value: { postMessage } });
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    window.history.replaceState({}, "", "/?parent_origin=https%3A%2F%2Fapp.innoprog.ru");
+    expect(postPlatformActivityToParent()).toBe(true);
+    expect(postMessage).toHaveBeenCalledWith(
+      { type: "innoprog-platform-activity", surface: "ide" },
       "https://app.innoprog.ru",
     );
   });

@@ -53,3 +53,14 @@ export const postToParent = (payload: Record<string, unknown>): boolean => {
   window.parent.postMessage(payload, targetOrigin);
   return true;
 };
+
+let lastActivityPostedAt = 0;
+
+export const postPlatformActivityToParent = (): boolean => {
+  const now = Date.now();
+  if (document.visibilityState !== "visible" || now - lastActivityPostedAt < 5000) {
+    return false;
+  }
+  lastActivityPostedAt = now;
+  return postToParent({ type: "innoprog-platform-activity", surface: "ide" });
+};
