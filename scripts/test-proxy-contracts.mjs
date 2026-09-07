@@ -51,8 +51,8 @@ for (const [name, start, end] of [
     /proxy_set_header X-Request-ID \$ide_request_id;/,
     `${name} must forward the edge request ID`,
   );
-  assert.match(block, /proxy_read_timeout 130s;/, `${name} must outlive the 120s API deadline`);
-  assert.match(block, /proxy_send_timeout 130s;/, `${name} must outlive the 120s API deadline`);
+  assert.match(block, /proxy_read_timeout 250s;/, `${name} must outlive the 240s API deadline`);
+  assert.match(block, /proxy_send_timeout 250s;/, `${name} must outlive the 240s API deadline`);
 }
 
 assert.match(
@@ -83,8 +83,8 @@ assert.match(
   /const API_URL = \(process\.env\.REACT_APP_BOT_API_URL \|\| "\/bot-api"\)/,
   "frontend must call relative /bot-api so nginx owns backend routing",
 );
-assert.match(api, /const CODE_EXECUTION_TIMEOUT_MS = 140000;/, "browser must outlive both nginx proxies");
-assert.match(hostInstaller, /--server-name ide\.innoprog\.ru --location \/bot-api\/ --timeout 130s;/);
+assert.match(api, /const CODE_EXECUTION_TIMEOUT_MS = 260000;/, "browser must outlive both nginx proxies");
+assert.match(hostInstaller, /--server-name ide\.innoprog\.ru --location \/bot-api\/ --timeout 250s;/);
 assert.match(hostInstaller, /sudo nginx -t/);
 assert.match(hostInstaller, /restore/);
 assert.match(hostPatcher, /proxy_read_timeout/);

@@ -15,7 +15,7 @@ restore() {
 sudo cp -- "$TARGET" "$BACKUP"
 sudo chown "$(id -u):$(id -g)" "$BACKUP"
 if ! sudo python3 "$SCRIPT_DIR/patch_nginx_proxy_timeout.py" \
-  --path "$TARGET" --server-name ide.innoprog.ru --location /bot-api/ --timeout 130s; then
+  --path "$TARGET" --server-name ide.innoprog.ru --location /bot-api/ --timeout 250s; then
   rm -f -- "$BACKUP"
   exit 1
 fi
