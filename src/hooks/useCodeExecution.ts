@@ -3,6 +3,11 @@ import { api } from "../services/api";
 import { Answer, Language, Task, TaskAnswerCheckRequest } from "../types/task";
 import { postToParent } from "../utils/parentMessaging";
 
+const maintenanceMessage = (error: any): string | null =>
+	error?.response?.status === 503 && error?.response?.data?.code === "runner_maintenance"
+		? "Сервис выполнения кода обновляется. Код остаётся в редакторе. Повторите запуск через минуту."
+		: null;
+
 interface UseCodeExecutionProps {
 	currentAnswer: Answer | null;
 	task: Task | null;
@@ -191,7 +196,7 @@ export const useCodeExecution = ({
 				setStatus("error");
 			}
 		} catch (error: any) {
-			setOutput(`Ошибка выполнения: ${error.message}`);
+			setOutput(maintenanceMessage(error) || `Ошибка выполнения: ${error.message}`);
 			setStatus("error");
 		} finally {
 			setIsRunning(false);
@@ -204,6 +209,7 @@ export const useCodeExecution = ({
 	const onSendCheck = async () => {
 		setIsRunning(true);
 		let shouldOpenModal = false;
+		let keepEditorOpen = false;
 		const resolvedAnswerId = answer_id || "";
 		const resolvedTaskId = Number(taskId);
 		const resolvedUserId = Number.parseInt(clientId, 10) || 0;
@@ -251,11 +257,12 @@ export const useCodeExecution = ({
 			setSubmitMessage("");
 			setSubmitResult("success");
 			shouldOpenModal = true;
-		} catch {
+		} catch (error) {
+			keepEditorOpen = maintenanceMessage(error) !== null;
 			setSubmitMessage(
-				isInIframe
+				maintenanceMessage(error) || (isInIframe
 					? "Не удалось проверить решение. Попробуйте еще раз"
-					: ""
+					: "")
 			);
 			setSubmitResult("error");
 			setOutput("");
@@ -267,7 +274,7 @@ export const useCodeExecution = ({
 			}
 			setIsRunning(false);
 
-			if (!isInIframe) {
+			if (!isInIframe && !keepEditorOpen) {
 				try {
 					window.Telegram?.WebApp?.close?.();
 				} catch (error) {

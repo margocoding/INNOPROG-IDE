@@ -48,6 +48,27 @@ const setup = (overrides: Record<string, unknown> = {}) => {
 };
 
 describe("useCodeExecution", () => {
+  it("keeps Telegram editor open when submission is paused", async () => {
+    const close = jest.fn();
+    (window as any).Telegram = { WebApp: { close } };
+    mockedApi.submitCode.mockRejectedValue({ response: { status: 503, data: { code: "runner_maintenance" } } });
+    const { result, callbacks } = setup({ taskId: "7", answer_id: "1" });
+    await act(() => result.current.onSendCheck());
+    expect(callbacks.setSubmitMessage).toHaveBeenCalledWith(expect.stringContaining("обновляется"));
+    expect(close).not.toHaveBeenCalled();
+    expect(mockPostToParent).not.toHaveBeenCalled();
+    delete (window as any).Telegram;
+  });
+  it("explains maintenance without retrying or submitting code", async () => {
+    mockedApi.runCode.mockRejectedValue({ response: { status: 503, data: { code: "runner_maintenance" } } });
+    const { result, callbacks } = setup();
+    await act(() => result.current.handleRunCode());
+    expect(callbacks.setOutput).toHaveBeenCalledWith(expect.stringContaining("Сервис выполнения кода обновляется"));
+    expect(mockedApi.runCode).toHaveBeenCalledTimes(1);
+    expect(mockedApi.submitCode).not.toHaveBeenCalled();
+    expect(result.current.isRunning).toBe(false);
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     Object.defineProperty(window, "innerWidth", { value: 1024, configurable: true });
