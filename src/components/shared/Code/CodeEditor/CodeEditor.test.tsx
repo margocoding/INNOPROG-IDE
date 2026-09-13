@@ -7,6 +7,7 @@ jest.mock("@heroui/react", () => ({
     <select
       aria-label={props["aria-label"]}
       onChange={onChange}
+      disabled={props.isDisabled}
     >
       {children}
     </select>
@@ -57,6 +58,17 @@ describe("CodeEditor", () => {
     const select = container.querySelector("select") as HTMLSelectElement;
     fireEvent.change(select, { target: { value: "Python" } });
     expect(props.handleLanguageChange).toHaveBeenCalled();
+  });
+
+  it("lets a non-owner select the room language and preserves language locks", () => {
+    const { rerender } = render(
+      <CodeEditor {...props} language="py" isWebSocket isTeacher={false} />,
+    );
+    expect(screen.getByRole("combobox")).toBeEnabled();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "JavaScript" } });
+    expect(props.handleLanguageChange).toHaveBeenCalled();
+    rerender(<CodeEditor {...props} language="py" isWebSocket isTeacher={false} languageLocked />);
+    expect(screen.getByRole("combobox")).toBeDisabled();
   });
 
   it("renders read-only and HTML variants", () => {

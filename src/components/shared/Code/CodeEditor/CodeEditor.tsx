@@ -1370,7 +1370,8 @@ const CodeEditor: React.FC<IProps> = React.memo(
           if (
             fileLanguage &&
             fileLanguage !== language &&
-            isTeacher !== false &&
+            (isWebSocket || isTeacher !== false) &&
+            !languageLocked &&
             !(
               isWebSocket &&
               (fileLanguage === Language.DOCKERFILE ||
@@ -1386,7 +1387,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
           window.alert("Не удалось прочитать файл с кодом.");
         }
       },
-      [handleLanguageChange, insertImportedCode, isTeacher, isWebSocket, language]
+      [handleLanguageChange, insertImportedCode, isTeacher, isWebSocket, language, languageLocked]
     );
 
     const getEditableCodeFromEditor = useCallback(() => {
@@ -1524,7 +1525,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
                   : []),
               ]}
               selectedKeys={[language]}
-              isDisabled={isTeacher === false || languageLocked}
+              isDisabled={(!isWebSocket && isTeacher === false) || languageLocked}
               onChange={(e) => handleLanguageChange(e.target.value as Language)}
               size={"sm"}
               className={"min-w-[100px] w-auto bg-[#333] rounded-xl"}
