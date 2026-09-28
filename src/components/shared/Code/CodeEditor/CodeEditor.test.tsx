@@ -44,6 +44,38 @@ describe("CodeEditor", () => {
     );
   });
 
+  it("answers a parent code request only for the current task and allowed source", async () => {
+    const postMessage = jest.fn();
+    const originalParent = window.parent;
+    const originalSearch = window.location.search;
+    const originalReferrer = document.referrer;
+    const parentWindow = { postMessage } as unknown as Window;
+    Object.defineProperty(window, "parent", { configurable: true, value: parentWindow });
+    Object.defineProperty(document, "referrer", { configurable: true, value: "https://app.innoprog.ru/courses" });
+    window.history.replaceState({}, "", "/?task_id=42");
+    try {
+      render(<CodeEditor {...props} language="py" value="print(42)" />);
+      await waitFor(() => expect(document.querySelector(".cm-content")?.textContent).toContain("print(42)"));
+      const request = { type: "innoprog:get-editor-code", version: 1, requestId: "request-1", taskId: "42", revision: "42:1" };
+      window.dispatchEvent(new MessageEvent("message", { data: request, origin: "https://evil.example", source: parentWindow }));
+      window.dispatchEvent(new MessageEvent("message", { data: { ...request, taskId: "99" }, origin: "https://app.innoprog.ru", source: parentWindow }));
+      window.dispatchEvent(new MessageEvent("message", { data: { ...request, taskId: 42 }, origin: "https://app.innoprog.ru", source: parentWindow }));
+      window.dispatchEvent(new MessageEvent("message", { data: { ...request, revision: {} }, origin: "https://app.innoprog.ru", source: parentWindow }));
+      window.dispatchEvent(new MessageEvent("message", { data: { ...request, requestId: "" }, origin: "https://app.innoprog.ru", source: parentWindow }));
+      window.dispatchEvent(new MessageEvent("message", { data: { ...request, private_diagnostic: "unexpected" }, origin: "https://app.innoprog.ru", source: parentWindow }));
+      expect(postMessage).not.toHaveBeenCalled();
+      window.dispatchEvent(new MessageEvent("message", { data: request, origin: "https://app.innoprog.ru", source: parentWindow }));
+      expect(postMessage).toHaveBeenCalledWith({
+        source: "innoprog-ide", type: "innoprog:editor-code-ready", version: 1,
+        requestId: "request-1", taskId: "42", revision: "42:1", code: "print(42)",
+      }, "https://app.innoprog.ru");
+    } finally {
+      Object.defineProperty(window, "parent", { configurable: true, value: originalParent });
+      Object.defineProperty(document, "referrer", { configurable: true, value: originalReferrer });
+      window.history.replaceState({}, "", `/${originalSearch}`);
+    }
+  });
+
   it("uses semantic config filenames instead of treating every YAML file as Compose", () => {
     const generic = render(<CodeEditor {...props} language="yaml" />);
     expect(screen.getByText("config.yaml")).toBeInTheDocument();

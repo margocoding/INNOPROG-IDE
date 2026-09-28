@@ -44,6 +44,7 @@ import useYDocFromUpdates, {
   REMOTE_WEBSOCKET_ORIGIN,
 } from "../../../../hooks/useYDocFromUpdates";
 import { Language } from "../../../../types/task";
+import { postToParent, resolveParentOrigin } from "../../../../utils/parentMessaging";
 import {
   CODE_FILE_ACCEPT,
   getLanguageFromFileName,
@@ -259,6 +260,27 @@ const CodeEditor: React.FC<IProps> = React.memo(
     const fileExtension = fileExtensionByLanguage[language] || language;
     const prevValue = useRef(value);
     const lastLanguageRef = useRef<string>(language);
+
+    useEffect(() => {
+      const parentOrigin = resolveParentOrigin();
+      const handleAssistantCodeRequest = (event: MessageEvent) => {
+        const payload = event.data;
+        const taskId = new URLSearchParams(window.location.search).get("task_id") || "";
+        if (!parentOrigin || event.origin !== parentOrigin || event.source !== window.parent
+            || !payload || typeof payload !== "object" || Array.isArray(payload)
+            || Object.keys(payload).length !== 5
+            || !["type", "version", "requestId", "taskId", "revision"].every((key) => Object.prototype.hasOwnProperty.call(payload, key))
+            || payload.type !== "innoprog:get-editor-code" || payload.version !== 1
+            || typeof payload.taskId !== "string" || !/^[1-9]\d{0,31}$/.test(payload.taskId)
+            || payload.taskId !== taskId || typeof payload.requestId !== "string" || !payload.requestId
+            || payload.requestId.length > 128 || typeof payload.revision !== "string"
+            || !payload.revision || payload.revision.length > 128) return;
+        const code = editor.current?.state.doc.toString() || "";
+        postToParent({ source: "innoprog-ide", type: "innoprog:editor-code-ready", version: 1, requestId: payload.requestId, taskId, revision: payload.revision, ...(code.length > 30000 ? { error: "code_too_large" } : { code }) });
+      };
+      window.addEventListener("message", handleAssistantCodeRequest);
+      return () => window.removeEventListener("message", handleAssistantCodeRequest);
+    }, []);
 
     const lastLocalEditTime = useRef<number>(0);
     const hadTextSelection = useRef<boolean>(false);
