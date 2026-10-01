@@ -12,6 +12,15 @@ services:
     restart: unless-stopped
     mem_limit: 1g
     cpus: 1.0
+    read_only: true
+    user: "1000:1000"
+    pids_limit: 256
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges=true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777,uid=1000,gid=1000
     env_file:
       - /opt/innoprog/apps/innoprog-room-microservice/.env
     environment:
@@ -42,6 +51,21 @@ services:
     restart: unless-stopped
     mem_limit: 256m
     cpus: 0.25
+    read_only: true
+    # The official entrypoint repairs fresh/restored /data ownership, then
+    # drops to the image's redis user before starting the server.
+    pids_limit: 128
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      # Redis creates AOF directories with mode 0700; the entrypoint must
+      # traverse them on restart before dropping to the redis UID.
+      - DAC_READ_SEARCH
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges=true
     volumes:
       - /opt/innoprog/data/ide-redis:/data
     healthcheck:
@@ -69,6 +93,21 @@ services:
     restart: unless-stopped
     mem_limit: 256m
     cpus: 0.5
+    read_only: true
+    user: "101:101"
+    pids_limit: 128
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges=true
+    tmpfs:
+      - /etc/nginx/conf.d:rw,noexec,nosuid,nodev,size=1m,mode=0755,uid=101,gid=101
+      - /run:rw,noexec,nosuid,nodev,size=1m,mode=0755,uid=101,gid=101
+      # Space for eight concurrent maximum-size (10 MiB) buffered requests,
+      # with additional headroom for proxy response temp files.
+      - /var/cache/nginx:rw,noexec,nosuid,nodev,size=128m,mode=0755,uid=101,gid=101
     env_file:
       - /opt/innoprog/apps/INNOPROG-IDE/.env
     ports:

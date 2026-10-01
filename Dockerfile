@@ -28,6 +28,15 @@ ENV BOT_API_PROXY_URL=https://webhook.bot.innoprog.ru \
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
+# Keep the image runnable as nginx outside Compose as well. Compose overlays
+# these runtime-only paths with private tmpfs mounts for a read-only rootfs.
+RUN mkdir -p /var/cache/nginx /etc/nginx/conf.d \
+    && touch /run/nginx.pid \
+    && chown -R 101:101 /var/cache/nginx /etc/nginx/conf.d \
+    && chown 101:101 /run/nginx.pid
+
+USER 101:101
+
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
