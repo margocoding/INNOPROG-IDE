@@ -20,6 +20,229 @@
         font-size: 16px;
       }
     </style>
+    <script>
+      (() => {
+        const guard = "__ideStartupDiagnostics";
+        if (window[guard]) return;
+
+        const endpoint = "/startup-diagnostics";
+        const allowedEvents = new Set([
+          "bootstrap",
+          "dom_ready",
+          "app_entry",
+          "render_scheduled",
+          "boot_timeout",
+          "script_failure",
+          "style_failure",
+          "runtime_failure",
+          "unhandled_rejection",
+          "navigation",
+          "resource_script",
+          "resource_style",
+          "resource_image",
+          "resource_font",
+          "resource_fetch",
+          "resource_other",
+          "resource_queue",
+          "resource_ttfb",
+          "resource_download",
+        ]);
+        const resourceKinds = new Set(["script", "style", "image", "font", "fetch", "other"]);
+        const startedAt = typeof performance !== "undefined" && Number.isFinite(performance.now())
+          ? performance.now()
+          : 0;
+        const events = [];
+        const lateEvents = new Map();
+        const seen = new Set();
+        const eventIndices = new Map();
+        const sampled = Math.random() < 0.05;
+        let reportsSent = 0;
+        let failed = false;
+        let appEntered = false;
+        let bootTimedOut = false;
+        let observer;
+
+        const add = (event, duration) => {
+          if (!allowedEvents.has(event) || events.length >= 24) return;
+          const safeDuration = Number.isFinite(duration)
+            ? Math.min(120000, Math.max(0, Math.round(duration / 10) * 10))
+            : 0;
+          const key = `${event}:${safeDuration}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          events.push({ event, durationMs: safeDuration });
+        };
+        const addMaximum = (event, duration) => {
+          if (!allowedEvents.has(event) || !Number.isFinite(duration)) return;
+          const safeDuration = Math.min(120000, Math.max(0, Math.round(duration / 10) * 10));
+          const existingIndex = eventIndices.get(event);
+          if (existingIndex !== undefined) {
+            if (safeDuration > events[existingIndex].durationMs) {
+              events[existingIndex] = { event, durationMs: safeDuration };
+            }
+            return;
+          }
+          if (events.length >= 24) return;
+          eventIndices.set(event, events.length);
+          events.push({ event, durationMs: safeDuration });
+        };
+        const addSpan = (event, start, end) => {
+          if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end < start) return;
+          addMaximum(event, end - start);
+        };
+        const now = () => {
+          try {
+            return typeof performance !== "undefined" && Number.isFinite(performance.now())
+              ? Math.max(0, performance.now() - startedAt)
+              : 0;
+          } catch {
+            return 0;
+          }
+        };
+        const send = (batch) => {
+          if (reportsSent >= 2 || batch.length === 0) return;
+          reportsSent += 1;
+          try {
+            const body = JSON.stringify({ version: 1, events: batch.slice(0, 24) });
+            if (body.length > 3500) return;
+            if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+              navigator.sendBeacon(endpoint, new Blob([body], { type: "application/json" }));
+            } else if (typeof fetch === "function") {
+              fetch(endpoint, {
+                method: "POST",
+                credentials: "omit",
+                keepalive: true,
+                headers: { "Content-Type": "application/json" },
+                body,
+              }).catch(() => {});
+            }
+          } catch {
+            // Diagnostics are best effort and must never interrupt startup.
+          }
+        };
+        const flush = () => {
+          if (reportsSent > 0 || (!sampled && !failed) || events.length === 0) return;
+          send(events);
+        };
+        const flushLateResources = () => {
+          if (reportsSent < 1 || reportsSent >= 2 || lateEvents.size === 0) return;
+          send([...lateEvents].map(([event, durationMs]) => ({ event, durationMs })));
+          lateEvents.clear();
+        };
+
+        const api = {
+          mark(event) {
+            if (!["bootstrap", "dom_ready", "app_entry", "render_scheduled"].includes(event)) return;
+            if (event === "app_entry") appEntered = true;
+            add(event, now());
+          },
+        };
+        window[guard] = api;
+        api.mark("bootstrap");
+
+        try {
+          window.addEventListener("error", (event) => {
+            try {
+              const target = event && event.target;
+              const tag = target && typeof target.tagName === "string" ? target.tagName.toLowerCase() : "";
+              if (tag === "script") {
+                failed = true;
+                add("script_failure", now());
+                flush();
+              } else if (tag === "link" && String(target.rel || "").toLowerCase() === "stylesheet") {
+                failed = true;
+                add("style_failure", now());
+                flush();
+              } else if (!target || target === window) {
+                failed = true;
+                add("runtime_failure", now());
+                flush();
+              }
+            } catch {
+              // Ignore malformed or unsupported browser event objects.
+            }
+          }, true);
+          window.addEventListener("unhandledrejection", () => {
+            failed = true;
+            add("unhandled_rejection", now());
+            flush();
+          });
+          document.addEventListener("DOMContentLoaded", () => api.mark("dom_ready"), { once: true });
+          window.addEventListener("pagehide", flush, { once: true });
+
+          if (typeof PerformanceObserver === "function") {
+            observer = new PerformanceObserver((list) => {
+              try {
+                for (const entry of list.getEntries()) {
+                  if (entry.entryType === "navigation") {
+                    add("navigation", Math.max(0, entry.domContentLoadedEventEnd || 0));
+                    continue;
+                  }
+                  if (entry.entryType !== "resource") continue;
+                  let firstParty = false;
+                  try {
+                    firstParty = new URL(entry.name, window.location.href).origin === window.location.origin;
+                  } catch {
+                    continue;
+                  }
+                  if (!firstParty) continue;
+                  const initiator = String(entry.initiatorType || "").toLowerCase();
+                  const kind = initiator === "script" ? "script"
+                    : (initiator === "link" || initiator === "css" ? "style"
+                      : (["img", "image"].includes(initiator) ? "image"
+                        : (initiator === "font" ? "font"
+                          : (["fetch", "xmlhttprequest"].includes(initiator) ? "fetch" : "other"))));
+                  if ((bootTimedOut || failed) && reportsSent > 0 && kind === "script") {
+                    if (Number.isFinite(entry.duration)) {
+                      lateEvents.set("resource_script", Math.max(lateEvents.get("resource_script") || 0, Math.min(120000, Math.max(0, Math.round(entry.duration / 10) * 10))));
+                    }
+                    const lateQueue = Number.isFinite(entry.fetchStart) && Number.isFinite(entry.requestStart) && entry.fetchStart > 0 && entry.requestStart >= entry.fetchStart
+                      ? Math.min(120000, Math.max(0, Math.round((entry.requestStart - entry.fetchStart) / 10) * 10))
+                      : undefined;
+                    const lateTtfb = Number.isFinite(entry.requestStart) && Number.isFinite(entry.responseStart) && entry.requestStart > 0 && entry.responseStart >= entry.requestStart
+                      ? Math.min(120000, Math.max(0, Math.round((entry.responseStart - entry.requestStart) / 10) * 10))
+                      : undefined;
+                    const lateDownload = Number.isFinite(entry.responseStart) && Number.isFinite(entry.responseEnd) && entry.responseStart > 0 && entry.responseEnd >= entry.responseStart
+                      ? Math.min(120000, Math.max(0, Math.round((entry.responseEnd - entry.responseStart) / 10) * 10))
+                      : undefined;
+                    for (const [name, duration] of [["resource_queue", lateQueue], ["resource_ttfb", lateTtfb], ["resource_download", lateDownload]]) {
+                      if (duration !== undefined) lateEvents.set(name, Math.max(lateEvents.get(name) || 0, duration));
+                    }
+                    flushLateResources();
+                    continue;
+                  }
+                  addSpan("resource_queue", entry.fetchStart, entry.requestStart);
+                  addSpan("resource_ttfb", entry.requestStart, entry.responseStart);
+                  addSpan("resource_download", entry.responseStart, entry.responseEnd);
+                  if (resourceKinds.has(kind)) addMaximum(`resource_${kind}`, entry.duration);
+                }
+              } catch {
+                // Timing APIs vary across browsers; ignore unsupported entries.
+              }
+            });
+            observer.observe({ type: "navigation", buffered: true });
+            observer.observe({ type: "resource", buffered: true });
+          }
+        } catch {
+          // Instrumentation setup is optional.
+        }
+
+        setTimeout(() => {
+          if (!appEntered) {
+            bootTimedOut = true;
+            add("boot_timeout", now());
+            failed = true;
+          }
+          flush();
+          if (appEntered) {
+            try { observer && observer.disconnect(); } catch {}
+          }
+        }, 12000);
+        setTimeout(() => {
+          try { observer && observer.disconnect(); } catch {}
+        }, 120000);
+      })();
+    </script>
     <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>

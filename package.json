@@ -44,9 +44,10 @@
     "start": "vite",
     "build": "tsc --noEmit -p tsconfig.build.json && vite build && node scripts/test-built-css.mjs",
     "test:proxy": "node scripts/test-proxy-contracts.mjs",
+    "test:startup-diagnostics": "node scripts/test-startup-diagnostics.mjs",
     "test": "jest",
     "test:unit": "jest --runInBand",
-    "test:contracts": "npm run test:proxy",
+    "test:contracts": "npm run test:proxy && npm run test:startup-diagnostics",
     "test:integration": "jest --runInBand",
     "test:coverage": "jest --runInBand --coverage --coverageProvider=v8 && node scripts/write-coverage-metadata.mjs",
     "test:ci": "npm run test:contracts && npm run test:coverage -- --ci && npm run build"

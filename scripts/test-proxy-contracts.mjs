@@ -26,14 +26,23 @@ const runLocation = nginx.indexOf("location /bot-api/code/run/");
 const genericLocation = nginx.indexOf("location /bot-api/ {");
 const liveHealthLocation = nginx.indexOf("location = /health/live {");
 const readyHealthLocation = nginx.indexOf("location = /health/ready {");
+const diagnosticsLocation = nginx.indexOf("location = /startup-diagnostics {");
 
 assert.ok(checkLocation >= 0, "nginx must route /bot-api/check/ explicitly");
 assert.ok(runLocation >= 0, "nginx must route /bot-api/code/run/ explicitly");
 assert.ok(genericLocation >= 0, "nginx must keep generic /bot-api/ route");
 assert.ok(liveHealthLocation >= 0, "nginx must expose backend liveness");
 assert.ok(readyHealthLocation >= 0, "nginx must expose backend readiness");
+assert.ok(diagnosticsLocation >= 0, "nginx must expose the exact startup diagnostics endpoint");
 assert.ok(checkLocation < genericLocation, "check route must be before generic /bot-api/");
 assert.ok(runLocation < genericLocation, "code-run route must be before generic /bot-api/");
+
+const diagnosticsBlock = nginx.slice(diagnosticsLocation, nginx.indexOf("}", diagnosticsLocation) + 1);
+assert.match(diagnosticsBlock, /proxy_pass http:\/\/backend:3000\/api\/diagnostics\/ide-startup;/);
+assert.match(diagnosticsBlock, /proxy_pass_request_headers off;/, "diagnostics must not forward browser credentials");
+assert.match(diagnosticsBlock, /proxy_set_header Origin \$http_origin;/, "diagnostics must preserve origin validation");
+assert.match(diagnosticsBlock, /client_max_body_size 4k;/, "diagnostics request bodies must be capped at the endpoint");
+assert.doesNotMatch(diagnosticsBlock, /Authorization|Cookie|X-Telegram-Init-Data/);
 
 for (const [name, start, end] of [
   ["check", checkLocation, runLocation],

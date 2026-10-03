@@ -9,6 +9,9 @@ import ErrorBoundary from "./components/shared/ErrorBoundary/ErrorBoundary";
 
 declare global {
   interface Window {
+    __ideStartupDiagnostics?: {
+      mark: (event: "app_entry" | "render_scheduled") => void;
+    };
     Telegram: {
       WebApp: {
         requestFullscreen: () => void;
@@ -48,6 +51,8 @@ document.addEventListener("touchstart", function (event) {
     }
   }
 });
+window.__ideStartupDiagnostics?.mark("app_entry");
+
 root.render(
   <React.StrictMode>
     <ToastContainer theme="dark" />
@@ -60,5 +65,11 @@ root.render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+if (typeof window.requestAnimationFrame === "function") {
+  window.requestAnimationFrame(() => window.__ideStartupDiagnostics?.mark("render_scheduled"));
+} else {
+  window.__ideStartupDiagnostics?.mark("render_scheduled");
+}
 
 reportWebVitals();
