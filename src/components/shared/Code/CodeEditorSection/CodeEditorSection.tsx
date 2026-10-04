@@ -1,5 +1,6 @@
 import React, { Dispatch, SetStateAction } from "react";
 import { Answer, Language, Task } from "../../../../types/task";
+import { pasteTaskWrappers } from "../../../../utils/pasteTaskWrappers";
 import { getTaskType } from "../../../../utils/taskType";
 import CodeEditor from "../CodeEditor/CodeEditor";
 import type * as Y from "yjs";
@@ -78,19 +79,7 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     canInitializeCollaborativeCode = false,
   }) => {
     const selectedAnswer = currentAnswer ?? task?.answers?.[0] ?? null;
-    const isPasteTask = getTaskType(task) === "paste";
-    const showPasteWrappers = isPasteTask && task?.has_multiple_tests !== false;
-    const attachedStarterCode = isPasteTask && typeof task?.initial_code === "string"
-      ? task.initial_code
-      : "";
-    const visualCodeBefore = showPasteWrappers
-      ? selectedAnswer?.code_before || ""
-      : attachedStarterCode
-        ? `${attachedStarterCode}\n\n`
-        : "";
-    const visualCodeAfter = showPasteWrappers && selectedAnswer?.code_after
-      ? `${selectedAnswer.code_after}\n\n`
-      : "";
+    const { before: visualCodeBefore, after: visualCodeAfter } = pasteTaskWrappers(task, selectedAnswer);
 
     return (
       <div
@@ -144,6 +133,7 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
           allowLegacyCodeSeed={webSocketData?.isCodeQueueRestored}
           collaborativeCodeSeed={collaborativeCodeSeed}
           canInitializeCollaborativeCode={canInitializeCollaborativeCode}
+          ensureCollaborativeWrappers={task?.has_public_example === true && task?.has_multiple_tests === false}
           isCollaborativeStateReady={Boolean(
             webSocketData?.isJoinedRoom &&
               typeof webSocketData?.joinedCode === "string"

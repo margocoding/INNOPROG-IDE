@@ -20,6 +20,7 @@ export interface Task {
   note?: string;
   task_type?: TaskType;
   has_multiple_tests?: boolean;
+  has_public_example?: boolean;
   examples?: Example[];
   initial_code?: string;
   editor_language?: string;

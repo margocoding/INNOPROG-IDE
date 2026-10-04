@@ -82,7 +82,8 @@ export const useCodeExecution = ({
 	const handleRunCode = async () => {
 		const selectedAnswer = getSelectedAnswer();
 		const hasPublicTaskExample = Boolean(
-			taskId && selectedAnswer?.input != null && selectedAnswer?.output?.trim()
+			taskId && selectedAnswer?.output?.trim() &&
+			(selectedAnswer?.input != null || task?.has_public_example === true)
 		);
 		const shouldAutoSubmitAfterPublicTest = Boolean(
 			isInIframe &&
@@ -120,7 +121,7 @@ export const useCodeExecution = ({
 			const codeBefore = selectedAnswer?.code_before || "";
 			const codeAfter = selectedAnswer?.code_after || "";
 			const editableCode = extractEditableCode(
-				code || currentCode,
+				taskId ? code : (code || currentCode),
 				codeBefore,
 				codeAfter
 			);

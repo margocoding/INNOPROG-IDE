@@ -1,5 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import * as Y from "yjs";
+import { EditorView } from "@codemirror/view";
+import { yUndoManagerKeymap } from "y-codemirror.next";
 import CodeEditor from "./CodeEditor";
 
 jest.mock("@heroui/react", () => ({
@@ -74,6 +76,67 @@ describe("CodeEditor", () => {
       Object.defineProperty(document, "referrer", { configurable: true, value: originalReferrer });
       window.history.replaceState({}, "", `/${originalSearch}`);
     }
+  });
+
+  it("adds protected suffix to a restored single-test room without changing learner text", async () => {
+    const ydoc = new Y.Doc();
+    ydoc.getText("codemirror").insert(0, "class PurpleRobot: pass");
+    let liveDoc: Y.Doc | null = null;
+    const onChange = jest.fn();
+    const suffix = "\n\nprint(-robot1)\n\n";
+    render(<CodeEditor {...props} value="class PurpleRobot: pass" onChange={onChange}
+      language="py" isWebSocket updatesFromProps={[Y.encodeStateAsUpdate(ydoc)]}
+      onYDocReady={(doc) => { liveDoc = doc; }} isCollaborativeStateReady
+      canInitializeCollaborativeCode ensureCollaborativeWrappers codeAfter={suffix} />);
+    await waitFor(() => expect(liveDoc?.getText("codemirror").toString()).toBe("class PurpleRobot: pass" + suffix));
+    act(() => liveDoc!.getText("codemirror").insert("class PurpleRobot: pass".length, " # edit"));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith("class PurpleRobot: pass # edit"));
+    expect(liveDoc!.getText("codemirror").toString().split("print(-robot1)")).toHaveLength(2);
+  });
+
+  it("rejects local changes to shared protected blocks but permits learner edits", async () => {
+    const saved = new Y.Doc(); const suffix = "\n\nprint(-robot1)\n\n";
+    saved.getText("codemirror").insert(0, "solution" + suffix);
+    const onChange = jest.fn();
+    const { container } = render(<CodeEditor {...props} value="solution" onChange={onChange}
+      language="py" isWebSocket updatesFromProps={[Y.encodeStateAsUpdate(saved)]}
+      isCollaborativeStateReady ensureCollaborativeWrappers codeAfter={suffix} />);
+    const view = EditorView.findFromDOM(container.querySelector(".cm-editor")!)!;
+    await waitFor(() => expect(view.state.doc.toString()).toBe("solution" + suffix));
+    act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "extra" }, userEvent: "input" }));
+    expect(view.state.doc.toString()).toBe("solution" + suffix);
+    act(() => view.dispatch({ changes: { from: 10, to: 15, insert: "damaged" }, userEvent: "input" }));
+    expect(view.state.doc.toString()).toBe("solution" + suffix);
+    act(() => view.dispatch({ changes: { from: 8, insert: " # edit" }, userEvent: "input" }));
+    expect(view.state.doc.toString()).toBe("solution # edit" + suffix);
+    expect(onChange).toHaveBeenCalledWith("solution # edit");
+  });
+
+  it("does not undo protected-block migration when room readiness arrives later", async () => {
+    const saved = new Y.Doc(); saved.getText("codemirror").insert(0, "solution");
+    const suffix = "\n\nprint(-robot1)\n\n";
+    const sharedProps = { ...props, value: "solution", language: "py", isWebSocket: true,
+      updatesFromProps: [Y.encodeStateAsUpdate(saved)], ensureCollaborativeWrappers: true,
+      canInitializeCollaborativeCode: true, codeAfter: suffix };
+    const { container, rerender } = render(<CodeEditor {...sharedProps} isCollaborativeStateReady={false} />);
+    rerender(<CodeEditor {...sharedProps} isCollaborativeStateReady />);
+    const view = EditorView.findFromDOM(container.querySelector(".cm-editor")!)!;
+    await waitFor(() => expect(view.state.doc.toString()).toBe("solution" + suffix));
+    act(() => { yUndoManagerKeymap.find(binding => binding.key === "Mod-z")!.run!(view); });
+    expect(view.state.doc.toString()).toBe("solution" + suffix);
+  });
+
+  it("keeps learner edits current and shows the protected test before a room teacher joins", async () => {
+    const saved = new Y.Doc(); saved.getText("codemirror").insert(0, "class PurpleRobot: pass");
+    let live: Y.Doc | null = null; const onChange = jest.fn();
+    render(<CodeEditor {...props} value="class PurpleRobot: pass" onChange={onChange}
+      language="py" isWebSocket updatesFromProps={[Y.encodeStateAsUpdate(saved)]}
+      onYDocReady={(doc) => { live = doc; }} isCollaborativeStateReady
+      ensureCollaborativeWrappers codeAfter="\n\nprint(-robot1)\n\n" />);
+    expect(screen.getByTestId("restored-room-suffix")).toHaveTextContent("print(-robot1)");
+    act(() => live!.getText("codemirror").insert("class PurpleRobot: pass".length, " # edit"));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith("class PurpleRobot: pass # edit"));
+    expect(live!.getText("codemirror").toString()).not.toContain("print(-robot1)");
   });
 
   it("uses semantic config filenames instead of treating every YAML file as Compose", () => {

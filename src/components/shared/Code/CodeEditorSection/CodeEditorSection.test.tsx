@@ -102,6 +102,17 @@ describe("CodeEditorSection", () => {
     });
   });
 
+  it("renders an explicitly public single paste test as a protected suffix", () => {
+    render(<CodeEditorSection code="class PurpleRobot: pass" setCode={jest.fn()}
+      language="py" currentAnswer={null} task={{ task_type: "paste",
+        has_multiple_tests: false, has_public_example: true,
+        answers: [{ code_before: "", code_after: "print(-robot1)" }] } as any}
+      activeTab="editor" setCurrentCode={jest.fn()} handleLanguageChange={jest.fn()} />);
+    expect(mockedEditor.mock.calls[0][0]).toMatchObject({
+      value: "class PurpleRobot: pass", codeBefore: "", codeAfter: "\n\nprint(-robot1)\n\n",
+    });
+  });
+
   it("enables teachers and uses the selected answer", () => {
     const answer = { code_before: "b", code_after: "a" } as any;
     render(

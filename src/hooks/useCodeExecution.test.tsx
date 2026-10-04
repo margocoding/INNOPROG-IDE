@@ -331,6 +331,39 @@ describe("useCodeExecution", () => {
     );
   });
 
+  it("runs a public single paste suffix once and sends only learner code in iframe", async () => {
+    mockedApi.checkCode.mockResolvedValue({ result: true, output: "-1", input: "" } as any);
+    mockedApi.checkTaskAnswer.mockResolvedValue({ result: true, message: "Верно" } as any);
+    const answer = { code_before: "", code_after: "print(-robot1)", output: "-1" };
+    const { result } = setup({ isInIframe: true, taskId: "30068", answer_id: "1013",
+      code: "class PurpleRobot: pass", currentAnswer: answer,
+      task: { task_type: "paste", has_multiple_tests: false, has_public_example: true,
+        answers: [answer] } });
+    await act(() => result.current.handleRunCode());
+    expect(mockedApi.checkCode).toHaveBeenCalledTimes(1);
+    expect(mockedApi.checkCode).toHaveBeenCalledWith(expect.objectContaining({
+      program: "\nclass PurpleRobot: pass\nprint(-robot1)",
+    }), Language.PY);
+    expect(mockedApi.checkTaskAnswer).toHaveBeenCalledTimes(1);
+    expect(mockedApi.checkTaskAnswer).toHaveBeenCalledWith(30068, expect.objectContaining({
+      program: "class PurpleRobot: pass",
+    }));
+  });
+
+  it("does not treat the protected document as learner code when the task editor is empty", async () => {
+    mockedApi.checkCode.mockResolvedValue({ result: false, output: "wrong" } as any);
+    const answer = { code_before: "", code_after: 'print("sample")', output: "sample" };
+    const { result } = setup({ isInIframe: true, taskId: "30068", code: "",
+      currentAnswer: answer, task: { has_multiple_tests: false, has_public_example: true,
+        answers: [answer] } });
+    act(() => result.current.setCurrentCode('\n\nprint("sample")\n\n'));
+    await act(() => result.current.handleRunCode());
+    expect(mockedApi.checkCode).toHaveBeenCalledWith(expect.objectContaining({
+      program: '\n\nprint("sample")',
+    }), Language.PY);
+    expect(mockedApi.checkTaskAnswer).not.toHaveBeenCalled();
+  });
+
   it("reports failed checks and execution exceptions on the output tab", async () => {
     Object.defineProperty(window, "innerWidth", { value: 500, configurable: true });
     mockedApi.checkCode.mockResolvedValue({

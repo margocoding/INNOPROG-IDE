@@ -1,3 +1,4 @@
+import { missingWrapperInsertions } from "../../../../utils/pasteTaskWrappers";
 import {
   cursorCharLeft,
   cursorCharRight,
@@ -24,7 +25,7 @@ import { dart } from "@codemirror/legacy-modes/mode/clike";
 import { dockerFile } from "@codemirror/legacy-modes/mode/dockerfile";
 import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { yaml } from "@codemirror/legacy-modes/mode/yaml";
-import { EditorState, StateEffect, StateField } from "@codemirror/state";
+import { EditorState, StateEffect, StateField, Transaction } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import {
   Decoration,
@@ -36,7 +37,7 @@ import {
   WidgetType,
 } from "@codemirror/view";
 import { Select, SelectItem } from "@heroui/react";
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { yCollab, yUndoManagerKeymap } from "y-codemirror.next";
 import { Awareness } from "y-protocols/awareness";
 import * as Y from "yjs";
@@ -85,6 +86,7 @@ interface IProps {
   allowLegacyCodeSeed?: boolean;
   collaborativeCodeSeed?: string;
   canInitializeCollaborativeCode?: boolean;
+  ensureCollaborativeWrappers?: boolean;
   isCollaborativeStateReady?: boolean;
   updatesFromProps?: unknown[];
   joinedCode?: string;
@@ -242,6 +244,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
     allowLegacyCodeSeed = true,
     collaborativeCodeSeed,
     canInitializeCollaborativeCode = false,
+    ensureCollaborativeWrappers = false,
     isCollaborativeStateReady = false,
     updatesFromProps,
     joinedCode,
@@ -320,6 +323,19 @@ const CodeEditor: React.FC<IProps> = React.memo(
       onYDocReady?.(ydoc);
       return () => onYDocReady?.(null);
     }, [onYDocReady, ydoc]);
+
+    const [missingSharedBounds, setMissingSharedBounds] = useState({ before: false, after: false });
+    useEffect(() => {
+      const text = ydoc.getText("codemirror");
+      const observe = () => {
+        const source = text.toString();
+        const active = Boolean(ensureCollaborativeWrappers && isWebSocket);
+        setMissingSharedBounds({ before: active && Boolean(codeBefore) && !source.startsWith(codeBefore),
+          after: active && Boolean(codeAfter) && !source.endsWith(codeAfter) });
+      };
+      observe(); text.observe(observe);
+      return () => text.unobserve(observe);
+    }, [ydoc, ensureCollaborativeWrappers, isWebSocket, codeBefore, codeAfter]);
 
     const effectiveReadOnly = useMemo(
       () => disabled || readOnly,
@@ -451,6 +467,20 @@ const CodeEditor: React.FC<IProps> = React.memo(
       isCollaborativeStateReady,
       ydoc,
     ]);
+
+    useEffect(() => {
+      if (!ensureCollaborativeWrappers || !isWebSocketRef.current ||
+          !isCollaborativeStateReady || !canInitializeCollaborativeCode) return;
+      const ytext = ydoc.getText("codemirror");
+      // Only the server-designated teacher migrates an existing single-test
+      // document. Insertions preserve learner characters and concurrent edits.
+      ydoc.transact(() => {
+        for (const insertion of missingWrapperInsertions(ytext.toString(), codeBefore, codeAfter)) {
+          ytext.insert(insertion.index, insertion.text);
+        }
+      }, "public-paste-wrapper-migration");
+    }, [ensureCollaborativeWrappers, isCollaborativeStateReady,
+        canInitializeCollaborativeCode, codeBefore, codeAfter, updatesFromProps, ydoc]);
 
     const flushPendingSelection = () => {
       if (!pendingSelectionRef.current) return;
@@ -926,6 +956,17 @@ const CodeEditor: React.FC<IProps> = React.memo(
       const state = EditorState.create({
         doc: initialDoc,
         extensions: [
+          EditorState.transactionFilter.of((transaction) => {
+            if (!ensureCollaborativeWrappers || !isWebSocketRef.current ||
+                !transaction.docChanged || !transaction.annotation(Transaction.userEvent)) return transaction;
+            const previous = transaction.startState.doc.toString();
+            const next = transaction.newDoc.toString();
+            // Restored rooms may still lack one block. Protect each block as
+            // soon as it exists, while allowing synchronization and migration.
+            if ((codeBefore && previous.startsWith(codeBefore) && !next.startsWith(codeBefore)) ||
+                (codeAfter && previous.endsWith(codeAfter) && !next.endsWith(codeAfter))) return [];
+            return transaction;
+          }),
           yCollab(ydoc.getText("codemirror"), awareness),
           languageSupport,
           oneDark,
@@ -1068,6 +1109,16 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 }
 
                 if (!hasExpectedBounds) {
+                  if (ensureCollaborativeWrappers && isWebSocketRef.current) {
+                    // A learner can edit a restored document before its teacher
+                    // joins. Keep submission current; missing fixed blocks are
+                    // displayed separately until the single-owner migration.
+                    const from = newValue.startsWith(codeBefore) ? codeBefore.length : 0;
+                    const to = newValue.endsWith(codeAfter) ? newValue.length - codeAfter.length : newValue.length;
+                    const editable = newValue.slice(from, to);
+                    prevValue.current = editable;
+                    onChangeRef.current(editable);
+                  }
                   return;
                 }
 
@@ -1252,7 +1303,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
       // Volatile values/callbacks are read through refs; adding them here would
       // destroy and recreate CodeMirror on every keystroke.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [language, effectiveReadOnly, codeBefore, codeAfter, ydoc]);
+    }, [language, effectiveReadOnly, codeBefore, codeAfter, ensureCollaborativeWrappers, ydoc]);
 
     useEffect(() => {
       if (!editor.current) {
@@ -1558,10 +1609,11 @@ const CodeEditor: React.FC<IProps> = React.memo(
             </Select>
           </div>
         </div>
-        <div
-          ref={editorContainer}
-          className="h-[calc(100%-40px)] overflow-auto"
-        />
+        <div className="h-[calc(100%-40px)] flex flex-col overflow-auto">
+          {missingSharedBounds.before && <pre data-testid="restored-room-prefix" className="m-0 p-3 shrink-0 max-h-48 overflow-auto text-ide-text-secondary">{codeBefore}</pre>}
+          <div ref={editorContainer} className="flex-1 min-h-[160px] overflow-auto" />
+          {missingSharedBounds.after && <pre data-testid="restored-room-suffix" className="m-0 p-3 shrink-0 max-h-48 overflow-auto text-ide-text-secondary">{codeAfter}</pre>}
+        </div>
       </div>
     );
   }

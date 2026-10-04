@@ -1,3 +1,4 @@
+import { extractPasteRoomCode } from "../../../../utils/pasteTaskWrappers";
 import { useDisclosure } from "@heroui/react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -385,21 +386,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   const extractEditableRoomCode = useCallback(
     (roomCode: string) => {
-      let editableCode = roomCode;
-
-      if (task?.answers?.[0]) {
-        const codeBefore = task.answers[0].code_before || "";
-        const codeAfter = task.answers[0].code_after || "";
-
-        if (codeBefore && roomCode.startsWith(codeBefore)) {
-          editableCode = roomCode.slice(codeBefore.length);
-          if (codeAfter && editableCode.endsWith(codeAfter)) {
-            editableCode = editableCode.slice(0, -codeAfter.length);
-          }
-        }
-      }
-
-      return editableCode;
+      return extractPasteRoomCode(roomCode, task);
     },
     [task]
   );

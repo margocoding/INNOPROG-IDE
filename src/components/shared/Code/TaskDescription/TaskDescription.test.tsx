@@ -253,6 +253,16 @@ describe("TaskDescription component", () => {
 		expect(screen.queryByText("private output")).toBeNull();
 	});
 
+	it("shows the expected output of an explicitly public single paste example", () => {
+    render(<TaskDescription task={{ description: "Дополните класс", task_type: "paste",
+      has_multiple_tests: false, has_public_example: true,
+      answers: [{ code_before: "", code_after: "print(-robot1)", output: "Фиолетовый робот -1" }],
+    } as any} />);
+    expect(screen.getByText("Выходные данные:")).toBeInTheDocument();
+    expect(screen.getByText("Фиолетовый робот -1")).toBeInTheDocument();
+    expect(screen.queryByText("print(-robot1)")).toBeNull();
+  });
+
 	it("keeps paste wrappers in the editor instead of duplicating them in the description", () => {
 		const { rerender } = render(
 			<TaskDescription
