@@ -7,6 +7,14 @@ export interface RoomSessionBootstrap {
 const roomSessions = new Map<string, { telegramId: string; roomToken: string }>();
 const roomBootstraps = new Map<string, RoomSessionBootstrap>();
 
+export function currentRoomToken(roomId: string): string | null {
+  return roomSessions.get(roomId)?.roomToken || roomBootstraps.get(roomId)?.roomToken || null;
+}
+
+export function currentRoomUser(roomId: string): string | null {
+  return roomSessions.get(roomId)?.telegramId || roomBootstraps.get(roomId)?.telegramId || null;
+}
+
 export function saveRoomSession(roomId: string, telegramId: string, roomToken: string): void {
   roomSessions.set(roomId, { telegramId, roomToken });
 }

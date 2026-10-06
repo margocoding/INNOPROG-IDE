@@ -1,4 +1,6 @@
 import axios from "axios";
+import { currentRoomToken, currentRoomUser, saveRoomSession } from "../utils/roomSession";
+import { isRoomTokenExpired } from "../utils/roomToken";
 import {
 	Task,
 	CheckResult,
@@ -108,7 +110,7 @@ export function clearPlatformAccessSession(): void {
 	platformSessionPromise = null;
 }
 
-async function restorePlatformSession(): Promise<string> {
+async function restorePlatformSession(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_MS): Promise<string> {
 	if (platformAccessToken) return platformAccessToken;
 	if (platformSessionPromise) return platformSessionPromise;
 	platformSessionPromise = (async () => {
@@ -130,7 +132,7 @@ async function restorePlatformSession(): Promise<string> {
 		const endpoint = launchCode
 			? "/platform/session/launch/exchange"
 			: (incoming ? "/platform/session/magic-link/exchange" : "/platform/session/refresh");
-		const response = await fetch(
+		const response = await fetchWithTimeout(
 			`https://api.innoprog.ru${endpoint}`,
 			{
 				method: "POST",
@@ -144,6 +146,7 @@ async function restorePlatformSession(): Promise<string> {
 					})
 					: (incoming ? JSON.stringify({ auth: incoming }) : undefined),
 			},
+			bootstrapTimeoutMs,
 		);
 		if (!response.ok) return "";
 		const payload = await response.json();
@@ -158,9 +161,9 @@ async function restorePlatformSession(): Promise<string> {
 	return platformSessionPromise;
 }
 
-async function protectedTaskHeaders(): Promise<Record<string, string>> {
+async function protectedTaskHeaders(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_MS): Promise<Record<string, string>> {
 	const headers: Record<string, string> = {};
-	const platformToken = platformAccessToken || await restorePlatformSession();
+	const platformToken = platformAccessToken || await restorePlatformSession(bootstrapTimeoutMs);
 	const telegramInitData = String(window.Telegram?.WebApp?.initData || "").trim();
 	if (platformToken) {
 		headers.Authorization = `Bearer ${platformToken}`;
@@ -168,6 +171,62 @@ async function protectedTaskHeaders(): Promise<Record<string, string>> {
 		headers["X-Telegram-Init-Data"] = telegramInitData;
 	}
 	return headers;
+}
+
+async function executionHeaders(): Promise<Record<string, string>> {
+	const roomId = new URLSearchParams(window.location.search).get("roomId");
+	if (roomId) {
+		let token = currentRoomToken(roomId);
+		if (token && isRoomTokenExpired(token)) {
+			const user = currentRoomUser(roomId);
+			const response = await fetchWithTimeout(`/api/room/${encodeURIComponent(roomId)}/token`, {
+				method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(user && /^i\d+$/.test(user) ? { telegramId: user } : {}),
+			});
+			if (!response.ok) throw new Error("Не удалось обновить доступ к комнате");
+			const session = await response.json();
+			if (!session.roomToken || session.telegramId !== user) throw new Error("Переподключитесь к комнате перед запуском кода");
+			saveRoomSession(roomId, session.telegramId, session.roomToken);
+			token = session.roomToken;
+		}
+		// A room never silently falls back to the restricted anonymous mode.
+		if (!token) throw new Error("Дождитесь подключения к комнате перед запуском кода");
+		return { "X-Room-ID": roomId, "X-Room-Token": token };
+	}
+	const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+	const params = new URLSearchParams(window.location.search);
+	const explicitCredential = ["launch_code", "platform_auth", "auth"].some((key) => Boolean(fragment.get(key)));
+	const educationalContext = Boolean(platformAccessToken || explicitCredential || params.get("task_id") || params.get("taskId") || params.get("client_id"));
+	const telegram = String(window.Telegram?.WebApp?.initData || "").trim();
+	if (telegram && !platformAccessToken && !explicitCredential) return { "X-Telegram-Init-Data": telegram };
+	let headers: Record<string, string>;
+	try {
+		headers = await protectedTaskHeaders(educationalContext ? API_REQUEST_TIMEOUT_MS : 2000);
+	} catch (error) {
+		// An optional cookie lookup must not make the public offline IDE depend
+		// on another origin. Known educational identities never downgrade.
+		if (educationalContext) throw error;
+		return {};
+	}
+	if (educationalContext && !headers.Authorization && !headers["X-Telegram-Init-Data"]) {
+		throw new Error("Не удалось восстановить учебную сессию");
+	}
+	if (headers.Authorization) {
+		headers["X-Platform-Auth"] = headers.Authorization.slice(7);
+	}
+	return headers;
+}
+
+async function withExecutionRetry<T>(request: (headers: Record<string, string>) => Promise<T>): Promise<T> {
+	try {
+		return await request(await executionHeaders());
+	} catch (error) {
+		if (!isUnauthorizedResponse(error) || new URLSearchParams(window.location.search).get("roomId")) throw error;
+		clearPlatformAccessSession();
+		const refreshed = await executionHeaders();
+		if (!refreshed["X-Platform-Auth"] && !refreshed["X-Telegram-Init-Data"]) throw error;
+		return request(refreshed);
+	}
 }
 
 function isUnauthorizedResponse(value: any): boolean {
@@ -188,9 +247,9 @@ async function withProtectedTaskRetry<T>(
 	return request(await protectedTaskHeaders());
 }
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}) {
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = API_REQUEST_TIMEOUT_MS) {
 	const controller = new AbortController();
-	const timeoutId = window.setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
+	const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
 	try {
 		return await fetch(url, {
@@ -237,16 +296,17 @@ export const api = {
 		data: CodeCheckRequest,
 		language: string
 	): Promise<CheckResult> {
-		const response = await BASE_API.post(
+		const response = await withExecutionRetry((headers) => BASE_API.post(
 			`/check/${language}`,
 			data,
 			{
 				timeout: CODE_EXECUTION_TIMEOUT_MS,
 				headers: {
+					...headers,
 					"Content-Type": "application/json",
 				},
 			}
-		);
+		));
 		return response.data;
 	},
 
@@ -255,16 +315,17 @@ export const api = {
 		language: string
 	): Promise<RunCodeResult> {
 		const runLanguage = language === "sql" ? "sqlite" : language;
-		const response = await BASE_API.post(
+		const response = await withExecutionRetry((headers) => BASE_API.post(
 			`/code/run/${runLanguage}`,
 			data,
 			{
 				timeout: CODE_EXECUTION_TIMEOUT_MS,
 				headers: {
+					...headers,
 					"Content-Type": "application/json",
 				},
 			}
-		);
+		));
 		return response.data;
 	},
 

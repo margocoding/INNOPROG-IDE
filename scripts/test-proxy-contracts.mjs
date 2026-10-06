@@ -60,6 +60,10 @@ for (const [name, start, end] of [
     /proxy_set_header X-Request-ID \$ide_request_id;/,
     `${name} must forward the edge request ID`,
   );
+  assert.match(block, /proxy_set_header X-Code-Execution-Source browser;/,
+    `${name} must overwrite caller origin and enforce browser execution policy`);
+  assert.match(block, /proxy_request_buffering off;/,
+    `${name} must allow API rejection before buffering an anonymous request body`);
   assert.match(block, /proxy_read_timeout 250s;/, `${name} must outlive the 240s API deadline`);
   assert.match(block, /proxy_send_timeout 250s;/, `${name} must outlive the 240s API deadline`);
 }

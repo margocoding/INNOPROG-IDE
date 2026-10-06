@@ -1,5 +1,6 @@
 import axios from "axios";
 import { api, clearPlatformAccessSession } from "./api";
+import { saveRoomSession, clearRoomSessionToken } from "../utils/roomSession";
 
 jest.mock("axios", () => {
   const post = jest.fn();
@@ -25,6 +26,100 @@ describe("IDE API", () => {
       ok: true,
       json: async () => ({ access_token: "short-access-token" }),
     } as any);
+  });
+
+  it("preserves anonymous run and check without asking for login", async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401 });
+    mockedAxios.__post.mockResolvedValue({ data: { result: true } });
+    await api.runCode({ program: "print(1)" } as any, "py");
+    await api.checkCode({ program: "print(1)" } as any, "py");
+    expect(mockedAxios.__post).toHaveBeenCalledTimes(2);
+    for (const call of mockedAxios.__post.mock.calls) {
+      expect(call[2].headers).toEqual({ "Content-Type": "application/json" });
+    }
+  });
+
+  it("keeps anonymous execution working when optional cross-origin session refresh fails", async () => {
+    global.fetch = jest.fn().mockRejectedValue(new TypeError("network unavailable"));
+    mockedAxios.__post.mockResolvedValue({ data: { result: true } });
+    await expect(api.runCode({ program: "print(1)" } as any, "py")).resolves.toEqual({ result: true });
+    expect(mockedAxios.__post.mock.calls[0][2].headers).toEqual({ "Content-Type": "application/json" });
+  });
+
+  it("bounds optional session bootstrap so it cannot stall the anonymous IDE", async () => {
+    jest.useFakeTimers();
+    try {
+      global.fetch = jest.fn().mockImplementation((_url, options) => new Promise((_resolve, reject) => {
+        options.signal.addEventListener("abort", () => reject(new Error("aborted")));
+      }));
+      mockedAxios.__post.mockResolvedValue({ data: { result: true } });
+      const result = api.runCode({} as any, "py");
+      await jest.advanceTimersByTimeAsync(2000);
+      await expect(result).resolves.toEqual({ result: true });
+      expect(mockedAxios.__post).toHaveBeenCalledTimes(1);
+    } finally { jest.useRealTimers(); }
+  });
+
+  it("never treats a failed explicit task or launch authentication as anonymous", async () => {
+    global.fetch = jest.fn().mockRejectedValue(new TypeError("network unavailable"));
+    window.history.replaceState({}, "", "/?task_id=10001");
+    await expect(api.runCode({} as any, "py")).rejects.toThrow("network unavailable");
+    window.history.replaceState({}, "", "/#launch_code=explicit-code");
+    await expect(api.runCode({} as any, "py")).rejects.toThrow("network unavailable");
+    expect(mockedAxios.__post).not.toHaveBeenCalled();
+  });
+
+  it("passes verified platform transport credentials for educational execution", async () => {
+    mockedAxios.__post.mockResolvedValue({ data: { result: true } });
+    await api.runCode({} as any, "py");
+    expect(mockedAxios.__post.mock.calls[0][2].headers["X-Platform-Auth"]).toBe("short-access-token");
+  });
+
+  it("uses the latest guest room token without platform login", async () => {
+    window.history.replaceState({}, "", "/?roomId=execution-room");
+    saveRoomSession("execution-room", "i123", "first-token");
+    saveRoomSession("execution-room", "i123", "refreshed-token");
+    mockedAxios.__post.mockResolvedValue({ data: { result: true } });
+    await api.runCode({} as any, "py");
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockedAxios.__post.mock.calls[0][2].headers).toMatchObject({ "X-Room-ID": "execution-room", "X-Room-Token": "refreshed-token" });
+    clearRoomSessionToken("execution-room");
+  });
+
+  it("does not downgrade a room with missing credentials to anonymous execution", async () => {
+    window.history.replaceState({}, "", "/?roomId=missing-room");
+    await expect(api.runCode({} as any, "py")).rejects.toThrow("подключения к комнате");
+    expect(mockedAxios.__post).not.toHaveBeenCalled();
+  });
+
+  it("refreshes expired platform credentials without replaying a job after non-auth failures", async () => {
+    mockedAxios.__post.mockRejectedValueOnce({ response: { status: 401 } }).mockResolvedValueOnce({ data: { result: true } });
+    global.fetch = jest.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: "expired" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: "fresh" }) });
+    await api.runCode({} as any, "py");
+    expect(mockedAxios.__post.mock.calls[1][2].headers["X-Platform-Auth"]).toBe("fresh");
+    mockedAxios.__post.mockRejectedValueOnce({ response: { status: 503 } });
+    await expect(api.runCode({} as any, "py")).rejects.toMatchObject({ response: { status: 503 } });
+    expect(mockedAxios.__post).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not silently downgrade an expired educational session when refresh fails", async () => {
+    mockedAxios.__post.mockRejectedValueOnce({ response: { status: 401 } });
+    global.fetch = jest.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: "expired" }) })
+      .mockResolvedValueOnce({ ok: false, status: 401 });
+    await expect(api.runCode({} as any, "py")).rejects.toMatchObject({ response: { status: 401 } });
+    expect(mockedAxios.__post).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes an expired guest room capability while keeping its identity", async () => {
+    window.history.replaceState({}, "", "/?roomId=expired-room");
+    saveRoomSession("expired-room", "i123", `v1.${btoa(JSON.stringify({ exp: 1 }))}.signature`);
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ telegramId: "i123", roomToken: "new-room-token" }) });
+    mockedAxios.__post.mockResolvedValue({ data: { result: true } });
+    await api.runCode({} as any, "py");
+    expect(global.fetch).toHaveBeenCalledWith("/api/room/expired-room/token", expect.objectContaining({ credentials: "include", body: JSON.stringify({ telegramId: "i123" }) }));
+    expect(mockedAxios.__post.mock.calls[0][2].headers["X-Room-Token"]).toBe("new-room-token");
+    clearRoomSessionToken("expired-room");
   });
 
   it("loads tasks", async () => {
