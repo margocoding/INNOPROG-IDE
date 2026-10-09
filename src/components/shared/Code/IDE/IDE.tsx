@@ -172,7 +172,12 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const language =
     configurationLanguage ||
     resolveTaskLanguage(taskId, searchParams.get("lang"));
-  const answer_id = searchParams.get("answer_id");
+  const suppliedAnswerId = searchParams.get("answer_id")?.trim() || "";
+  // Saved code belongs to the verified user and task. Direct task links may
+  // omit the submission ID, so allocate one for this task visit as well.
+  const answer_id = useMemo(() => suppliedAnswerId || (taskId
+    ? (globalThis.crypto?.randomUUID?.() || `ide-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    : null), [suppliedAnswerId, taskId]);
   const roomId = searchParams.get("roomId");
   const isHtmlMode = language === Language.HTML;
   const isConfigurationMode = Boolean(configurationLanguage);
@@ -395,7 +400,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     roomStateAppliedRef.current = false;
     setCodeSource("none");
     setRoomCodeLoaded(!roomId);
-  }, [roomId]);
+  }, [roomId, taskId, clientId, answer_id]);
 
   useEffect(() => {
     let active = true;
@@ -515,10 +520,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         } finally {
           if (active) setInitialCodeReady(true);
         }
-      } else if (taskId && !answer_id && codeSource === "none") {
-        setCode("");
-        setCodeSource("api");
-        if (active) setInitialCodeReady(true);
       } else if (!taskId) {
         if (active) setInitialCodeReady(true);
       }
