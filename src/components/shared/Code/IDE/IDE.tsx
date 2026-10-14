@@ -212,7 +212,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
   }, [platform, platforma]);
 
-  const { isRunning, handleRunCode, onSendCheck, setCurrentCode } =
+  const { isRunning, checkProgress, handleRunCode, onSendCheck, setCurrentCode } =
     useCodeExecution({
       currentAnswer,
       task,
@@ -958,6 +958,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       </div>
 
       <Footer
+        checkProgress={checkProgress}
         status={status}
         taskId={taskId}
         isRunning={isRunning}

@@ -396,3 +396,18 @@ describe("IDE API", () => {
     );
   });
 });
+
+it('streams task progress while preserving the verdict and completion proof', async () => {
+  const progress = jest.fn();
+  const start = '{"type":"progress","completed":8,"total":26}\n';
+  const final = '{"type":"result","status":200,"data":{"result":true,"message":"Верно","completion_token":"proof"}}\n';
+  mockedAxios.__post.mockImplementation(async (url, _data, options) => {
+    expect(url).toBe('/task/10019/check-answer?progress=1');
+    expect(options.responseType).toBe('text');
+    options.onDownloadProgress({ event: { target: { responseText: start } } });
+    expect(progress).toHaveBeenCalledWith({ completed: 8, total: 26 });
+    return { status: 200, data: start + final };
+  });
+  const result = await api.checkTaskAnswer(10019, { client_id: '1', answer_id: '1', program: 'print(1)' }, progress);
+  expect(result.completion_token).toBe('proof');
+});

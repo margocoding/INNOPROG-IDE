@@ -1,3 +1,4 @@
+import { taskCheckProgressDecoder, TaskCheckProgress } from "./taskCheckProgress";
 import axios from "axios";
 import { currentRoomToken, currentRoomUser, saveRoomSession } from "../utils/roomSession";
 import { isRoomTokenExpired } from "../utils/roomToken";
@@ -344,14 +345,24 @@ export const api = {
 
 	async checkTaskAnswer(
 		taskId: number,
-		data: TaskAnswerCheckRequest
+		data: TaskAnswerCheckRequest,
+		onProgress?: (progress: TaskCheckProgress) => void
 	): Promise<TaskAnswerCheckResult> {
-		const response = await withProtectedTaskRetry((headers) =>
-			BASE_API.post(
-				`/task/${taskId}/check-answer`,
+		let decoder = onProgress ? taskCheckProgressDecoder(onProgress) : undefined;
+		const response = await withProtectedTaskRetry((headers) => {
+			decoder = onProgress ? taskCheckProgressDecoder(onProgress) : undefined;
+			return BASE_API.post(
+				`/task/${taskId}/check-answer${onProgress ? '?progress=1' : ''}`,
 				data,
 				{
 					timeout: TASK_CHECK_TIMEOUT_MS,
+					...(decoder ? {
+						responseType: 'text' as const,
+						onDownloadProgress: (event: any) => {
+							const text = event.event?.target?.responseText;
+							if (typeof text === 'string') decoder?.consume(text);
+						},
+					} : {}),
 					withCredentials: true,
 					headers: {
 					"Content-Type": "application/json",
@@ -359,9 +370,10 @@ export const api = {
 				},
 				validateStatus: (status) => status < 500,
 				},
-			),
-		);
+			);
+		});
 
+		if (decoder) return decoder.finish(response.data, response.status);
 		return {
 			...response.data,
 			status: response.status,

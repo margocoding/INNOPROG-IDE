@@ -80,6 +80,8 @@ server {
   # Full task verification includes all tests and progress persistence.
   # Keep this on Bot API, with the same budget as the code execution routes.
   location ~ ^/bot-api/task/[0-9]+/check-answer/?$ {
+    proxy_buffering off;
+    add_header X-Accel-Buffering "no" always;
     add_header Referrer-Policy "no-referrer" always;
     rewrite ^/bot-api/(.*)$ /$1 break;
     proxy_pass ${BOT_API_PROXY_URL};

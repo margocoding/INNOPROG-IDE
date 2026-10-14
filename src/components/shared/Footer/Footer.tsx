@@ -6,6 +6,7 @@ interface FooterProps {
   status: "idle" | "success" | "error";
   taskId: string | null;
   isRunning: boolean;
+  checkProgress?: { completed: number; total: number } | null;
   blockedReason?: string;
   activeTab: "editor" | "output";
   language?: string;
@@ -22,6 +23,7 @@ const Footer: React.FC<FooterProps> = ({
   status,
   taskId,
   isRunning,
+  checkProgress,
   blockedReason,
   activeTab,
   language,
@@ -78,6 +80,11 @@ const Footer: React.FC<FooterProps> = ({
           desktopTaskMode ? "md:flex-row" : "lg:flex-row"
         }`}
       >
+        {isRunning && checkProgress && (
+          <span role="status" aria-live="polite" className="text-sm text-default-600">
+            Проверено {checkProgress.completed} из {checkProgress.total}
+          </span>
+        )}
         <Button
           onPress={handleButtonClick}
           disabled={isRunning || Boolean(blockedReason)}
@@ -128,7 +135,7 @@ const Footer: React.FC<FooterProps> = ({
               />
             </svg>
           )}
-          {blockedReason || (isSubmitOnlyMode
+          {blockedReason || (isRunning && checkProgress ? "Проверяется..." : isSubmitOnlyMode
             ? isRunning
               ? "Отправка..."
               : "Отправить решение"
@@ -154,6 +161,7 @@ const Footer: React.FC<FooterProps> = ({
             }
           >
             <Button
+              disabled={isRunning}
               onPress={() => {
                 setActiveTab("editor");
                 setStatus("idle");

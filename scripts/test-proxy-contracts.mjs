@@ -81,6 +81,8 @@ assert.match(taskBlock, /proxy_pass \$\{BOT_API_PROXY_URL\};/);
 assert.match(taskBlock, /proxy_set_header Host \$\{BOT_API_PROXY_HOST\};/);
 assert.match(taskBlock, /proxy_set_header X-Request-ID \$ide_request_id;/);
 assert.match(taskBlock, /proxy_read_timeout 250s;/);
+assert.match(taskBlock, /proxy_buffering off;/);
+assert.match(taskBlock, /add_header X-Accel-Buffering "no" always;/);
 assert.match(taskBlock, /proxy_send_timeout 250s;/);
 assert.doesNotMatch(taskBlock, /CODE_RUNNER_AUTH_TOKEN|CODE_RUNNER_API_PROXY_URL/);
 assert.match(api, /const TASK_CHECK_TIMEOUT_MS = CODE_EXECUTION_TIMEOUT_MS;/,

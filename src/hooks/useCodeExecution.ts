@@ -1,3 +1,4 @@
+import { TaskCheckProgress } from "../services/taskCheckProgress";
 import { useState } from "react";
 import { api } from "../services/api";
 import { Answer, Language, Task, TaskAnswerCheckRequest } from "../types/task";
@@ -49,6 +50,7 @@ export const useCodeExecution = ({
 	isInIframe,
 	setSubmitMessage,
 }: UseCodeExecutionProps) => {
+	const [checkProgress, setCheckProgress] = useState<TaskCheckProgress | null>(null);
 	const [isRunning, setIsRunning] = useState<boolean>(false);
 	const [currentCode, setCurrentCode] = useState<string>('');
 
@@ -209,6 +211,7 @@ export const useCodeExecution = ({
 
 	const onSendCheck = async () => {
 		setIsRunning(true);
+		setCheckProgress(null);
 		let shouldOpenModal = false;
 		let keepEditorOpen = false;
 		const resolvedAnswerId = answer_id || "";
@@ -219,7 +222,8 @@ export const useCodeExecution = ({
 			if (isInIframe && taskId) {
 				const result = await api.checkTaskAnswer(
 					Number(taskId),
-					getIframeAnswerPayload()
+					getIframeAnswerPayload(),
+					setCheckProgress
 				);
 
 				setSubmitMessage(result.message);
@@ -287,6 +291,7 @@ export const useCodeExecution = ({
 
 	return {
 		isRunning,
+		checkProgress,
 		handleRunCode,
 		onSendCheck,
 		currentCode,

@@ -105,3 +105,10 @@ describe("Footer", () => {
     );
   });
 });
+
+it('announces verified counters and removes them after execution', () => {
+  const { rerender } = render(<Footer {...props()} isRunning checkProgress={{ completed: 8, total: 26 }} />);
+  expect(screen.getByRole('status')).toHaveTextContent('Проверено 8 из 26');
+  rerender(<Footer {...props()} checkProgress={{ completed: 26, total: 26 }} />);
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+});

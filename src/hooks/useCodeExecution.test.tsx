@@ -225,7 +225,7 @@ describe("useCodeExecution", () => {
       client_id: "77",
       answer_id: "answer",
       program: "function Settings() { return null; }",
-    });
+    }, expect.any(Function));
 		expect(mockedApi.checkCode).toHaveBeenCalled();
 		expect(callbacks.setOutput).toHaveBeenCalledWith(
 			"Первый тест пройден. Идёт полная проверка решения",
@@ -347,7 +347,7 @@ describe("useCodeExecution", () => {
     expect(mockedApi.checkTaskAnswer).toHaveBeenCalledTimes(1);
     expect(mockedApi.checkTaskAnswer).toHaveBeenCalledWith(30068, expect.objectContaining({
       program: "class PurpleRobot: pass",
-    }));
+    }), expect.any(Function));
   });
 
   it("does not treat the protected document as learner code when the task editor is empty", async () => {
@@ -431,7 +431,7 @@ describe("useCodeExecution", () => {
     await act(() => result.current.onSendCheck());
     expect(mockedApi.checkTaskAnswer).toHaveBeenCalledWith(9, {
       client_id: "77", answer_id: "a", program: "print(1)",
-    });
+    }, expect.any(Function));
     expect(callbacks.setSubmitMessage).toHaveBeenCalledWith("Done");
     expect(mockPostToParent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -477,4 +477,20 @@ describe("useCodeExecution", () => {
     expect(callbacks.setStatus).toHaveBeenLastCalledWith("idle");
     expect(callbacks.onOpen).toHaveBeenCalled();
   });
+});
+
+it('keeps real progress visible while awaiting verification and does not complete early', async () => {
+  let complete: (value: any) => void = () => {};
+  mockedApi.checkTaskAnswer.mockImplementation((_task, _data, progress) => {
+    progress?.({ completed: 8, total: 26 });
+    return new Promise(resolve => { complete = resolve; });
+  });
+  const { result } = setup({ taskId: '10019', isInIframe: true });
+  let pending: Promise<void>;
+  await act(async () => { pending = result.current.onSendCheck(); });
+  expect(result.current.isRunning).toBe(true);
+  expect(result.current.checkProgress).toEqual({ completed: 8, total: 26 });
+  expect(mockPostToParent).not.toHaveBeenCalled();
+  await act(async () => { complete({ result: true, message: 'Верно' }); await pending; });
+  expect(result.current.isRunning).toBe(false);
 });
