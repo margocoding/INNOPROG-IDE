@@ -80,11 +80,7 @@ const Footer: React.FC<FooterProps> = ({
           desktopTaskMode ? "md:flex-row" : "lg:flex-row"
         }`}
       >
-        {isRunning && checkProgress && (
-          <span role="status" aria-live="polite" className="text-sm text-default-600">
-            Проверено {checkProgress.completed} из {checkProgress.total}
-          </span>
-        )}
+        <div className={`flex w-full items-center gap-3 ${desktopTaskMode ? "md:w-auto" : "lg:w-auto"}`}>
         <Button
           onPress={handleButtonClick}
           disabled={isRunning || Boolean(blockedReason)}
@@ -152,6 +148,12 @@ const Footer: React.FC<FooterProps> = ({
             ? "Выполняется..."
             : "Выполнить")}
         </Button>
+        {isRunning && checkProgress && (
+          <span role="status" aria-live="polite" className="shrink-0 whitespace-nowrap text-sm text-default-600">
+            Проверено {checkProgress.completed} из {checkProgress.total}
+          </span>
+        )}
+        </div>
         {!isSubmitOnlyMode && activeTab === "output" && (
           <div
             className={
