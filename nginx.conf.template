@@ -77,6 +77,22 @@ server {
     proxy_send_timeout 250s;
   }
 
+  # Full task verification includes all tests and progress persistence.
+  # Keep this on Bot API, with the same budget as the code execution routes.
+  location ~ ^/bot-api/task/[0-9]+/check-answer/?$ {
+    add_header Referrer-Policy "no-referrer" always;
+    rewrite ^/bot-api/(.*)$ /$1 break;
+    proxy_pass ${BOT_API_PROXY_URL};
+    proxy_http_version 1.1;
+    proxy_set_header Host ${BOT_API_PROXY_HOST};
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Request-ID $ide_request_id;
+    proxy_read_timeout 250s;
+    proxy_send_timeout 250s;
+  }
+
   location /bot-api/ {
     add_header Referrer-Policy "no-referrer" always;
     rewrite ^/bot-api/(.*)$ /$1 break;
@@ -86,6 +102,7 @@ server {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Request-ID $ide_request_id;
     proxy_read_timeout 30s;
     proxy_send_timeout 30s;
   }

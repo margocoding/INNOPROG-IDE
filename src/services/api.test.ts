@@ -267,7 +267,7 @@ describe("IDE API", () => {
 		expect(post.mock.calls[3][2].withCredentials).toBe(true);
 		expect(post.mock.calls[0][2].timeout).toBe(260000);
 		expect(post.mock.calls[1][2].timeout).toBe(260000);
-		expect(post.mock.calls[3][2].timeout).toBe(90000);
+		expect(post.mock.calls[3][2].timeout).toBe(260000);
 	});
 
   it("loads submitted code with URL encoded parameters", async () => {

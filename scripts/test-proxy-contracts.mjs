@@ -74,6 +74,18 @@ assert.match(
   "nginx must preserve an outer request ID or generate one at the IDE edge",
 );
 
+const taskLocation = nginx.indexOf("location ~ ^/bot-api/task/[0-9]+/check-answer/?$ {");
+assert.ok(taskLocation >= 0 && taskLocation < genericLocation, "full task checks need a dedicated Bot API timeout");
+const taskBlock = nginx.slice(taskLocation, genericLocation);
+assert.match(taskBlock, /proxy_pass \$\{BOT_API_PROXY_URL\};/);
+assert.match(taskBlock, /proxy_set_header Host \$\{BOT_API_PROXY_HOST\};/);
+assert.match(taskBlock, /proxy_set_header X-Request-ID \$ide_request_id;/);
+assert.match(taskBlock, /proxy_read_timeout 250s;/);
+assert.match(taskBlock, /proxy_send_timeout 250s;/);
+assert.doesNotMatch(taskBlock, /CODE_RUNNER_AUTH_TOKEN|CODE_RUNNER_API_PROXY_URL/);
+assert.match(api, /const TASK_CHECK_TIMEOUT_MS = CODE_EXECUTION_TIMEOUT_MS;/,
+  "browser task checks must outlive the entire proxy chain");
+
 const genericBlock = nginx.slice(genericLocation);
 assert.match(genericBlock, /proxy_pass \$\{BOT_API_PROXY_URL\};/, "generic bot routes must proxy to BOT_API_PROXY_URL");
 assert.doesNotMatch(

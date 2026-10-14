@@ -17,7 +17,7 @@ const API_REQUEST_TIMEOUT_MS = 15000;
 // Runner budget includes queue/compilation (235s); API 240s, proxies 250s.
 // Leave time for the server to return its structured timeout response.
 const CODE_EXECUTION_TIMEOUT_MS = 260000;
-const TASK_CHECK_TIMEOUT_MS = 90000;
+const TASK_CHECK_TIMEOUT_MS = CODE_EXECUTION_TIMEOUT_MS;
 const BASE_API = axios.create({
 	baseURL: API_URL,
 	timeout: API_REQUEST_TIMEOUT_MS,
