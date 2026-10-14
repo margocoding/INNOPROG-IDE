@@ -493,4 +493,5 @@ it('keeps real progress visible while awaiting verification and does not complet
   expect(mockPostToParent).not.toHaveBeenCalled();
   await act(async () => { complete({ result: true, message: 'Верно' }); await pending; });
   expect(result.current.isRunning).toBe(false);
+  expect(result.current.checkProgress).toBeNull();
 });

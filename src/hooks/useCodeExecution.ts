@@ -278,6 +278,7 @@ export const useCodeExecution = ({
 				onOpen();
 			}
 			setIsRunning(false);
+			setCheckProgress(null);
 
 			if (!isInIframe && !keepEditorOpen) {
 				try {
