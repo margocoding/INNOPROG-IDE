@@ -140,7 +140,7 @@ export const useCodeExecution = ({
 
 			const canCheckPublicTaskExample = hasPublicTaskExample;
 
-			if (!canCheckPublicTaskExample && (taskId || !outputData.trim())) {
+			if (!canCheckPublicTaskExample && (taskId || !outputData.trim() || runLanguage === Language.PY)) {
 				const runInputData = inputData || "";
 				const result = await api.runCode(
 					{
@@ -153,6 +153,16 @@ export const useCodeExecution = ({
 				);
 
 				setRunInputData(result.input ?? runInputData);
+				if (!taskId && runLanguage === Language.PY && outputData.trim() && result.result) {
+					const actual = result.output || "";
+					const expected = outputData.trim();
+					const matches = actual.trim() === expected;
+					setOutput(matches
+						? `Программа успешно выполнена${actual ? `\nРезультат программы: ${actual}` : ""}`
+						: `Ошибка: Неверный ответ\nПолучено: ${actual}\nОжидалось: ${expected}`);
+					setStatus(matches ? "success" : "error");
+					return;
+				}
 				setOutput(
 					taskId && result.result
 						? shouldAutoSubmitAfterPublicTest

@@ -366,8 +366,8 @@ describe("useCodeExecution", () => {
 
   it("reports failed checks and execution exceptions on the output tab", async () => {
     Object.defineProperty(window, "innerWidth", { value: 500, configurable: true });
-    mockedApi.checkCode.mockResolvedValue({
-      result: false, comment: "wrong", output: "actual",
+    mockedApi.runCode.mockResolvedValue({
+      result: true, output: "actual",
     } as any);
     const first = setup({ outputData: "expected" });
     await act(() => first.result.current.handleRunCode());
@@ -494,4 +494,26 @@ it('keeps real progress visible while awaiting verification and does not complet
   await act(async () => { complete({ result: true, message: 'Верно' }); await pending; });
   expect(result.current.isRunning).toBe(false);
   expect(result.current.checkProgress).toBeNull();
+});
+
+
+describe("standalone Python expected output", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it.each([true, false])("uses separated run output when the expected answer matches: %s", async (matches) => {
+    mockedApi.runCode.mockResolvedValue({
+      result: true, input: "Name: Ada", output: "Hello Ada",
+    } as any);
+    const { result, callbacks } = setup({
+      code: 'name=input("Name: ")\nprint("Hello", name)',
+      inputData: "Ada", outputData: matches ? "Hello Ada" : "other",
+    });
+    await act(() => result.current.handleRunCode());
+    expect(mockedApi.runCode).toHaveBeenCalledTimes(1);
+    expect(mockedApi.checkCode).not.toHaveBeenCalled();
+    expect(callbacks.setRunInputData).toHaveBeenLastCalledWith("Name: Ada");
+    expect(callbacks.setStatus).toHaveBeenLastCalledWith(matches ? "success" : "error");
+    expect(callbacks.setOutput.mock.calls.at(-1)[0]).toContain("Hello Ada");
+    expect(callbacks.setOutput.mock.calls.at(-1)[0]).not.toContain("Name:");
+  });
 });
