@@ -74,6 +74,27 @@ describe("useCodeExecution", () => {
     Object.defineProperty(window, "innerWidth", { value: 1024, configurable: true });
   });
 
+  it("does not send duplicate runs from rapid repeated clicks", async () => {
+    let finish!: (value: any) => void;
+    mockedApi.runCode.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const { result } = setup();
+    await act(async () => {
+      const first = result.current.handleRunCode();
+      await result.current.handleRunCode();
+      expect(mockedApi.runCode).toHaveBeenCalledTimes(1);
+      finish({ result: true, output: "1" });
+      await first;
+    });
+    expect(result.current.isRunning).toBe(false);
+  });
+
+  it("explains a real rate limit with the server cooldown", async () => {
+    mockedApi.runCode.mockRejectedValue({ response: { status: 429, headers: { "retry-after": "17" } } });
+    const { result, callbacks } = setup();
+    await act(() => result.current.handleRunCode());
+    expect(callbacks.setOutput).toHaveBeenLastCalledWith("Слишком много запусков. Повторите через 17 с. Код сохранён в редакторе.");
+  });
+
   it("runs standalone code and displays output", async () => {
     mockedApi.runCode.mockResolvedValue({ result: true, output: "1", input: "stdin" } as any);
     const { result, callbacks } = setup({ inputData: "stdin" });

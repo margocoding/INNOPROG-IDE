@@ -1,8 +1,21 @@
 import { TaskCheckProgress } from "../services/taskCheckProgress";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "../services/api";
 import { Answer, Language, Task, TaskAnswerCheckRequest } from "../types/task";
 import { postToParent } from "../utils/parentMessaging";
+
+const admissionMessage = (error: any): string | null => {
+	const status = error?.response?.status;
+	const code = error?.response?.data?.code;
+	if (status === 503 && code === "execution_busy") {
+		return "Предыдущий запуск ещё выполняется. Дождитесь его завершения и повторите.";
+	}
+	if (status === 429) {
+		const seconds = Math.max(1, Math.min(60, Number(error?.response?.headers?.["retry-after"]) || 5));
+		return `Слишком много запусков. Повторите через ${seconds} с. Код сохранён в редакторе.`;
+	}
+	return null;
+};
 
 const maintenanceMessage = (error: any): string | null =>
 	error?.response?.status === 503 && error?.response?.data?.code === "runner_maintenance"
@@ -50,6 +63,7 @@ export const useCodeExecution = ({
 	isInIframe,
 	setSubmitMessage,
 }: UseCodeExecutionProps) => {
+	const executionInFlight = useRef(false);
 	const [checkProgress, setCheckProgress] = useState<TaskCheckProgress | null>(null);
 	const [isRunning, setIsRunning] = useState<boolean>(false);
 	const [currentCode, setCurrentCode] = useState<string>('');
@@ -107,6 +121,8 @@ export const useCodeExecution = ({
 			await onSendCheck();
 			return;
 		}
+		if (executionInFlight.current) return;
+		executionInFlight.current = true;
 		setIsRunning(true);
 		setStatus("idle");
 		setOutput("");
@@ -209,9 +225,10 @@ export const useCodeExecution = ({
 				setStatus("error");
 			}
 		} catch (error: any) {
-			setOutput(maintenanceMessage(error) || `Ошибка выполнения: ${error.message}`);
+			setOutput(maintenanceMessage(error) || admissionMessage(error) || `Ошибка выполнения: ${error.message}`);
 			setStatus("error");
 		} finally {
+			executionInFlight.current = false;
 			setIsRunning(false);
 			if (taskId || window.innerWidth < 768) {
 				setActiveTab("output");
