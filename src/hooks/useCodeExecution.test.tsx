@@ -118,6 +118,14 @@ describe("useCodeExecution", () => {
     expect(callbacks.setStatus).toHaveBeenLastCalledWith("error");
   });
 
+  it("does not add a leading line to tasks without protected wrappers", async () => {
+    mockedApi.runCode.mockResolvedValue({ result: false, output: "line 3" } as any);
+    const code = "\n\nraise ValueError('broken')";
+    const { result } = setup({ taskId: "7", code, currentAnswer: { code_before: "", code_after: "", output: "" } });
+    await act(() => result.current.handleRunCode());
+    expect(mockedApi.runCode).toHaveBeenCalledWith(expect.objectContaining({ program: code }), Language.PY);
+  });
+
   it("checks task code against the single public sample without receiving hidden tests", async () => {
     mockedApi.checkCode.mockResolvedValue({ result: true, output: "out" } as any);
     const answer = {
@@ -349,7 +357,7 @@ describe("useCodeExecution", () => {
     expect(mockedApi.runCode).toHaveBeenCalledWith(
       expect.objectContaining({
         program:
-          "\ndef f(first, second):\n    return 'k L'\nprint(f(\"kpVxLVsstFa\", \"Lkjm\"))",
+          "def f(first, second):\n    return 'k L'\nprint(f(\"kpVxLVsstFa\", \"Lkjm\"))",
       }),
       Language.PY,
     );
@@ -374,7 +382,7 @@ describe("useCodeExecution", () => {
     await act(() => result.current.handleRunCode());
     expect(mockedApi.checkCode).toHaveBeenCalledTimes(1);
     expect(mockedApi.checkCode).toHaveBeenCalledWith(expect.objectContaining({
-      program: "\nclass PurpleRobot: pass\nprint(-robot1)",
+      program: "class PurpleRobot: pass\nprint(-robot1)",
     }), Language.PY);
     expect(mockedApi.checkTaskAnswer).toHaveBeenCalledTimes(1);
     expect(mockedApi.checkTaskAnswer).toHaveBeenCalledWith(30068, expect.objectContaining({
@@ -391,7 +399,7 @@ describe("useCodeExecution", () => {
     act(() => result.current.setCurrentCode('\n\nprint("sample")\n\n'));
     await act(() => result.current.handleRunCode());
     expect(mockedApi.checkCode).toHaveBeenCalledWith(expect.objectContaining({
-      program: '\n\nprint("sample")',
+      program: '\nprint("sample")',
     }), Language.PY);
     expect(mockedApi.checkTaskAnswer).not.toHaveBeenCalled();
   });
