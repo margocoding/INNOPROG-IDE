@@ -100,11 +100,22 @@ describe("useCodeExecution", () => {
     const { result, callbacks } = setup({ inputData: "stdin" });
     await act(() => result.current.handleRunCode());
     expect(mockedApi.runCode).toHaveBeenCalledWith(
-      expect.objectContaining({ program: "\nprint(1)\n" }),
+      expect.objectContaining({ program: "print(1)" }),
       Language.PY,
     );
     expect(callbacks.setOutput).toHaveBeenCalledWith("1");
     expect(callbacks.setStatus).toHaveBeenLastCalledWith("idle");
+  });
+
+  it("preserves room source lines and displays the complete traceback", async () => {
+    const code = "\n\ndef fail():\n    raise ValueError('broken')\nfail()";
+    const traceback = "Traceback (most recent call last):\n  File \"script.py\", line 4, in fail\n    raise ValueError('broken')\nValueError: broken";
+    mockedApi.runCode.mockResolvedValue({ result: false, output: traceback } as any);
+    const { result, callbacks } = setup({ code });
+    await act(() => result.current.handleRunCode());
+    expect(mockedApi.runCode).toHaveBeenCalledWith(expect.objectContaining({ program: code }), Language.PY);
+    expect(callbacks.setOutput).toHaveBeenCalledWith(traceback);
+    expect(callbacks.setStatus).toHaveBeenLastCalledWith("error");
   });
 
   it("checks task code against the single public sample without receiving hidden tests", async () => {

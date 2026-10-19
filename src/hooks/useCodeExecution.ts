@@ -143,7 +143,7 @@ export const useCodeExecution = ({
 				codeBefore,
 				codeAfter
 			);
-			const fullCode = `${codeBefore}\n${editableCode}\n${codeAfter}`;
+			const fullCode = taskId ? `${codeBefore}\n${editableCode}\n${codeAfter}` : editableCode;
 
 			const checkData = {
 				input_data: selectedAnswer?.input || inputData || "-",
