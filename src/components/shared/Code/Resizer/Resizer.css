@@ -6,13 +6,15 @@
   align-items: center;
   justify-content: center;
   user-select: none;
+  touch-action: none;
+  flex-shrink: 0;
   transition: background-color 0.2s;
 }
 
 .resizer-vertical {
-  width: 8px;
+  width: 12px;
   cursor: col-resize;
-  min-width: 8px;
+  min-width: 12px;
 }
 
 .resizer-horizontal {

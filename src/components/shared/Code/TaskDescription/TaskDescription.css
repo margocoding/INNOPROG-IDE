@@ -169,3 +169,15 @@
 .task-description-content pre.task-description-code-block .token.variable {
   color: #f78c6c;
 }
+
+/* A full-width touch target, with a small visual grip. */
+.task-description-panel { padding-bottom: 40px; }
+.task-description-row-resizer {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 32px; display: flex; align-items: center; justify-content: center;
+  cursor: row-resize; touch-action: none; user-select: none;
+  background: #222632; z-index: 5;
+}
+.task-description-row-resizer > span { width: 64px; height: 4px; border-radius: 4px; background: #8990a4; }
+.task-description-row-resizer:focus-visible { outline: 2px solid #aa8eff; outline-offset: -2px; }
+@media(min-width:768px) { .task-description-shell--sidebar .task-description-panel { padding-bottom: 16px; } }

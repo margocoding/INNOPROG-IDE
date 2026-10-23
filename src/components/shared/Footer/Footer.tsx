@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { Button } from "@heroui/react";
+import "./Footer.css";
 import { isDesktop } from "../../..";
 
 interface FooterProps {
@@ -15,6 +16,7 @@ interface FooterProps {
   setActiveTab: (tab: "editor" | "output") => void;
   setStatus: (status: "idle" | "success" | "error") => void;
   desktopTaskMode?: boolean;
+  compactEmbedded?: boolean;
   submitOnly?: boolean;
   onPrimaryAction?: () => Promise<void>;
 }
@@ -32,6 +34,7 @@ const Footer: React.FC<FooterProps> = ({
   setActiveTab,
   setStatus,
   desktopTaskMode = false,
+  compactEmbedded = false,
   submitOnly = false,
   onPrimaryAction,
 }) => {
@@ -71,7 +74,7 @@ const Footer: React.FC<FooterProps> = ({
 
   return (
     <footer
-      className={`bg-ide-secondary border-t border-ide-border flex-none ${
+      className={`ide-footer ${compactEmbedded ? "ide-footer--compact" : ""} bg-ide-secondary border-t border-ide-border flex-none ${
         !isDesktop() ? "pb-[env(safe-area-inset-bottom)]" : ""
       }`}
     >
@@ -89,7 +92,7 @@ const Footer: React.FC<FooterProps> = ({
               ? "secondary"
               : "success"
           }
-          className={`w-full text-white ${
+          className={`ide-footer-primary w-full text-white ${
             desktopTaskMode ? "md:w-auto" : "lg:w-auto"
           }`}
         >

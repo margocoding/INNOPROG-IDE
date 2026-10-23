@@ -21,90 +21,22 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	const [height, setHeight] = useState(200);
 	const isResizing = useRef(false);
 	const containerRef = useRef<HTMLDivElement | null>(null);
-	const startTouchY = useRef(0);
-	const windowHeight = window.innerHeight;
-
-	const preventSelection = (event: Event) => {
-		event.preventDefault();
+	const resizeBounds = () => ({ min: 64, max: Math.max(64, window.innerHeight - 200) });
+	const resizeTo = (nextHeight: number) => {
+		const { min, max } = resizeBounds();
+		setHeight(Math.max(min, Math.min(max, nextHeight)));
 	};
-
-	const startResize = () => {
-		document.addEventListener("selectstart", preventSelection);
-		document.body.style.overflow = "hidden";
-		document.body.style.userSelect = "none";
-		document.body.style.cursor = "row-resize";
-		window.getSelection()?.removeAllRanges();
-	};
-
-	const stopResize = () => {
-		document.removeEventListener("selectstart", preventSelection);
-		document.body.style.overflow = "";
-		document.body.style.userSelect = "";
-		document.body.style.cursor = "";
-	};
-
-	const handleMouseDown = (event: React.MouseEvent) => {
+	const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+		if (event.button !== 0) return;
 		event.preventDefault();
 		isResizing.current = true;
-		document.addEventListener("mousemove", handleMouseMove);
-		document.addEventListener("mouseup", handleMouseUp);
-		startResize();
+		event.currentTarget.setPointerCapture(event.pointerId);
 	};
-
-	const handleTouchStart = (event: React.TouchEvent) => {
-		if (event.touches.length === 1) {
-			event.preventDefault();
-			isResizing.current = true;
-			startTouchY.current = event.touches[0].clientY;
-			document.addEventListener("touchmove", handleTouchMove, {
-				passive: false,
-			});
-			document.addEventListener("touchend", handleTouchEnd);
-			startResize();
-		}
+	const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+		if (!isResizing.current || !containerRef.current) return;
+		resizeTo(event.clientY - containerRef.current.getBoundingClientRect().top);
 	};
-
-	const handleMouseMove = (event: MouseEvent) => {
-		if (!isResizing.current) return;
-
-		if (containerRef.current) {
-			const containerRect = containerRef.current.getBoundingClientRect();
-			const newHeight = event.clientY - containerRect.top;
-
-			const minHeight = 10;
-			const maxHeight = windowHeight - 200;
-			setHeight(Math.max(minHeight, Math.min(maxHeight, newHeight)));
-		}
-	};
-
-	const handleTouchMove = (event: TouchEvent) => {
-		if (!isResizing.current) return;
-
-		if (containerRef.current) {
-			const containerRect = containerRef.current.getBoundingClientRect();
-			const newHeight = event.touches[0].clientY - containerRect.top;
-
-			const minHeight = 10;
-			const maxHeight = windowHeight - 200;
-			setHeight(Math.max(minHeight, Math.min(maxHeight, newHeight)));
-
-			event.preventDefault();
-		}
-	};
-
-	const handleMouseUp = () => {
-		isResizing.current = false;
-		document.removeEventListener("mousemove", handleMouseMove);
-		document.removeEventListener("mouseup", handleMouseUp);
-		stopResize();
-	};
-
-	const handleTouchEnd = () => {
-		isResizing.current = false;
-		document.removeEventListener("touchmove", handleTouchMove);
-		document.removeEventListener("touchend", handleTouchEnd);
-		stopResize();
-	};
+	const stopResize = () => { isResizing.current = false; };
 
 	if (!task) return null;
 
@@ -174,31 +106,25 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 
 				<div
 					className="task-description-row-resizer"
-					style={{
-						position: "absolute",
-						bottom: 0,
-						left: 0,
-						right: 0,
-						height: "8px",
-						cursor: "row-resize",
-						touchAction: "none",
-						userSelect: "none",
+					role="separator"
+					aria-label="Изменить высоту условия задания"
+					aria-orientation="horizontal"
+					aria-valuemin={resizeBounds().min}
+					aria-valuemax={resizeBounds().max}
+					aria-valuenow={height}
+					tabIndex={0}
+					onPointerDown={handlePointerDown}
+					onPointerMove={handlePointerMove}
+					onPointerUp={stopResize}
+					onPointerCancel={stopResize}
+					onLostPointerCapture={stopResize}
+					onKeyDown={(event) => {
+						if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+							event.preventDefault();
+							resizeTo(height + (event.key === "ArrowUp" ? -24 : 24));
+						}
 					}}
-					onMouseDown={handleMouseDown}
-					onTouchStart={handleTouchStart}
-					onDragStart={(event) => event.preventDefault()}
-				>
-					<div
-						style={{
-							width: "60px",
-							height: "4px",
-							background: "#666",
-							margin: "2px auto",
-							borderRadius: "2px",
-							zIndex: "999",
-						}}
-					/>
-				</div>
+				><span /></div>
 			</div>
 		</div>
 	);

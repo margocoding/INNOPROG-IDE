@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { useCodeExecution } from "../../../../hooks/useCodeExecution";
 import { api } from "../../../../services/api";
 import { Answer, Language, Task } from "../../../../types/task";
-import { postToParent } from "../../../../utils/parentMessaging";
+import { postToParent, resolveParentOrigin } from "../../../../utils/parentMessaging";
 import {
   resolveConfigurationTaskLanguage,
   resolveTaskLanguage,
@@ -160,6 +160,21 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const { onOpen, onOpenChange, isOpen, onClose } = useDisclosure();
 
   const taskId = searchParams.get("task_id") || null;
+  const [hostExpanded, setHostExpanded] = useState(false);
+  useEffect(() => {
+    setHostExpanded(false);
+    const onViewport = (event: MessageEvent) => {
+      const origin = resolveParentOrigin();
+      if (!origin || event.origin !== origin || event.source !== window.parent) return;
+      const payload = event.data;
+      if (payload?.source !== "innoprog-platform" || payload?.type !== "innoprog:ide-viewport"
+        || payload?.version !== 1 || String(payload.taskId) !== String(taskId)
+        || typeof payload.expanded !== "boolean") return;
+      setHostExpanded(payload.expanded);
+    };
+    window.addEventListener("message", onViewport);
+    return () => window.removeEventListener("message", onViewport);
+  }, [taskId]);
   const fixedConfigurationLanguage = resolveConfigurationTaskLanguage(taskId);
   const metadataConfigurationLanguage =
     task?.submission_ui === "ide" &&
@@ -974,6 +989,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         setActiveTab={setActiveTab}
         setStatus={setStatus}
         desktopTaskMode={desktopTaskMode}
+        compactEmbedded={isEmbeddedApp && !hostExpanded}
         submitOnly={isConfigurationMode}
         onPrimaryAction={runPrimaryAction}
       />

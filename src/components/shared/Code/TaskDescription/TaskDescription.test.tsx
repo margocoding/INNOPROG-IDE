@@ -209,10 +209,16 @@ describe("TaskDescription component", () => {
 			top: 10,
 		} as DOMRect);
 		const handle = outer.lastElementChild as HTMLElement;
-		fireEvent.mouseDown(handle);
-		fireEvent.mouseMove(document, { clientY: 310 });
+		window.PointerEvent = MouseEvent as typeof PointerEvent;
+		handle.setPointerCapture = jest.fn();
+		fireEvent.pointerDown(handle, { button: 0, pointerId: 1 });
+		fireEvent.pointerMove(handle, { clientY: 310, pointerId: 1 });
 		expect(outer.style.height).toBe("300px");
-		fireEvent.mouseUp(document);
+		fireEvent.pointerCancel(handle);
+		fireEvent.pointerMove(handle, { clientY: 410, pointerId: 1 });
+		expect(outer.style.height).toBe("300px");
+		fireEvent.keyDown(handle, { key: "ArrowUp" });
+		expect(outer.style.height).toBe("276px");
 	});
 
 	it.each(["-", "–", "—"])(

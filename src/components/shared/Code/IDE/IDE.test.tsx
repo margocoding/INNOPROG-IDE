@@ -30,6 +30,7 @@ jest.mock("../../../../services/api", () => ({
 }));
 jest.mock("../../../../utils/parentMessaging", () => ({
   postToParent: jest.fn(),
+  resolveParentOrigin: () => "https://app.innoprog.ru",
 }));
 jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
   __esModule: true,
@@ -119,12 +120,14 @@ jest.mock("../../Footer/Footer", () => ({
     onRunCode,
     onSubmitCheck,
     desktopTaskMode,
+    compactEmbedded,
     setActiveTab,
     isRunning,
     blockedReason,
     onPrimaryAction,
   }: any) => (
     <footer
+      data-compact-embedded={String(Boolean(compactEmbedded))}
       data-desktop-task-mode={String(Boolean(desktopTaskMode))
       }
       data-action-disabled={String(Boolean(isRunning || blockedReason))}
@@ -181,6 +184,28 @@ describe("IDE", () => {
       value: window,
     });
     window.history.replaceState({}, "", "/?telegramId=123");
+  });
+
+  it("accepts viewport mode only from the trusted parent for the current task", async () => {
+    Object.defineProperty(window, "self", { configurable: true, value: {} });
+    window.history.replaceState({}, "", "/?client_id=123&task_id=10030&answer_id=a&platforma=app");
+    (api.getTask as jest.Mock).mockResolvedValue({ id: 10030, answers: [{}] });
+    (api.getSubmitCode as jest.Mock).mockResolvedValue({ status: "success", code: "", has_saved_code: false });
+    const { container } = render(<IDE telegramId="123" />);
+    await waitFor(() => expect(container.querySelector("footer")).not.toBeNull());
+    const message = (origin: string, taskId = 10030, expanded = true, source = window) => {
+      fireEvent(window, new MessageEvent("message", {origin, source, data: {
+        source: "innoprog-platform", type: "innoprog:ide-viewport", version: 1, taskId, expanded,
+      }}));
+    };
+    expect(container.querySelector("footer")).toHaveAttribute("data-compact-embedded", "true");
+    message("https://wrong.test");
+    message("https://app.innoprog.ru", 777);
+    expect(container.querySelector("footer")).toHaveAttribute("data-compact-embedded", "true");
+    message("https://app.innoprog.ru");
+    expect(container.querySelector("footer")).toHaveAttribute("data-compact-embedded", "false");
+    message("https://app.innoprog.ru", 10030, false);
+    expect(container.querySelector("footer")).toHaveAttribute("data-compact-embedded", "true");
   });
 
   it("renders standalone editor, runs actions and remembers resizing", () => {
