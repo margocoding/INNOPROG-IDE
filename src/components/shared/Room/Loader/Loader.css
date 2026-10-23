@@ -1,40 +1,20 @@
-@keyframes fadeIn {
-	from {
-		opacity: 0;
-	}
-	to {
-		opacity: 1;
-	}
-}
-
-@keyframes scaleIn {
-	from {
-		transform: scale(0.8);
-		opacity: 0;
-	}
-	to {
-		transform: scale(1);
-		opacity: 1;
-	}
-}
-
-.loader-overlay {
-	animation: fadeIn 0.2s ease-out;
-}
-
-.loader-content {
-	animation: scaleIn 0.3s ease-out;
-}
-
-.loader-pulse {
-	animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-	0%, 100% {
-		opacity: 1;
-	}
-	50% {
-		opacity: 0.7;
-	}
-} 
+.loader-overlay {animation:ide-content-enter 180ms ease-out both;}
+.loader-content {animation:ide-content-enter 180ms ease-out both;}
+.ide-connection-skeleton {position:fixed;inset:0;z-index:50;background:#fff;box-sizing:border-box;padding:16px;}
+.ide-connection-skeleton > div {height:100%;display:flex;flex-direction:column;gap:16px;animation:ide-placeholder-enter 160ms ease-out 300ms both;}
+.ide-loading-label {position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;}
+.ide-skeleton-toolbar {height:44px;width:100%;flex-shrink:0;}
+.ide-skeleton-workspace {display:flex;flex:1;min-height:0;gap:28px;}
+.ide-skeleton-workspace aside{width:180px;flex-shrink:0;padding-right:20px;border-right:1px solid #e7e4ed;}
+.ide-skeleton-workspace section{flex:1;min-width:0;}
+.ide-skeleton-workspace span{display:block;width:78%;height:14px;margin:20px 0;}
+.ide-skeleton-workspace span:nth-child(2n){width:55%;}
+.ide-skeleton-console{height:22%;width:100%;}
+.ide-skeleton-toolbar,.ide-skeleton-console,.ide-skeleton-workspace span{position:relative;overflow:hidden;background:#eeedf2;border-radius:8px;}
+.ide-skeleton-toolbar::after,.ide-skeleton-console::after,.ide-skeleton-workspace span::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 15%,rgba(255,255,255,.38) 50%,transparent 85%);animation:ide-placeholder-wave 3s ease-in-out infinite;}
+@keyframes ide-placeholder-wave{0%,10%{transform:translateX(-100%);}80%,100%{transform:translateX(100%);}}
+@keyframes ide-placeholder-enter{from{opacity:0;}to{opacity:1;}}
+@keyframes ide-content-enter{from{opacity:.72;}to{opacity:1;}}
+@media(max-width:650px){.ide-skeleton-workspace aside{display:none;}}
+@media(prefers-color-scheme:dark){.ide-connection-skeleton{background:#1e1e1e;}.ide-skeleton-toolbar,.ide-skeleton-console,.ide-skeleton-workspace span{background:#303039;}}
+@media(prefers-reduced-motion:reduce){.ide-connection-skeleton > div{animation-duration:0s;}.ide-skeleton-toolbar::after,.ide-skeleton-console::after,.ide-skeleton-workspace span::after{animation:none;display:none;}.loader-overlay,.loader-content{animation:none;}}

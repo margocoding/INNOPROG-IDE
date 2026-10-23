@@ -1,4 +1,3 @@
-import { Spinner } from "@heroui/react";
 import React from "react";
 import "./Loader.css";
 
@@ -14,6 +13,10 @@ const Loader: React.FC<LoaderProps> = ({
 	const isErrorState =
 		isError || message.includes("Ошибка") || message.includes("потеряно");
 
+    if (!isErrorState) return <div className="ide-connection-skeleton" role="status" aria-label={message} aria-busy="true">
+      <span className="ide-loading-label">Подключение</span><div aria-hidden="true"><div className="ide-skeleton-toolbar"/><div className="ide-skeleton-workspace"><aside>{[0,1,2,3,4].map(i=><span key={i}/>)}</aside><section>{[0,1,2,3,4,5,6,7].map(i=><span key={i}/>)}</section></div><div className="ide-skeleton-console"/></div>
+    </div>;
+
 	return (
 		<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center loader-overlay">
 			<div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl max-w-sm w-full mx-4 loader-content">
@@ -22,7 +25,7 @@ const Loader: React.FC<LoaderProps> = ({
 						<div className="text-red-500 text-4xl">⚠️</div>
 					) : (
 						<div className="loader-pulse">
-							<Spinner size="lg" color="primary" />
+							<span />
 						</div>
 					)}
 					<div className="text-center">

@@ -7,7 +7,8 @@ describe("Loader", () => {
   it("shows connection progress and errors", () => {
     const { rerender } = render(<Loader />);
     expect(screen.getByText("Подключение")).toBeInTheDocument();
-    expect(screen.getByTestId("spinner")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+    expect(document.querySelector(".ide-skeleton-workspace")).toBeInTheDocument();
     rerender(<Loader message="Соединение потеряно" />);
     expect(screen.getByText("Ошибка подключения")).toBeInTheDocument();
     expect(screen.queryByTestId("spinner")).toBeNull();
