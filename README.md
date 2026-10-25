@@ -54,3 +54,12 @@ after pulling the release:
 The installer edits only the timeout directives in the existing
 `ide.innoprog.ru` `/bot-api/` block, validates nginx before reload, and restores
 the previous file automatically if validation or reload fails.
+
+## Static compression verification
+
+Immutable `/assets/` JS/CSS responses negotiate gzip; API and task-progress
+responses keep their existing streaming configuration. After `npm run build`,
+run `node scripts/test-static-compression.mjs` with local Docker available.
+It serves the built files through the real nginx template in an ephemeral
+container and checks decoded identity, cache negotiation, API/progress responses
+and cleanup. It makes no requests to production.
