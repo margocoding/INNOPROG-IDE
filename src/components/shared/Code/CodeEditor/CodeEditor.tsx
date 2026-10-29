@@ -19,7 +19,10 @@ import {
   StreamLanguage,
   foldGutter,
   foldKeymap,
+  getIndentUnit,
   indentRange,
+  indentString,
+  indentUnit,
 } from "@codemirror/language";
 import { dart } from "@codemirror/legacy-modes/mode/clike";
 import { dockerFile } from "@codemirror/legacy-modes/mode/dockerfile";
@@ -778,7 +781,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
         const indentMatch = beforeCursor.match(/^(\s*)/);
         const currentIndent = indentMatch ? indentMatch[1] : "";
-        const innerIndent = currentIndent + "  ";
+        const innerIndent = currentIndent + indentString(view.state, getIndentUnit(view.state));
         const insertPos = selection.head;
         const newline = "\n" + innerIndent;
         const newCursorPos = insertPos + newline.length;
@@ -995,7 +998,8 @@ const CodeEditor: React.FC<IProps> = React.memo(
           lineNumbers(),
           foldGutter(),
           scrollPastEnd(),
-          EditorState.tabSize.of(2),
+          EditorState.tabSize.of(4),
+          indentUnit.of("    "),
           EditorView.updateListener.of((update) => {
             const hasUserEdit = update.transactions.some(
               (transaction) =>
