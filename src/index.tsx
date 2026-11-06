@@ -29,14 +29,7 @@ const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement
 );
 
-export function isDesktop() {
-  const userAgent = navigator.userAgent.toLowerCase();
-
-  return (
-    userAgent.includes("windows") ||
-    userAgent.includes("macintosh")
-  );
-}
+export { isDesktop } from "./utils/platform";
 
 document.addEventListener("touchstart", function (event) {
   const activeElement = document.activeElement as HTMLElement;

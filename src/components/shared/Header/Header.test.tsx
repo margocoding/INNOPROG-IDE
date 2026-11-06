@@ -14,7 +14,7 @@ jest.mock("@heroui/react", () => ({
     <button onClick={onPress} {...props}>{children}</button>
   ),
 }));
-jest.mock("../../..", () => ({ isDesktop: () => true }));
+jest.mock("../../../utils/platform", () => ({ isDesktop: () => true }));
 jest.mock("react-toastify", () => ({
   toast: { success: jest.fn(), error: jest.fn() },
 }));

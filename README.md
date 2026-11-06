@@ -63,3 +63,27 @@ run `node scripts/test-static-compression.mjs` with local Docker available.
 It serves the built files through the real nginx template in an ephemeral
 container and checks decoded identity, cache negotiation, API/progress responses
 and cleanup. It makes no requests to production.
+
+## Local interactive console preview
+
+In the free editor choose **Консоль** beside the execution button. Input follows
+the last output character, including prompts without a newline. Enter sends a
+line, Ctrl+C interrupts, **Завершить ввод** sends EOF and **Остановить** retires
+the entire attempt. Mobile **Код / Консоль** navigation appears beside the logo.
+
+Run the backend's explicit `scripts/console_preview.py` harness and a dedicated
+local Redis first (see `innoprog_bot/docs/interactive-console.md`), then:
+
+```
+IDE_LOCAL_API=1 npm start
+```
+
+This routes all preview API traffic to 127.0.0.1:8765 and never to production.
+The local preview is anonymous-only, with a 30-second session limit, and uses
+Docker runc; it does not validate production gVisor. Batch run/check endpoints use the same anonymous local sandbox in this preview;
+other platform APIs remain unavailable. For a visual fallback
+preview visit `/scripts/error-screen-preview.html` on the dev server.
+
+Runtime diagnostics are rendered separately from normal output and confirmed
+input prompts. Mobile navigation icons have identical16px geometry. A full
+execution pool reports a retryable busy state rather than rerunning code.

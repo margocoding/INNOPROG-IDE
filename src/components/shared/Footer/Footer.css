@@ -1,3 +1,5 @@
 @media(max-width:767px) {
   .ide-footer--compact .ide-footer-primary { width: auto; min-width: 140px; padding-inline: 20px; }
 }
+
+.ide-footer-retry-frame{height:42px;box-sizing:border-box;padding:3px;border:1px solid #303744;border-radius:8px;background:#151b24}.ide-footer-retry-frame .ide-footer-retry{height:34px;min-height:34px;border-radius:5px;width:100%}

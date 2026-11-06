@@ -1,3 +1,6 @@
+import { CodeIcon, TerminalIcon, InputIcon } from '../ConsoleSection/ConsoleIcons';
+import ConsoleSection from '../ConsoleSection/ConsoleSection';
+import { useConsoleExecution, CONSOLE_LANGUAGES } from '../../../../hooks/useConsoleExecution';
 import { extractPasteRoomCode } from "../../../../utils/pasteTaskWrappers";
 import { useDisclosure } from "@heroui/react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -249,6 +252,17 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       setSubmitMessage,
     });
 
+  const consoleExecution = useConsoleExecution();
+  const [runMode, setRunMode] = useState<'batch' | 'console'>('batch');
+  const consoleAvailable = !taskId && CONSOLE_LANGUAGES.has(language);
+  const consoleMode = consoleAvailable && runMode === 'console';
+  const consoleContext = `${roomId || ''}:${taskId || ''}`;
+  const previousConsoleContext = useRef(consoleContext);
+  useEffect(() => {
+    if (previousConsoleContext.current !== consoleContext) consoleExecution.stop();
+    previousConsoleContext.current = consoleContext;
+  }, [consoleContext, consoleExecution.stop]);
+
   const onModalRunCode = useCallback(async () => {
     if (!task?.answers?.length || !taskId) {
       setSubmitResult("no_data");
@@ -261,7 +275,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const runPrimaryAction = useCallback(async () => {
     if (
       primaryActionPendingRef.current ||
-      isRunning ||
+      isRunning || consoleExecution.isRunning ||
       isOpen ||
       (taskId &&
         (!taskDataReady || !initialCodeReady || initialCodeLoadFailed))
@@ -271,6 +285,11 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
     primaryActionPendingRef.current = true;
     try {
+      if (consoleMode) {
+        if (window.innerWidth < 768) setActiveTab("output");
+        await consoleExecution.start(code, language);
+        return;
+      }
       if (isHtmlMode || isConfigurationMode) {
         if (taskId) await onSendCheck();
         return;
@@ -286,6 +305,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       primaryActionPendingRef.current = false;
     }
   }, [
+    consoleMode, consoleExecution.start, consoleExecution.isRunning, code, language,
     initialCodeReady,
     initialCodeLoadFailed,
     isConfigurationMode,
@@ -820,6 +840,11 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     });
   }, [isEmbeddedApp, onClose, taskId]);
 
+  const mobileConsoleNavigation = consoleMode ? <nav className="console-mobile-tabs" aria-label="Панель редактора">
+    <button type="button" aria-pressed={activeTab === 'editor'} onClick={() => setActiveTab('editor')}><CodeIcon/><span>Код</span></button>
+    <button type="button" aria-pressed={activeTab === 'output'} onClick={() => setActiveTab('output')}><TerminalIcon/><span>Консоль{consoleExecution.isRunning ? ' •' : ''}</span></button>
+  </nav> : undefined;
+
   return (
     <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden">
       {roomId &&
@@ -874,6 +899,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
       {!isEmbeddedApp && (
         <Header
+          mobileNavigation={mobileConsoleNavigation}
           completedSession={webSocketData?.completed}
           onCompleteSession={webSocketData?.completeSession}
           members={webSocketData?.roomMembers}
@@ -886,6 +912,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         />
       )}
 
+      {isEmbeddedApp && mobileConsoleNavigation}
       <div
         className={`flex-1 min-h-0 overflow-hidden ${
           desktopTaskMode ? "flex flex-col md:flex-row" : "flex flex-col"
@@ -924,7 +951,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               activeTab={activeTab}
               webSocketData={memoizedWebSocketData}
               handleLanguageChange={handleLanguageChange}
-              languageLocked={Boolean(configurationLanguage)}
+              languageLocked={Boolean(configurationLanguage) || consoleExecution.isRunning}
               fileName={configurationFileName}
               width={editorWidth}
               desktopStackedPane={desktopTaskMode}
@@ -958,7 +985,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               />
             ) : null}
 
-            <OutputSection
+            {consoleMode ? <ConsoleSection execution={consoleExecution} activeTab={activeTab} width={100 - editorWidth} /> : <OutputSection
               output={output}
               inputData={runInputData}
               status={status}
@@ -967,16 +994,21 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               htmlPreview={htmlPreviewContent}
               width={100 - editorWidth}
               desktopStackedPane={desktopTaskMode}
-            />
+            />}
           </div>
         </main>
       </div>
 
       <Footer
+        hideRetry={consoleMode}
+        runModeSelector={consoleAvailable ? <div className="console-run-mode" role="group" aria-label="Режим запуска">
+          <button type="button" aria-pressed={!consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => setRunMode('batch')}><InputIcon/><span>С входными данными</span></button>
+          <button type="button" aria-pressed={consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => setRunMode('console')}><TerminalIcon/><span>Консоль</span></button>
+        </div> : undefined}
         checkProgress={checkProgress}
         status={status}
         taskId={taskId}
-        isRunning={isRunning}
+        isRunning={isRunning || consoleExecution.isRunning}
         blockedReason={taskId && initialCodeLoadFailed
           ? "Решение не загружено"
           : taskId && (!taskDataReady || !initialCodeReady)

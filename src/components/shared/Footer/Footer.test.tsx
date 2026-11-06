@@ -6,7 +6,7 @@ jest.mock("@heroui/react", () => ({
     <button onClick={onPress} {...props}>{children}</button>
   ),
 }));
-jest.mock("../../..", () => ({ isDesktop: () => true }));
+jest.mock("../../../utils/platform", () => ({ isDesktop: () => true }));
 
 const props = () => ({
   status: "idle" as const,

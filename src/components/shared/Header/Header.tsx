@@ -7,13 +7,14 @@ import {
 } from "@heroui/react";
 import React from "react";
 import { toast } from "react-toastify";
-import { isDesktop } from "../../..";
+import { isDesktop } from "../../../utils/platform";
 import { RoomPermissions } from "../../../types/room";
 import Settings from "../Room/Settings/Settings";
 import { RoomMember } from "../../../hooks/useWebSocket";
 import StartFormModal from "../Room/StartFormModal/StartFormModal";
 
 interface IProps {
+  mobileNavigation?: React.ReactNode;
   members?: RoomMember[];
   onEditMember?: (username?: string, telegramId?: string) => void;
   onCompleteSession?: () => void;
@@ -26,6 +27,7 @@ interface IProps {
 }
 
 const Header: React.FC<IProps> = ({
+  mobileNavigation,
   members,
   onEditMember,
   myTelegramId,
@@ -126,7 +128,9 @@ const Header: React.FC<IProps> = ({
             console.error(e);
         }
 
-        return <header className={'mt-[75px]'}></header>
+        return <header className="ide-header mt-[75px] bg-ide-secondary border-b border-ide-border flex items-center justify-between px-2 gap-2">
+          {mobileNavigation && <><img src="/logo.svg" alt="INNOPROG" className="h-8 my-3"/>{mobileNavigation}</>}
+        </header>
     }
 
   const mobileVisibleMembers = isDesktop() ? visibleMembers : onlineMembers.slice(0, 2);
@@ -135,10 +139,14 @@ const Header: React.FC<IProps> = ({
 
   return (
     <>
-      <header className="bg-ide-secondary border-b border-ide-border flex items-center justify-between relative px-2 md:px-6 gap-2 md:gap-4">
+      <header className={`ide-header bg-ide-secondary border-b border-ide-border flex items-center justify-between relative px-2 md:px-6 gap-2 md:gap-4 ${mobileNavigation ? "console-header" : ""}`}>
+        <div className={mobileNavigation ? "console-header-brand" : "contents"}>
         {/* Логотип с отступами */}
         <div className="flex-shrink-0 py-3 md:py-4">
           <img src="/logo.svg" alt="INNOPROG" className="h-8 md:h-10" />
+        </div>
+
+        {mobileNavigation}
         </div>
 
         {roomId && roomPermissions && (

@@ -1,3 +1,4 @@
+import { LOCAL_PREVIEW } from './utils/localPreview';
 import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import "./App.css";
@@ -60,7 +61,7 @@ const App = React.memo(() => {
 
   const webSocketParams = useMemo(
     () => ({
-      socketUrl: process.env.REACT_APP_WS_URL || "https://ide.innoprog.ru",
+      socketUrl: LOCAL_PREVIEW ? window.location.origin : (process.env.REACT_APP_WS_URL || "https://ide.innoprog.ru"),
       myTelegramId: telegramId,
       roomId: activeRoomId,
       roomToken,

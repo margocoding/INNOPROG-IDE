@@ -107,8 +107,8 @@ assert.match(
 );
 assert.match(
   api,
-  /const API_URL = \(process\.env\.REACT_APP_BOT_API_URL \|\| "\/bot-api"\)/,
-  "frontend must call relative /bot-api so nginx owns backend routing",
+  /const API_URL = \(LOCAL_PREVIEW \? "\/bot-api" : \(process\.env\.REACT_APP_BOT_API_URL \|\| "\/bot-api"\)\)/,
+  "preview must force relative /bot-api and production must preserve its configured/default API route",
 );
 assert.match(api, /const CODE_EXECUTION_TIMEOUT_MS = 260000;/, "browser must outlive both nginx proxies");
 assert.match(hostInstaller, /--server-name ide\.innoprog\.ru --location \/bot-api\/ --timeout 250s;/);

@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   const loaded = loadEnv(mode, process.cwd(), '');
+  const localPreview = mode === 'development' && process.env.IDE_LOCAL_API === '1';
   const environmentNames = [
     'REACT_APP_BOT_API_URL',
     'REACT_APP_WS_URL',
@@ -21,11 +22,18 @@ export default defineConfig(({ mode }) => {
     define: {
       ...define,
       'process.env.NODE_ENV': JSON.stringify(mode),
+      'process.env.IDE_LOCAL_PREVIEW': JSON.stringify(localPreview ? '1' : ''),
     },
     server: {
       port: Number(process.env.PORT ?? loaded.PORT ?? 3000),
       strictPort: true,
       proxy: {
+        ...(localPreview ? { '/bot-api': { target: 'http://127.0.0.1:8765', ws: true, changeOrigin: false } } : {}),
+        '/bot-api/code/console': {
+          target: 'http://127.0.0.1:8765',
+          ws: true,
+          changeOrigin: false,
+        },
         '/bot-api/check': {
           target: 'https://ide.innoprog.ru',
           changeOrigin: true,

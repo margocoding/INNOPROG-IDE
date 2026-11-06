@@ -5,7 +5,7 @@ import {
 import { fireEvent, render, screen } from "@testing-library/react";
 import TaskDescription from "./TaskDescription";
 
-jest.mock("../../../../index", () => ({ isDesktop: () => true }));
+jest.mock("../../../../utils/platform", () => ({ isDesktop: () => true }));
 
 describe("processTaskDescription", () => {
 	it("removes inline IDE monospace formatting hint from task descriptions", () => {

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { isDesktop } from "../../../../index";
+import { isDesktop } from "../../../../utils/platform";
 import { Task } from "../../../../types/task";
 import { getTaskType } from "../../../../utils/taskType";
 import { processTaskDescription } from "./TaskDescription.utils";

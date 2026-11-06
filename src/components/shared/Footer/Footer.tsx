@@ -1,9 +1,11 @@
 import React, { useRef } from "react";
 import { Button } from "@heroui/react";
 import "./Footer.css";
-import { isDesktop } from "../../..";
+import { isDesktop } from "../../../utils/platform";
 
 interface FooterProps {
+  hideRetry?: boolean;
+  runModeSelector?: React.ReactNode;
   status: "idle" | "success" | "error";
   taskId: string | null;
   isRunning: boolean;
@@ -22,6 +24,8 @@ interface FooterProps {
 }
 
 const Footer: React.FC<FooterProps> = ({
+  hideRetry = false,
+  runModeSelector,
   status,
   taskId,
   isRunning,
@@ -74,7 +78,7 @@ const Footer: React.FC<FooterProps> = ({
 
   return (
     <footer
-      className={`ide-footer ${compactEmbedded ? "ide-footer--compact" : ""} bg-ide-secondary border-t border-ide-border flex-none ${
+      className={`ide-footer ${runModeSelector ? "ide-footer--modes" : ""} ${compactEmbedded ? "ide-footer--compact" : ""} bg-ide-secondary border-t border-ide-border flex-none ${
         !isDesktop() ? "pb-[env(safe-area-inset-bottom)]" : ""
       }`}
     >
@@ -84,6 +88,8 @@ const Footer: React.FC<FooterProps> = ({
         }`}
       >
         <div className={`flex w-full items-center gap-3 ${desktopTaskMode ? "md:w-auto" : "lg:w-auto"}`}>
+        {runModeSelector}
+        <div className={runModeSelector ? "ide-footer-primary-frame" : "contents"}>
         <Button
           onPress={handleButtonClick}
           disabled={isRunning || Boolean(blockedReason)}
@@ -151,13 +157,14 @@ const Footer: React.FC<FooterProps> = ({
             ? "Выполняется..."
             : "Выполнить")}
         </Button>
+        </div>
         {isRunning && checkProgress && (
           <span role="status" aria-live="polite" className="shrink-0 whitespace-nowrap text-sm text-default-600">
             Проверено {checkProgress.completed} из {checkProgress.total}
           </span>
         )}
         </div>
-        {!isSubmitOnlyMode && activeTab === "output" && (
+        {!hideRetry && !isSubmitOnlyMode && activeTab === "output" && (
           <div
             className={
               desktopTaskMode
@@ -165,6 +172,7 @@ const Footer: React.FC<FooterProps> = ({
                 : "lg:hidden w-full md:hidden"
             }
           >
+            <div className="ide-footer-retry-frame md:hidden">
             <Button
               disabled={isRunning}
               onPress={() => {
@@ -172,10 +180,11 @@ const Footer: React.FC<FooterProps> = ({
                 setStatus("idle");
               }}
               color="danger"
-              className={`w-full ${desktopTaskMode ? "md:w-auto" : ""}`}
+              className={`ide-footer-retry w-full ${desktopTaskMode ? "md:w-auto" : ""}`}
             >
               Попробовать снова
             </Button>
+            </div>
           </div>
         )}
       </div>

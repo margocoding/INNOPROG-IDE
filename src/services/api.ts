@@ -1,3 +1,4 @@
+import { LOCAL_PREVIEW } from '../utils/localPreview';
 import { taskCheckProgressDecoder, TaskCheckProgress } from "./taskCheckProgress";
 import axios from "axios";
 import { currentRoomToken, currentRoomUser, saveRoomSession } from "../utils/roomSession";
@@ -13,7 +14,8 @@ import {
 	TaskAnswerCheckResult,
 } from "../types/task";
 
-const API_URL = (process.env.REACT_APP_BOT_API_URL || "/bot-api").replace(/\/$/, "");
+const API_URL = (LOCAL_PREVIEW ? "/bot-api" : (process.env.REACT_APP_BOT_API_URL || "/bot-api")).replace(/\/$/, "");
+const PLATFORM_API_URL = LOCAL_PREVIEW ? "/bot-api" : "https://api.innoprog.ru";
 const API_REQUEST_TIMEOUT_MS = 15000;
 // Runner budget includes queue/compilation (235s); API 240s, proxies 250s.
 // Leave time for the server to return its structured timeout response.
@@ -134,7 +136,7 @@ async function restorePlatformSession(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_M
 			? "/platform/session/launch/exchange"
 			: (incoming ? "/platform/session/magic-link/exchange" : "/platform/session/refresh");
 		const response = await fetchWithTimeout(
-			`https://api.innoprog.ru${endpoint}`,
+			`${PLATFORM_API_URL}${endpoint}`,
 			{
 				method: "POST",
 				credentials: "include",
@@ -163,6 +165,7 @@ async function restorePlatformSession(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_M
 }
 
 async function protectedTaskHeaders(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_MS): Promise<Record<string, string>> {
+	if (LOCAL_PREVIEW) return {};
 	const headers: Record<string, string> = {};
 	const platformToken = platformAccessToken || await restorePlatformSession(bootstrapTimeoutMs);
 	const telegramInitData = String(window.Telegram?.WebApp?.initData || "").trim();
@@ -175,6 +178,7 @@ async function protectedTaskHeaders(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_MS)
 }
 
 async function executionHeaders(): Promise<Record<string, string>> {
+	if (LOCAL_PREVIEW) return {};
 	const roomId = new URLSearchParams(window.location.search).get("roomId");
 	if (roomId) {
 		let token = currentRoomToken(roomId);
@@ -271,7 +275,7 @@ export const api = {
 
 		try {
 			const headers = await protectedTaskHeaders();
-			const response = await axios.get(`https://api.innoprog.ru/task/${taskId}`, {
+			const response = await axios.get(`${PLATFORM_API_URL}/task/${taskId}`, {
 				timeout: API_REQUEST_TIMEOUT_MS,
 				params: { client_id: clientId },
 				headers,
@@ -283,7 +287,7 @@ export const api = {
 			clearPlatformAccessSession();
 			const headers = await protectedTaskHeaders();
 			if (!headers.Authorization && !headers["X-Telegram-Init-Data"]) throw error;
-			const response = await axios.get(`https://api.innoprog.ru/task/${taskId}`, {
+			const response = await axios.get(`${PLATFORM_API_URL}/task/${taskId}`, {
 				timeout: API_REQUEST_TIMEOUT_MS,
 				params: { client_id: clientId },
 				headers,
@@ -310,6 +314,19 @@ export const api = {
 		));
 		return response.data;
 	},
+
+  async consoleTicket(): Promise<{ ticket: string; protocol: number; seconds: number }> {
+    const response = await withExecutionRetry(headers => BASE_API.post('/code/console/v1/ticket', {}, {
+      headers, withCredentials: true,
+    }));
+    return response.data;
+  },
+
+  consoleSocketUrl(): string {
+    const url = new URL(`${API_URL}/code/console/v1/ws`, window.location.origin);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return url.toString();
+  },
 
 	async runCode(
 		data: RunCodeRequest,
