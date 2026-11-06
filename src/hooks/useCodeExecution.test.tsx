@@ -557,3 +557,26 @@ describe("standalone Python expected output", () => {
     expect(callbacks.setOutput.mock.calls.at(-1)[0]).not.toContain("Name:");
   });
 });
+
+describe('automatic C++ teaching context',()=>{
+ beforeEach(()=>jest.clearAllMocks());
+
+it.each([true,false])('compares free C++ through teaching run without invoking task grading (%s)',async(matches)=>{
+  mockedApi.runCode.mockResolvedValue({result:true,output:matches?'MOVE\n':'OTHER\n',input:''} as any);
+  const {result,callbacks}=setup({language:Language.CPP,code:'C++ source',outputData:'MOVE'});
+  await act(async()=>{await result.current.handleRunCode();});
+  expect(mockedApi.runCode).toHaveBeenCalledWith(expect.objectContaining({program:'C++ source',task_id:undefined}),Language.CPP);
+  expect(mockedApi.checkCode).not.toHaveBeenCalled();
+  expect(callbacks.setStatus).toHaveBeenLastCalledWith(matches?'success':'error');
+});
+
+it('keeps assigned C++ public examples on task checking',async()=>{
+  mockedApi.checkCode.mockResolvedValue({result:true,output:'MOVES=0'} as any);
+  const answer={input:'-',output:'MOVES=0',timeout:5};
+  const {result}=setup({language:Language.CPP,taskId:'7',code:'C++ source',currentAnswer:answer,task:{answers:[answer]}});
+  await act(async()=>{await result.current.handleRunCode();});
+  expect(mockedApi.checkCode).toHaveBeenCalled();
+  expect(mockedApi.runCode).not.toHaveBeenCalled();
+});
+
+});

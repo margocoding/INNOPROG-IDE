@@ -160,7 +160,7 @@ export const useCodeExecution = ({
 
 			const canCheckPublicTaskExample = hasPublicTaskExample;
 
-			if (!canCheckPublicTaskExample && (taskId || !outputData.trim() || runLanguage === Language.PY)) {
+			if (!canCheckPublicTaskExample && (taskId || !outputData.trim() || runLanguage === Language.PY || runLanguage === Language.CPP)) {
 				const runInputData = inputData || "";
 				const result = await api.runCode(
 					{
@@ -173,7 +173,7 @@ export const useCodeExecution = ({
 				);
 
 				setRunInputData(result.input ?? runInputData);
-				if (!taskId && runLanguage === Language.PY && outputData.trim() && result.result) {
+				if (!taskId && (runLanguage === Language.PY || runLanguage === Language.CPP) && outputData.trim() && result.result) {
 					const actual = result.output || "";
 					const expected = outputData.trim();
 					const matches = actual.trim() === expected;
