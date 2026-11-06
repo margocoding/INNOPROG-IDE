@@ -29,6 +29,7 @@ def patch_config(
     location: str,
     timeout: str,
     server_marker: str = "listen 443 ssl",
+    websocket: bool = False,
 ) -> str:
     candidates: list[tuple[int, int, re.Match[str]]] = []
     server_name_pattern = re.compile(
@@ -65,6 +66,10 @@ def patch_config(
     for directive in ("proxy_read_timeout", "proxy_send_timeout"):
         pattern = rf"(?m)^[ \t]*{directive}[ \t]+[^;]+;[ \t]*\n?"
         block = re.sub(pattern, "", block)
+    if websocket:
+        for pattern in (r'(?m)^[ \t]*proxy_set_header[ \t]+(?:Upgrade|Connection)[ \t]+[^;]+;[ \t]*\n?',
+                        r'(?m)^[ \t]*proxy_buffering[ \t]+[^;]+;[ \t]*\n?'):
+            block = re.sub(pattern, "", block)
     opening_line_end = block.find("\n") + 1
     if opening_line_end == 0:
         raise ValueError("location opening line is malformed")
@@ -72,6 +77,10 @@ def patch_config(
         f"{indent}proxy_read_timeout {timeout};\n"
         f"{indent}proxy_send_timeout {timeout};\n"
     )
+    if websocket:
+        directives += (f'{indent}proxy_set_header Upgrade $http_upgrade;\n'
+                       f'{indent}proxy_set_header Connection $connection_upgrade;\n'
+                       f'{indent}proxy_buffering off;\n')
     block = block[:opening_line_end] + directives + block[opening_line_end:]
     patched_server = server[:location_match.start()] + block + server[location_end:]
     return text[:server_open + 1] + patched_server + text[server_end - 1:]
@@ -98,6 +107,7 @@ def patch_file(
     location: str,
     timeout: str,
     server_marker: str = "listen 443 ssl",
+    websocket: bool = False,
 ) -> bool:
     resolved = path.resolve(strict=True)
     original = resolved.read_text(encoding="utf-8")
@@ -107,6 +117,7 @@ def patch_file(
         location=location,
         timeout=timeout,
         server_marker=server_marker,
+        websocket=websocket,
     )
     if patched == original:
         return False
@@ -120,6 +131,7 @@ def main() -> None:
     parser.add_argument("--server-name", required=True)
     parser.add_argument("--location", required=True)
     parser.add_argument("--timeout", default="130s")
+    parser.add_argument("--websocket", action="store_true")
     parser.add_argument("--server-marker", default="listen 443 ssl")
     args = parser.parse_args()
     changed = patch_file(
@@ -128,6 +140,7 @@ def main() -> None:
         location=args.location,
         timeout=args.timeout,
         server_marker=args.server_marker,
+        websocket=args.websocket,
     )
     if changed:
         print("nginx timeout block patched")

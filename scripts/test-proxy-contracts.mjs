@@ -111,7 +111,7 @@ assert.match(
   "preview must force relative /bot-api and production must preserve its configured/default API route",
 );
 assert.match(api, /const CODE_EXECUTION_TIMEOUT_MS = 260000;/, "browser must outlive both nginx proxies");
-assert.match(hostInstaller, /--server-name ide\.innoprog\.ru --location \/bot-api\/ --timeout 250s;/);
+assert.match(hostInstaller, /--server-name ide\.innoprog\.ru --location \/bot-api\/ --timeout 250s --websocket;/);
 assert.match(hostInstaller, /sudo nginx -t/);
 assert.match(hostInstaller, /restore/);
 assert.match(hostPatcher, /proxy_read_timeout/);
