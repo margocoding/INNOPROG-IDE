@@ -97,7 +97,7 @@ export function isLegacyLessonTitle(title: string, description: string): boolean
 	const text = document.createElement("textarea");
 	text.innerHTML = description.replace(/<[^>]*>/g, " ").replace(/</g, "&lt;");
 	const plain = text.value.replace(/\s+/g, " ").trim();
-	return title === Array.from(plain).slice(0, 150).join("");
+	return title === Array.from(plain).slice(0, 150).join("").trimEnd();
 }
 
 const escapeText = (text: string): string =>
