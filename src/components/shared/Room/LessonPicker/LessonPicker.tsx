@@ -8,8 +8,8 @@ import { LessonCodeField } from './LessonCodeField';
 import { LessonMarkdown } from '../../Code/TaskDescription/LessonMarkdown';
 import './LessonPicker.css';
 
-type Choice = { id: string; label: string; detail?: string };
-type CatalogTask = Pick<RoomLessonTask, 'title' | 'topic' | 'language' | 'moduleId'> & { id: number };
+type Choice = { id: string; label: string; detail?: string; searchText?: string };
+type CatalogTask = Pick<RoomLessonTask, 'title' | 'topic' | 'language' | 'moduleId'> & { id: number; searchText?: string };
 type PersonalTask = RoomLessonTask & { id: string };
 const languages = [
   ['py', 'Python'], ['cpp', 'C++'], ['java', 'Java'], ['js', 'JavaScript'],
@@ -25,18 +25,16 @@ function SearchSelect({ label, choices, value, select, busy }: {
   busy?: boolean;
 }) {
   const root = React.useRef<HTMLDivElement>(null);
-  const searchable = React.useMemo(() => {
-    const labels = new Map<string, string>();
-    for (const choice of choices) {
-      labels.set(choice.label, `${labels.get(choice.label) ?? ''} ${choice.label} ${choice.detail ?? ''}`.toLocaleLowerCase());
-    }
-    return labels;
-  }, [choices]);
+  const [query, setQuery] = useState('');
+  const selectedLabel = choices.find(choice => choice.id === value)?.label;
+  const term = query === selectedLabel ? '' : query.trim().toLocaleLowerCase();
+  const matches = term ? choices.filter(choice =>
+    [choice.label, choice.detail, choice.searchText].some(text => text?.toLocaleLowerCase().includes(term)),
+  ) : choices;
   return <div ref={root} className="lesson-search-select"><Autocomplete
     label={label} placeholder="Поиск…" labelPlacement="outside" variant="bordered"
     selectedKey={value || null} onSelectionChange={key => select(key == null ? '' : String(key))}
-    defaultItems={choices}
-    defaultFilter={(text, query) => (searchable.get(text) ?? text.toLocaleLowerCase()).includes(query.toLocaleLowerCase())}
+    items={matches} onInputChange={setQuery}
     itemHeight={48}
     isLoading={busy} allowsEmptyCollection
     inputProps={{ classNames: { inputWrapper: 'lesson-field', input: 'lesson-field-input' } }}
@@ -256,6 +254,7 @@ export default function LessonPicker({ room, active, select }: {
   const taskChoices = tasks.map(task => ({
     id: String(task.id), label: task.title,
     detail: [task.topic, languageLabel(task.language)].filter(Boolean).join(', '),
+    searchText: 'searchText' in task ? task.searchText : undefined,
   }));
 
   return <>
