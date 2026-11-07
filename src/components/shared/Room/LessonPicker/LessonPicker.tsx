@@ -28,9 +28,12 @@ function SearchSelect({ label, choices, value, select, busy }: {
   const [query, setQuery] = useState('');
   const selectedLabel = choices.find(choice => choice.id === value)?.label;
   const term = query === selectedLabel ? '' : query.trim().toLocaleLowerCase();
-  const matches = term ? choices.filter(choice =>
-    [choice.label, choice.detail, choice.searchText].some(text => text?.toLocaleLowerCase().includes(term)),
-  ) : choices;
+  const matches = term ? choices.flatMap(choice => {
+    if (choice.label.toLocaleLowerCase().includes(term)) return [{ choice, rank: 0 }];
+    if (choice.searchText?.toLocaleLowerCase().includes(term)) return [{ choice, rank: 1 }];
+    if (choice.detail?.toLocaleLowerCase().includes(term)) return [{ choice, rank: 2 }];
+    return [];
+  }).sort((left, right) => left.rank - right.rank).map(match => match.choice) : choices;
   return <div ref={root} className="lesson-search-select"><Autocomplete
     label={label} placeholder="Поиск…" labelPlacement="outside" variant="bordered"
     selectedKey={value || null} onSelectionChange={key => select(key == null ? '' : String(key))}
@@ -254,7 +257,7 @@ export default function LessonPicker({ room, active, select }: {
   const taskChoices = tasks.map(task => ({
     id: String(task.id), label: task.title,
     detail: [task.topic, languageLabel(task.language)].filter(Boolean).join(', '),
-    searchText: 'searchText' in task ? task.searchText : undefined,
+    searchText: 'description' in task ? task.description : task.searchText,
   }));
 
   return <>

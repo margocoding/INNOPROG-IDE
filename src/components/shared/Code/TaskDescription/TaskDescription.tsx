@@ -3,7 +3,7 @@ import React, { useRef, useState } from "react";
 import { isDesktop } from "../../../../utils/platform";
 import { Task } from "../../../../types/task";
 import { getTaskType } from "../../../../utils/taskType";
-import { processTaskDescription } from "./TaskDescription.utils";
+import { isLegacyLessonTitle, processTaskDescription } from "./TaskDescription.utils";
 import "./TaskDescription.css";
 import { LessonMarkdown } from "./LessonMarkdown";
 
@@ -44,7 +44,9 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 
 	if (!task) return null;
 
-	const lessonTitle = lesson?.platformId ? lesson.topic?.trim() : lesson?.title;
+	const lessonTitle = lesson?.platformId && isLegacyLessonTitle(lesson.title, lesson.description)
+		? lesson.topic?.trim()
+		: lesson?.title;
 	const isPasteTask = getTaskType(task) === "paste";
 	const taskAnswer = task.answers?.[0];
 	const showPublicExample = task.has_public_example ?? (task.has_multiple_tests !== false);

@@ -92,6 +92,14 @@ const decodeHtmlEntities = (text: string): string => {
 	return decoded;
 };
 
+export function isLegacyLessonTitle(title: string, description: string): boolean {
+	// Decode entities once, matching the old catalog title generator.
+	const text = document.createElement("textarea");
+	text.innerHTML = description.replace(/<[^>]*>/g, " ").replace(/</g, "&lt;");
+	const plain = text.value.replace(/\s+/g, " ").trim();
+	return title === Array.from(plain).slice(0, 150).join("");
+}
+
 const escapeText = (text: string): string =>
 	text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
