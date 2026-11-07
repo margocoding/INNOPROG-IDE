@@ -1,3 +1,5 @@
+import type { LessonSelection, RoomLessonState } from '../types/roomLesson';
+import { roomLessonCredential } from '../services/api';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { io, Socket } from "socket.io-client";
@@ -94,6 +96,10 @@ const supportedRoomLanguages = new Set<Language>([
     Language.JAVA,
     Language.HTML,
 ]);
+
+const localRoomPreview = process.env.IDE_LOCAL_ROOM_PREVIEW === "1";
+// Keep both demonstration roles connected when switching between local tabs.
+const roomTabHidden = () => !localRoomPreview && document.hidden;
 
 const isSupportedRoomLanguage = (language: unknown): language is Language =>
     typeof language === "string" && supportedRoomLanguages.has(language as Language);
@@ -224,6 +230,9 @@ export const useWebSocket = ({
     const [isTeacher, setIsTeacher] = useState<boolean | undefined>(undefined);
     const [completed, setCompleted] = useState<boolean>(false);
     const [language, setLanguage] = useState<Language | undefined>(undefined);
+    const [lesson, setLesson] = useState<RoomLessonState>();
+    const lessonRef = useRef<RoomLessonState>();
+    const outgoingLessonUpdates = useRef(new Map<string, Uint8Array>());
     const [joinedCode, setJoinedCode] = useState<string | undefined>(undefined);
     const [codeSyncState, setCodeSyncState] =
         useState<CodeSyncState>("connecting");
@@ -616,6 +625,10 @@ export const useWebSocket = ({
         const currentRoomId = roomIdRef.current;
         if (!currentRoomId) return Promise.resolve(true);
 
+        const workspace = lessonRef.current?.key;
+        const queueRoomId = workspace && workspace !== 'free' ? currentRoomId + ':' + workspace : currentRoomId;
+        const clientInstance = clientInstanceIdRef.current;
+        const nextSequence = nextSequenceRef.current;
         const updates = [
             inFlightUpdateRef.current?.update,
             pendingUpdateRef.current,
@@ -628,17 +641,17 @@ export const useWebSocket = ({
             .then(async () => {
                 if (combined) {
                     const persisted = await savePendingCodeUpdate(
-                        currentRoomId,
-                        clientInstanceIdRef.current,
+                        queueRoomId,
+                        clientInstance,
                         combined,
-                        nextSequenceRef.current,
+                        nextSequence,
                     );
                     updateDurableStorageError(!persisted);
                     return persisted;
                 } else {
                     const cleared = await clearPendingCodeUpdate(
-                        currentRoomId,
-                        clientInstanceIdRef.current,
+                        queueRoomId,
+                        clientInstance,
                     );
                     updateDurableStorageError(!cleared);
                     return cleared;
@@ -730,11 +743,52 @@ export const useWebSocket = ({
                     roomId: roomAtEdit,
                     telegramId,
                     update: pendingUpdate,
+                    ...(lessonRef.current ? { lessonRevision: lessonRef.current.revision } : {}),
                 });
             }, FAST_CODE_EDIT_DELAY_MS);
         },
         [clearFastCodeEdit, getCurrentTelegramId],
     );
+
+    const applyLesson = useCallback((next: RoomLessonState | undefined) => {
+        if (!next || next.revision <= (lessonRef.current?.revision ?? 0)) return;
+        // Keep outgoing changes available even if IndexedDB fails during a switch.
+        const key = lessonRef.current?.key ?? 'free';
+        const updates = [inFlightUpdateRef.current?.update, pendingUpdateRef.current]
+            .filter((update): update is Uint8Array => Boolean(update?.byteLength));
+        const retained = updates.length ? Y.mergeUpdates(updates) : undefined;
+        if (retained) {
+            outgoingLessonUpdates.current.set(key, retained);
+            void persistReliableQueue().then(saved => {
+                if (saved && outgoingLessonUpdates.current.get(key) === retained) {
+                    outgoingLessonUpdates.current.delete(key);
+                }
+            });
+        }
+        clearFastCodeEdit();
+        if (updateRetryTimeoutRef.current !== null) window.clearTimeout(updateRetryTimeoutRef.current);
+        if (durabilityRetryTimeoutRef.current !== null) window.clearTimeout(durabilityRetryTimeoutRef.current);
+        updateRetryTimeoutRef.current = null;
+        durabilityRetryTimeoutRef.current = null;
+        setIsPersistRetrying(false);
+        syncGenerationRef.current += 1;
+        ydocRef.current = null;
+        pendingUpdateRef.current = null;
+        inFlightUpdateRef.current = null;
+        queueLoadedForRef.current = '';
+        nextSequenceRef.current = 1;
+        syncSessionIdRef.current = createSyncSessionId();
+        lessonRef.current = next;
+        setLesson(next);
+        setLanguage(next.language);
+        setJoinedCode(undefined);
+        setCodeEdits([]);
+        setCursors(new Map());
+        setSelections(new Map());
+        setHasPendingCodeChanges(false);
+        setIsCodeQueueRestored(false);
+        setCodeSyncState('joined');
+    }, [clearFastCodeEdit, persistReliableQueue]);
 
     const flushReliableQueueRef = useRef<() => void>(() => undefined);
 
@@ -758,22 +812,28 @@ export const useWebSocket = ({
             setCodeSyncState("synchronizing");
 
             try {
-                const queueKey = `${currentRoomId}:${queueClientInstanceId}`;
+                const workspace = lessonRef.current?.key;
+                const queueRoomId = workspace && workspace !== 'free' ? currentRoomId + ':' + workspace : currentRoomId;
+                const queueKey = `${queueRoomId}:${queueClientInstanceId}`;
                 if (queueLoadedForRef.current !== queueKey) {
+                    await queuePersistenceChainRef.current;
+                    if (!isCurrentSynchronization()) return;
                     const stored = await loadPendingCodeUpdate(
-                        currentRoomId,
+                        queueRoomId,
                         queueClientInstanceId,
                     );
                     if (!isCurrentSynchronization()) return;
-                    if (stored?.update.byteLength) {
-                        Y.applyUpdate(doc, stored.update, REMOTE_SYNC_ORIGIN);
+                    const retained = outgoingLessonUpdates.current.get(workspace ?? 'free');
+                    const updates = [stored?.update, retained]
+                        .filter((update): update is Uint8Array => Boolean(update?.byteLength));
+                    if (updates.length) {
+                        const restored = Y.mergeUpdates(updates);
+                        Y.applyUpdate(doc, restored, REMOTE_SYNC_ORIGIN);
                         pendingUpdateRef.current = pendingUpdateRef.current
-                            ? Y.mergeUpdates([pendingUpdateRef.current, stored.update])
-                            : stored.update;
-                        nextSequenceRef.current = Math.max(
-                            nextSequenceRef.current,
-                            stored.nextSequence,
-                        );
+                            ? Y.mergeUpdates([pendingUpdateRef.current, restored])
+                            : restored;
+                        if (stored) nextSequenceRef.current = Math.max(nextSequenceRef.current, stored.nextSequence);
+                        outgoingLessonUpdates.current.delete(workspace ?? 'free');
                         setHasPendingCodeChanges(true);
                     }
                     queueLoadedForRef.current = queueKey;
@@ -790,6 +850,7 @@ export const useWebSocket = ({
                     telegramId: getCurrentTelegramId(),
                     clientInstanceId: syncSessionId,
                     stateVector: Y.encodeStateVector(doc),
+                    ...(lessonRef.current ? { lessonRevision: lessonRef.current.revision } : {}),
                 });
                 if (!initResponse?.ok) {
                     throw new Error(initResponse?.error || "Code sync init failed");
@@ -839,6 +900,7 @@ export const useWebSocket = ({
                         clientInstanceId: syncSessionId,
                         sequence,
                         update: clientDiff,
+                        ...(lessonRef.current ? { lessonRevision: lessonRef.current.revision } : {}),
                     });
                     if (!syncResponse?.ok || !syncResponse.persisted) {
                         throw new Error(syncResponse?.error || "Code sync update failed");
@@ -914,6 +976,7 @@ export const useWebSocket = ({
                 clientInstanceId: packet.syncSessionId,
                 sequence: packet.sequence,
                 update: packet.update,
+                ...(lessonRef.current ? { lessonRevision: lessonRef.current.revision } : {}),
             });
             if (
                 !response?.ok ||
@@ -940,6 +1003,7 @@ export const useWebSocket = ({
             await persistReliableQueue();
             flushReliableQueueRef.current();
         } catch {
+            if (inFlightUpdateRef.current !== packet || syncGenerationRef.current !== packet.generation) return;
             setIsPersistRetrying(true);
             if (!canUploadCodeRef.current) {
                 if (updateRetryTimeoutRef.current !== null) {
@@ -1052,7 +1116,7 @@ export const useWebSocket = ({
             }
             // Losing the last local edit is worse than keeping a hidden socket
             // alive. A later visibility change or unmount will retry storage.
-            if (!persisted || !document.hidden || socketRef.current !== socket) {
+            if (!persisted || !roomTabHidden() || socketRef.current !== socket) {
                 return;
             }
 
@@ -1068,7 +1132,7 @@ export const useWebSocket = ({
                 if (finished) return;
                 finished = true;
                 clearLifecycleTimeout();
-                if (document.hidden && socketRef.current === socket) {
+                if (roomTabHidden() && socketRef.current === socket) {
                     socket.disconnect();
                 }
             };
@@ -1079,7 +1143,7 @@ export const useWebSocket = ({
             }
 
             const persistServerSnapshot = () => {
-                if (finished || !document.hidden || socketRef.current !== socket) return;
+                if (finished || !roomTabHidden() || socketRef.current !== socket) return;
                 const attempt = ++lifecycleAttempt;
                 clearLifecycleTimeout();
                 hiddenSuspendTimeoutRef.current = window.setTimeout(() => {
@@ -1130,7 +1194,7 @@ export const useWebSocket = ({
         if (
             !shouldReconnectRef.current ||
             isHiddenPausedRef.current ||
-            document.hidden
+            roomTabHidden()
         ) return;
         if (!roomTokenRef.current) {
             return;
@@ -1155,8 +1219,8 @@ export const useWebSocket = ({
             wsUrl = `ws://${currentSocketUrl}`;
         }
 
-        const socket = io(wsUrl, {
-            transports: ["websocket"],
+        const socket = io(localRoomPreview ? currentSocketUrl : wsUrl, {
+            transports: localRoomPreview ? ["polling", "websocket"] : ["websocket"],
             reconnection: true,
             reconnectionAttempts: Infinity,
             reconnectionDelay: 1000,
@@ -1167,7 +1231,7 @@ export const useWebSocket = ({
         socketRef.current = socket;
 
         socket.on("connect", () => {
-            if (document.hidden || isHiddenPausedRef.current) {
+            if (roomTabHidden() || isHiddenPausedRef.current) {
                 suspendHiddenSocket(socket);
                 return;
             }
@@ -1247,7 +1311,7 @@ export const useWebSocket = ({
             isConnectedRef.current = false;
             connectionAttempts.current += 1;
             setCodeSyncState("reconnecting");
-            if (isHiddenPausedRef.current || document.hidden) {
+            if (isHiddenPausedRef.current || roomTabHidden()) {
                 return;
             }
             if (connectionFailureTimeoutRef.current === null) {
@@ -1260,7 +1324,9 @@ export const useWebSocket = ({
             }
         });
 
+        socket.on("room-lesson:changed", applyLesson);
         socket.on("joined", (eventData) => {
+            applyLesson(eventData.lesson);
             joinWithoutSavedIdTriedRef.current = false;
             setCodeEdits([]);
             setIsJoinedRoom(true);
@@ -1456,6 +1522,7 @@ export const useWebSocket = ({
         });
 
         socket.on("code-edit-action", (eventData) => {
+            if ((eventData.lessonRevision ?? 0) !== (lessonRef.current?.revision ?? 0)) return;
             if (eventData?.telegramId && isSelfId(eventData.telegramId)) {
                 return;
             }
@@ -1514,7 +1581,7 @@ export const useWebSocket = ({
                 }));
             }
 
-            if (eventData.language) {
+            if (eventData.language && (eventData.lessonRevision ?? 0) === (lessonRef.current?.revision ?? 0)) {
                 setLanguage(eventData.language);
             }
         });
@@ -1658,6 +1725,9 @@ export const useWebSocket = ({
         }
 
         if (roomChanged) {
+            lessonRef.current = undefined;
+            outgoingLessonUpdates.current.clear();
+            setLesson(undefined);
             joinWithoutSavedIdTriedRef.current = false;
             setJoinedCode(undefined);
             setCodeEdits([]);
@@ -1740,13 +1810,14 @@ export const useWebSocket = ({
         getOrAssignUserColor,
         joinRoom,
         clearFastCodeEdit,
+        applyLesson,
         persistReliableQueue,
     ]);
 
     useEffect(() => {
         shouldReconnectRef.current = true;
         let cancelled = false;
-        if (roomId && !document.hidden) {
+        if (roomId && !roomTabHidden()) {
             setConnectionError(null);
             connectionAttempts.current = 0;
             if (roomTokenRef.current) {
@@ -1815,7 +1886,7 @@ export const useWebSocket = ({
         };
 
         const handleVisibilityChange = () => {
-            if (document.hidden) {
+            if (roomTabHidden()) {
                 const socket = socketRef.current;
                 if (socket) suspendHiddenSocket(socket);
                 else isHiddenPausedRef.current = true;
@@ -1831,7 +1902,7 @@ export const useWebSocket = ({
         };
 
         const handleWindowFocus = () => {
-            if (document.hidden) return;
+            if (roomTabHidden()) return;
             syncOnActiveTab();
         };
 
@@ -1990,7 +2061,8 @@ export const useWebSocket = ({
             socketRef.current.emit('edit-room', {
                 telegramId,
                 roomId: roomIdRef.current,
-                language
+                language,
+                ...(lessonRef.current ? { lessonRevision: lessonRef.current.revision } : {}),
             })
         }
     }, [completed, getCurrentTelegramId]);
@@ -2011,6 +2083,28 @@ export const useWebSocket = ({
         [completed, getCurrentTelegramId]
     );
 
+    const selectLesson = useCallback(async (selection: LessonSelection) => {
+        const socket = socketRef.current;
+        const room = roomIdRef.current;
+        const revision = lessonRef.current?.revision ?? 0;
+        if (!socket?.connected || !room || !isTeacherRef.current) throw new Error('Комната недоступна');
+        if (pendingUpdateRef.current || inFlightUpdateRef.current) {
+            flushReliableQueueRef.current();
+            throw new Error('Дождитесь сохранения кода и повторите выбор');
+        }
+        const credential = selection.source === 'platform' ? await roomLessonCredential() : '';
+        if (socketRef.current !== socket || roomIdRef.current !== room) throw new Error('Комната изменилась');
+        const result = await emitWithAck<{ ok: boolean; error?: string }>(socket, 'room-lesson:select', {
+            ...selection, roomId: room, telegramId: getCurrentTelegramId(), credential, revision,
+        });
+        if (!result?.ok) throw new Error(result?.error || 'Не удалось открыть задачу');
+    }, [emitWithAck, getCurrentTelegramId]);
+
+    const lessonRevision = lesson?.revision ?? 0;
+    const sendWorkspaceUpdate = useCallback((update: Uint8Array) => {
+        if (lessonRevision === (lessonRef.current?.revision ?? 0)) queueCodeEdit(update);
+    }, [lessonRevision, queueCodeEdit]);
+
     return {
         socket: socketRef.current,
         isConnected,
@@ -2025,7 +2119,9 @@ export const useWebSocket = ({
         sendSelection,
         updatesFromProps: codeEdits,
         telegramId: myTelegramIdRef.current,
-        onSendUpdate: queueCodeEdit,
+        onSendUpdate: sendWorkspaceUpdate,
+        lesson,
+        selectLesson,
         sendEditMember,
         sendRoomPermissions,
         connectionError,

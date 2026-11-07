@@ -181,3 +181,10 @@
 .task-description-row-resizer > span { width: 64px; height: 4px; border-radius: 4px; background: #8990a4; }
 .task-description-row-resizer:focus-visible { outline: 2px solid #aa8eff; outline-offset: -2px; }
 @media(min-width:768px) { .task-description-shell--sidebar .task-description-panel { padding-bottom: 16px; } }
+
+.prose .lesson-task-title {
+  margin: 0 0 0.65em;
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}

@@ -6,6 +6,7 @@ type Props = {
   execution: ReturnType<typeof useConsoleExecution>;
   activeTab: 'editor' | 'output';
   width: number;
+  desktopStackedPane?: boolean;
 };
 const LABELS = { idle:'Готова к запуску', connecting:'Подключение…', starting:'Запуск…', compiling:'Компиляция…', running:'Выполняется', stopping:'Остановка…', finished:'Завершено', failed:'Ошибка выполнения', busy:'Сервис занят', error:'Ошибка подключения' };
 
@@ -16,7 +17,7 @@ export function consoleText(value: string) {
     .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '');
 }
 
-export default function ConsoleSection({ execution, activeTab, width }: Props) {
+export default function ConsoleSection({ execution, activeTab, width, desktopStackedPane = false }: Props) {
   const [line, setLine] = useState('');
   const [eof, setEof] = useState(false);
   const scroll = useRef<HTMLDivElement>(null);
@@ -51,8 +52,8 @@ export default function ConsoleSection({ execution, activeTab, width }: Props) {
   const canInput = execution.state === 'running' && !eof;
   useEffect(() => {
     const element = scroll.current;
-    if (element) element.scrollTop = element.scrollHeight;
-  }, [execution.transcript]);
+    if (element) element.scrollTop = execution.state === 'idle' ? 0 : element.scrollHeight;
+  }, [execution.transcript, execution.state]);
   useEffect(() => {
     if (execution.state === 'connecting') { setEof(false); setLine(''); }
     if (execution.state === 'running') input.current?.focus();
@@ -62,7 +63,7 @@ export default function ConsoleSection({ execution, activeTab, width }: Props) {
     if (canInput && new TextEncoder().encode(line).length <= 4000 && execution.send('input',line)) setLine('');
   };
   return (
-    <section className={`console-section ${activeTab === 'output' ? 'console-section--visible' : ''}`} style={{flexBasis:`${width}%`, "--console-width":`${width}%`} as React.CSSProperties} aria-label="Консоль программы">
+    <section className={`console-section ${activeTab === 'output' ? 'console-section--visible' : ''} ${desktopStackedPane ? 'console-section--stacked' : ''}`} style={{flexBasis:`${width}%`, "--console-width":`${width}%`} as React.CSSProperties} aria-label="Консоль программы">
       <div className="console-panel" onKeyDown={event => {
         if (event.ctrlKey && (event.code === 'KeyC' || event.key.toLowerCase() === 'c') && execution.isRunning && !window.getSelection()?.toString()) {
           event.preventDefault(); execution.send('interrupt');
@@ -75,7 +76,7 @@ export default function ConsoleSection({ execution, activeTab, width }: Props) {
           <button type="button" className="console-icon-button" onClick={execution.clear} title="Очистить экран" aria-label="Очистить консоль">⌫</button>
         </div>
         <div className="console-content" ref={scroll}>
-          {!execution.transcript && execution.state === 'idle' && <div className="console-placeholder"><span>&gt;_</span><p>Запустите код, затем вводите<br/>данные в консоль</p></div>}
+          {!execution.transcript && execution.state === 'idle' && <div className="console-placeholder"><span>&gt;_</span><p>Запустите код, затем вводите данные в консоль</p></div>}
           <div ref={terminal} className="console-transcript">{execution.outputChunks?.length ? execution.outputChunks.map((chunk,index) => <span key={index} className={chunk.stream === 'stderr' ? 'console-output-error' : undefined}>{consoleText(chunk.text)}</span>) : <span>{consoleText(execution.transcript)}</span>}<span ref={inputAnchor} className="console-input-anchor" aria-hidden="true"/>
           {execution.state === 'running' && <form onSubmit={submit} className="console-input-row" style={{width:`min(${Math.max(32, Math.min(60, Array.from(line).length + 3))}ch, ${inputRoom}px)`}}>
             <input ref={input} aria-label="Ввод для программы" value={line} disabled={!canInput} autoComplete="off" spellCheck={false}

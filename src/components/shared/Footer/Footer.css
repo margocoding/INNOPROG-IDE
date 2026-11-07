@@ -3,3 +3,10 @@
 }
 
 .ide-footer-retry-frame{height:42px;box-sizing:border-box;padding:3px;border:1px solid #303744;border-radius:8px;background:#151b24}.ide-footer-retry-frame .ide-footer-retry{height:34px;min-height:34px;border-radius:5px;width:100%}
+
+@media (max-width: 767px) {
+  .ide-footer-primary-frame { container: run-button / inline-size; }
+  @container run-button (max-width: 108px) {
+    .ide-footer-run-icon { display: none; }
+  }
+}

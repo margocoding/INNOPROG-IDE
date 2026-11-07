@@ -1,12 +1,15 @@
+import type { RoomLessonTask } from '../../../../types/roomLesson';
 import React, { useRef, useState } from "react";
 import { isDesktop } from "../../../../utils/platform";
 import { Task } from "../../../../types/task";
 import { getTaskType } from "../../../../utils/taskType";
 import { processTaskDescription } from "./TaskDescription.utils";
 import "./TaskDescription.css";
+import { LessonMarkdown } from "./LessonMarkdown";
 
 interface TaskDescriptionProps {
 	task: Task | null;
+	lesson?: RoomLessonTask | null;
 	hideTopSpacing?: boolean;
 	desktopSidebar?: boolean;
 	desktopWidth?: number;
@@ -14,6 +17,7 @@ interface TaskDescriptionProps {
 
 const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	task,
+	lesson,
 	hideTopSpacing = false,
 	desktopSidebar = false,
 	desktopWidth = 38,
@@ -82,12 +86,13 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 				>
 					<div className="container mx-auto">
 						<div className="prose prose-invert max-w-none">
-							<div
-								className="task-description-content"
-								dangerouslySetInnerHTML={{
-									__html: processTaskDescription(task.description),
-								}}
-							/>
+							{lesson && <h2 className="lesson-task-title">{lesson.title}</h2>}
+							{lesson && !lesson.platformId
+								? lesson.descriptionFormat === "markdown"
+									? <LessonMarkdown source={lesson.description} />
+									: <div className="whitespace-pre-wrap break-words">{lesson.description}</div>
+								: <div className="task-description-content"
+									dangerouslySetInnerHTML={{ __html: processTaskDescription(task.description) }} />}
 							{hasPublicExample && (
 								<>
 									{taskInput && (
@@ -96,8 +101,10 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 											<pre>{taskInput}</pre>
 										</>
 									)}
-									<div className="mt-3">Выходные данные:</div>
-									<pre>{taskAnswer?.output}</pre>
+									{(!lesson || taskAnswer?.output) && <>
+										<div className="mt-3">Выходные данные:</div>
+										<pre>{taskAnswer?.output}</pre>
+									</>}
 								</>
 							)}
 						</div>

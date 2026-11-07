@@ -1,5 +1,5 @@
 import { TaskCheckProgress } from "../services/taskCheckProgress";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
 import { Answer, Language, Task, TaskAnswerCheckRequest } from "../types/task";
 import { postToParent } from "../utils/parentMessaging";
@@ -24,6 +24,7 @@ const maintenanceMessage = (error: any): string | null =>
 
 interface UseCodeExecutionProps {
 	currentAnswer: Answer | null;
+	roomWorkspace?: boolean;
 	task: Task | null;
 	code: string;
 	inputData: string;
@@ -45,6 +46,7 @@ interface UseCodeExecutionProps {
 
 export const useCodeExecution = ({
 	currentAnswer,
+	roomWorkspace,
 	task,
 	code,
 	inputData,
@@ -64,6 +66,8 @@ export const useCodeExecution = ({
 	setSubmitMessage,
 }: UseCodeExecutionProps) => {
 	const executionInFlight = useRef(false);
+	const activeRun = useRef<AbortController | null>(null);
+	useEffect(() => () => activeRun.current?.abort(), []);
 	const [checkProgress, setCheckProgress] = useState<TaskCheckProgress | null>(null);
 	const [isRunning, setIsRunning] = useState<boolean>(false);
 	const [currentCode, setCurrentCode] = useState<string>('');
@@ -128,6 +132,8 @@ export const useCodeExecution = ({
 		setOutput("");
 		setRunInputData("");
 
+		const controller = roomWorkspace ? new AbortController() : null;
+		activeRun.current = controller;
 		try {
 			const runLanguage =
 				taskId &&
@@ -169,7 +175,8 @@ export const useCodeExecution = ({
 						timeout: selectedAnswer?.timeout || 30,
 						task_id: taskId ? Number(taskId) : undefined,
 					},
-					runLanguage
+					runLanguage,
+					...(controller ? [controller.signal] as const : [])
 				);
 
 				setRunInputData(result.input ?? runInputData);
@@ -229,12 +236,14 @@ export const useCodeExecution = ({
 				setStatus("error");
 			}
 		} catch (error: any) {
+			if (controller?.signal.aborted) return;
 			setOutput(maintenanceMessage(error) || admissionMessage(error) || `Ошибка выполнения: ${error.message}`);
 			setStatus("error");
 		} finally {
+			activeRun.current = null;
 			executionInFlight.current = false;
 			setIsRunning(false);
-			if (taskId || window.innerWidth < 768) {
+			if (taskId || roomWorkspace || window.innerWidth < 768) {
 				setActiveTab("output");
 			}
 		}

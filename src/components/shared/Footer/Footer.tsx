@@ -121,7 +121,7 @@ const Footer: React.FC<FooterProps> = ({
             </svg>
           ) : (
             <svg
-              className="w-4 h-4"
+              className="ide-footer-run-icon w-4 h-4 shrink-0"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

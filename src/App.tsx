@@ -81,6 +81,7 @@ const App = React.memo(() => {
         webSocketData={webSocketData}
       />
       <IDE
+        key={`${activeRoomId || ""}:${webSocketData.lesson?.revision ?? 0}`}
         webSocketData={webSocketData}
         telegramId={webSocketData.telegramId}
       />

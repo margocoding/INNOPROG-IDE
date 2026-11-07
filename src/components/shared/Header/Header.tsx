@@ -12,9 +12,11 @@ import { RoomPermissions } from "../../../types/room";
 import Settings from "../Room/Settings/Settings";
 import { RoomMember } from "../../../hooks/useWebSocket";
 import StartFormModal from "../Room/StartFormModal/StartFormModal";
+import "./Header.css";
 
 interface IProps {
   mobileNavigation?: React.ReactNode;
+  roomLessonControl?: React.ReactNode;
   members?: RoomMember[];
   onEditMember?: (username?: string, telegramId?: string) => void;
   onCompleteSession?: () => void;
@@ -28,6 +30,7 @@ interface IProps {
 
 const Header: React.FC<IProps> = ({
   mobileNavigation,
+  roomLessonControl,
   members,
   onEditMember,
   myTelegramId,
@@ -133,24 +136,28 @@ const Header: React.FC<IProps> = ({
         </header>
     }
 
+  const compactOwnerHeader = Boolean(roomId && isTeacher);
   const mobileVisibleMembers = isDesktop() ? visibleMembers : onlineMembers.slice(0, 2);
   // Показываем кнопку "ещё" всегда, если есть участники (для просмотра полной информации)
   const mobileHasMoreMembers = sortedMembers.length > 0;
 
   return (
     <>
-      <header className={`ide-header bg-ide-secondary border-b border-ide-border flex items-center justify-between relative px-2 md:px-6 gap-2 md:gap-4 ${mobileNavigation ? "console-header" : ""}`}>
+      <header className={`ide-header bg-ide-secondary border-b border-ide-border flex items-center justify-between relative px-2 md:px-6 gap-2 md:gap-4 ${mobileNavigation ? "console-header" : ""} ${roomLessonControl ? "lesson-header" : ""} ${roomId ? "flex-wrap md:flex-nowrap" : ""} ${compactOwnerHeader ? "room-owner-header" : ""}`}>
         <div className={mobileNavigation ? "console-header-brand" : "contents"}>
-        {/* Логотип с отступами */}
-        <div className="flex-shrink-0 py-3 md:py-4">
-          <img src="/logo.svg" alt="INNOPROG" className="h-8 md:h-10" />
+          <div className="room-header-brand-actions flex shrink-0 items-center gap-2 md:gap-3">
+            <div className="shrink-0 py-3 md:py-4">
+              <img src="/logo.svg" alt="INNOPROG" className="h-8 md:h-10" />
+            </div>
+
+          </div>
+          {!compactOwnerHeader && mobileNavigation}
         </div>
 
-        {mobileNavigation}
-        </div>
-
-        {roomId && roomPermissions && (
-          <div className="flex-shrink-0">
+        {(roomLessonControl || (roomId && roomPermissions)) && (
+          <div className={`room-header-controls ${roomLessonControl ? "room-header-controls--with-tasks" : ""}`}>
+            {roomLessonControl}
+            {roomId && roomPermissions && (
             <Settings
               isTeacher={isTeacher}
               onCompleteSession={onCompleteSession!}
@@ -158,15 +165,18 @@ const Header: React.FC<IProps> = ({
               roomPermissions={roomPermissions}
               completedSession={Boolean(completedSession)}
             />
+            )}
           </div>
         )}
 
+        {compactOwnerHeader && mobileNavigation && <div className="room-owner-navigation">{mobileNavigation}</div>}
+
         {roomId && members && members.length > 0 && (
-          <div className="flex gap-1 md:gap-4 items-center relative flex-shrink-0 min-w-0">
+          <div className="room-header-members flex gap-1 md:gap-4 items-center relative flex-shrink-0 min-w-0">
             {mobileVisibleMembers.map((member) => (
               <div
                 key={member.telegramId}
-                className={`border-2 p-[2px] md:p-[3px] rounded-full cursor-pointer transition-all duration-200 hover:scale-105 flex-shrink-0 ${
+                className={`room-header-avatar border-2 p-[2px] md:p-[3px] rounded-full cursor-pointer transition-all duration-200 hover:scale-105 flex-shrink-0 ${
                   member?.userColor && `border-[${member?.userColor}]`
                 }`}
                 style={{

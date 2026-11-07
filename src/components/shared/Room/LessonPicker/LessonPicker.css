@@ -1,0 +1,209 @@
+.lesson-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid #394152;
+  border-radius: 8px;
+  color: #e0e7f1;
+  background: #1d2430;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.lesson-trigger:hover { background: #2a3545; }
+.lesson-trigger:focus-visible { outline: 2px solid #a58aff; outline-offset: 2px; }
+.lesson-modal.lesson-modal { background: #212530; color: #e0e7f1; border: 1px solid #394152; width: min(560px, calc(100% - 24px)); max-width: 560px; }
+.lesson-modal-header { border-bottom: 1px solid #394152; }
+.lesson-modal-body { gap: 18px; padding-top: 18px; padding-bottom: 18px; }
+.lesson-modal-footer { border-top: 1px solid #394152; flex-wrap: wrap; }
+.lesson-tabs { background: #171c26; }
+.lesson-fields-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; }
+.lesson-field { background: #171c26; border-color: #424b5d; }
+.lesson-field-input { font-size: 16px; }
+.lesson-list-popover { background: #212530; border: 1px solid #424b5d; color: #e0e7f1; }
+.lesson-list-scroll { max-height: 230px; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.lesson-current { display: grid; gap: 3px; border-left: 2px solid #a58aff; padding-left: 10px; min-width: 0; }
+.lesson-current span { color: #a6b1c2; font-size: 12px; }
+.lesson-current strong { font-size: 14px; overflow-wrap: anywhere; }
+.lesson-error { color: #ffb4bc; font-size: 13px; }
+@media (max-width: 767px) {
+  .lesson-modal.lesson-modal { width: calc(100% - 20px); margin-inline: 10px; max-height: 90dvh; }
+  .lesson-trigger { width: 36px; justify-content: center; padding-inline: 0; }
+  .lesson-trigger > span { display: none; }
+  .lesson-header { flex-wrap: wrap; }
+  .lesson-header img[alt="INNOPROG"] { max-width: 95px; object-fit: contain; }
+  .lesson-header .console-header-brand { gap: 8px; flex-wrap: wrap; }
+}
+
+.lesson-modal.lesson-modal--create { width: min(860px, calc(100% - 24px)); max-width: 860px; }
+.lesson-form-group { min-width: 0; margin: 0; padding: 0; border: 0; }
+.lesson-form-group legend { margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+.lesson-form-group legend span { margin-inline-start: 6px; color: #a6b1c2; font-size: 12px; font-weight: 400; }
+.lesson-form-group .lesson-fields-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 599px) {
+  .lesson-modal.lesson-modal--create { width: calc(100% - 20px); }
+  .lesson-modal--create .lesson-fields-row { grid-template-columns: minmax(0, 1fr); }
+}
+
+.lesson-create-grid { display: grid; gap: 18px; }
+.lesson-create-column { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+@media (min-width: 768px) {
+  .lesson-create-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 24px; }
+}
+
+.lesson-description-editor, .lesson-code-fields { display: grid; gap: 8px; min-width: 0; }
+.lesson-description-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; font-size: 14px; }
+.lesson-description-tools > div { display: flex; gap: 4px; }
+.lesson-description-preview { min-height: 160px; max-height: 320px; overflow: auto; padding: 12px; border: 1px solid #424b5d; border-radius: 10px; }
+.lesson-code-field { display: grid; gap: 5px; min-width: 0; font-size: 14px; }
+.lesson-code-field .cm-editor { border: 1px solid #424b5d; border-radius: 8px; overflow: hidden; font-size: 13px; }
+.lesson-code-field .cm-scroller { min-height: 76px; max-height: 185px; overflow: auto; }
+.lesson-code-field .cm-editor.cm-focused { outline: 1px solid #a58aff; }
+@media (max-width: 767px) {
+  .lesson-code-field .cm-editor, .lesson-description-editor textarea { font-size: 16px; }
+}
+
+.lesson-modal .lesson-modal-header {
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-inline-end: 42px;
+  font-size: 19px;
+}
+.lesson-modal-header > span { flex-shrink: 0; }
+.lesson-current { max-width: 52%; font-weight: 400; line-height: 1.35; }
+.lesson-picker-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.lesson-picker-actions .lesson-tabs { height: 40px; }
+.lesson-picker-actions .lesson-add { height: 32px; margin-inline-start: auto; padding-inline: 12px; gap: 4px; font-size: 14px; font-weight: 400; }
+.lesson-free-editor { border-color: #59657a; color: #e0e7f1; }
+@media (max-width: 479px) {
+  .lesson-modal .lesson-modal-header { font-size: 16px; gap: 8px; }
+  .lesson-modal-header > span { flex-shrink: 1; }
+  .lesson-picker-actions { flex-wrap: nowrap; }
+  .lesson-picker-actions .lesson-add { min-width: 32px; width: 32px; padding: 0; }
+  .lesson-picker-actions .lesson-add > span { display: none; }
+}
+.lesson-resize-handle { display: none; }
+@media (min-width: 768px) {
+  .lesson-modal.lesson-modal--create {
+    width: var(--lesson-form-width, 860px);
+    height: var(--lesson-form-height, 590px);
+    min-width: 560px;
+    min-height: min(360px, calc(100dvh - 40px));
+    max-width: calc(100vw - 32px);
+    max-height: calc(100dvh - 40px);
+  }
+  .lesson-modal--create .lesson-modal-footer { position: relative; padding-inline-end: 36px; }
+  .lesson-resize-handle {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 26px;
+    height: 26px;
+    color: #a6b1c2;
+    cursor: nwse-resize;
+    touch-action: none;
+  }
+}
+
+@media (max-width: 359px) {
+  .lesson-picker-actions .lesson-tabs [role="tab"] { padding-inline: 6px; }
+}
+
+.lesson-create-grid { align-items: start; }
+.lesson-code-field .cm-scroller { height: 104px; }
+.lesson-description-tools > div { margin-inline-start: auto; }
+.lesson-description-input, .lesson-description-preview {
+  width: 100%;
+  height: 230px;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.lesson-description-input {
+  resize: none;
+  padding: 12px;
+  border: 1px solid #424b5d;
+  border-radius: 10px;
+  background: #171c26;
+  color: inherit;
+  font: 14px/1.6 ui-monospace, monospace;
+}
+.lesson-description-input:focus-visible { outline: 1px solid #a58aff; }
+.lesson-modal--description .lesson-modal-body { min-height: 0; }
+.lesson-modal--description .lesson-create-grid { display: flex; flex: 1; min-height: 0; align-items: stretch; }
+.lesson-modal--description .lesson-create-column:first-child { flex: 1; min-height: 0; }
+.lesson-modal--description .lesson-create-column > :not(.lesson-description-editor),
+.lesson-modal--description .lesson-create-column:nth-child(2) { display: none; }
+.lesson-modal--description .lesson-modal-footer > :not(.lesson-resize-handle) { visibility: hidden; }
+.lesson-modal--description .lesson-description-editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.lesson-modal--description .lesson-description-editor > :is(textarea, .lesson-description-preview) { flex: 1; }
+@media (max-width: 767px) {
+  .lesson-description-input { font-size: 16px; }
+}
+
+.lesson-example-field { display: grid; gap: 6px; min-width: 0; font-size: 14px; }
+.lesson-description-input.lesson-example-input { height: calc(60px + var(--lesson-field-growth, 0px)); }
+@media (min-width: 768px) {
+  .lesson-modal--create {
+    --lesson-extra-height: max(0px, calc(min(var(--lesson-form-height, 590px), 100dvh - 40px) - 590px));
+    --lesson-field-growth: calc(var(--lesson-extra-height) / 3);
+  }
+  .lesson-code-field .cm-scroller {
+    height: calc(104px + var(--lesson-field-growth));
+    max-height: none;
+  }
+  .lesson-modal--create:not(.lesson-modal--description) .lesson-description-editor > :is(textarea, .lesson-description-preview) {
+    height: calc(230px + var(--lesson-extra-height));
+  }
+}
+.lesson-code-field > div { min-width: 0; }
+
+@media (max-width: 767px) {
+  .lesson-modal.lesson-modal--create {
+    width: calc(100% - 8px);
+    height: calc(100dvh - 8px);
+    max-height: calc(100dvh - 8px);
+    margin: 0;
+  }
+
+  .lesson-modal--create .lesson-modal-header {
+    padding: 8px 36px 8px 10px;
+    font-size: 16px;
+  }
+  .lesson-modal--create .lesson-modal-body { gap: 10px; padding: 8px 10px; }
+  .lesson-modal--create .lesson-create-grid,
+  .lesson-modal--create .lesson-create-column { gap: 10px; }
+  .lesson-modal--create .lesson-modal-footer {
+    padding: 6px 10px max(6px, env(safe-area-inset-bottom));
+    gap: 6px;
+  }
+  .lesson-modal--create .lesson-modal-footer > button {
+    height: 32px;
+    min-height: 32px;
+    min-width: 0;
+    padding-inline: 12px;
+    font-size: 13px;
+  }
+  .lesson-modal--description .lesson-modal-footer { display: none; }
+
+  .lesson-description-tools > div > .lesson-description-action {
+    width: 32px;
+    min-width: 32px;
+    padding: 0;
+    gap: 0;
+  }
+}
+
+@media (min-width: 360px) and (max-width: 767px) {
+  .lesson-modal--create .lesson-fields-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+}

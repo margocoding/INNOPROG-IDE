@@ -164,6 +164,10 @@ async function restorePlatformSession(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_M
 	return platformSessionPromise;
 }
 
+export async function roomLessonCredential() {
+  return LOCAL_PREVIEW ? '' : platformAccessToken || await restorePlatformSession();
+}
+
 async function protectedTaskHeaders(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_MS): Promise<Record<string, string>> {
 	if (LOCAL_PREVIEW) return {};
 	const headers: Record<string, string> = {};
@@ -178,8 +182,8 @@ async function protectedTaskHeaders(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_MS)
 }
 
 async function executionHeaders(): Promise<Record<string, string>> {
-	if (LOCAL_PREVIEW) return {};
 	const roomId = new URLSearchParams(window.location.search).get("roomId");
+	if (LOCAL_PREVIEW && (!roomId || process.env.IDE_LOCAL_ROOM_PREVIEW !== "1")) return {};
 	if (roomId) {
 		let token = currentRoomToken(roomId);
 		if (token && isRoomTokenExpired(token)) {
@@ -330,7 +334,8 @@ export const api = {
 
 	async runCode(
 		data: RunCodeRequest,
-		language: string
+		language: string,
+		signal?: AbortSignal,
 	): Promise<RunCodeResult> {
 		const runLanguage = language === "sql" ? "sqlite" : language;
 		const response = await withExecutionRetry((headers) => BASE_API.post(
@@ -338,6 +343,7 @@ export const api = {
 			data,
 			{
 				timeout: CODE_EXECUTION_TIMEOUT_MS,
+				signal,
 				headers: {
 					...headers,
 					"Content-Type": "application/json",

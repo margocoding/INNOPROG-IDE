@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const loaded = loadEnv(mode, process.cwd(), '');
   const localPreview = mode === 'development' && process.env.IDE_LOCAL_API === '1';
+  const previewApiPort = Number(process.env.IDE_LOCAL_API_PORT ?? 8765);
+  const previewRoomPort = Number(process.env.IDE_LOCAL_ROOM_PORT ?? 0);
+  const previewCatalogPort = Number(process.env.IDE_LOCAL_CATALOG_PORT ?? 0);
   const environmentNames = [
     'REACT_APP_BOT_API_URL',
     'REACT_APP_WS_URL',
@@ -22,13 +25,21 @@ export default defineConfig(({ mode }) => {
     define: {
       ...define,
       'process.env.NODE_ENV': JSON.stringify(mode),
+      'process.env.IDE_LOCAL_ROOM_PREVIEW': JSON.stringify(localPreview && previewRoomPort ? '1' : ''),
       'process.env.IDE_LOCAL_PREVIEW': JSON.stringify(localPreview ? '1' : ''),
     },
     server: {
       port: Number(process.env.PORT ?? loaded.PORT ?? 3000),
       strictPort: true,
       proxy: {
-        ...(localPreview ? { '/bot-api': { target: 'http://127.0.0.1:8765', ws: true, changeOrigin: false } } : {}),
+        ...(localPreview ? { '/bot-api': { target: `http://127.0.0.1:${previewApiPort}`, ws: true, changeOrigin: false } } : {}),
+        ...(localPreview && previewRoomPort ? {
+          '/api/room': { target: `http://127.0.0.1:${previewRoomPort}` },
+          '/socket.io': { target: `http://127.0.0.1:${previewRoomPort}`, ws: true },
+        } : {}),
+        ...(localPreview && previewCatalogPort ? {
+          '/lesson-demo': { target: `http://127.0.0.1:${previewCatalogPort}` },
+        } : {}),
         '/bot-api/code/console': {
           target: 'http://127.0.0.1:8765',
           ws: true,

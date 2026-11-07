@@ -1,3 +1,5 @@
+import LessonPicker from '../../Room/LessonPicker/LessonPicker';
+import { LessonSelection, RoomLessonState } from '../../../../types/roomLesson';
 import { CodeIcon, TerminalIcon, InputIcon } from '../ConsoleSection/ConsoleIcons';
 import ConsoleSection from '../ConsoleSection/ConsoleSection';
 import { useConsoleExecution, CONSOLE_LANGUAGES } from '../../../../hooks/useConsoleExecution';
@@ -36,6 +38,8 @@ interface RoomPermissions {
 
 interface WebSocketData {
   socket: Socket | null;
+  lesson?: RoomLessonState;
+  selectLesson?: (selection: LessonSelection) => Promise<void>;
   isConnected: boolean;
   isJoinedRoom: boolean;
   connectionError: string | null;
@@ -115,6 +119,8 @@ const DEFAULT_BASH_TEMPLATE = "#!/bin/bash";
 
 const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const lesson = webSocketData?.lesson;
+  const lessonTask = lesson?.task;
   const [task, setTask] = useState<Task | null>(null);
   const [code, setCode] = useState<string>("");
   const [output, setOutput] = useState<string>("");
@@ -126,7 +132,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     "success" | "error" | "no_data"
   >("success");
   const [submitMessage, setSubmitMessage] = useState<string>("");
-  const [inputData, setInputData] = useState<string>("");
+  const [inputData, setInputData] = useState<string>(lessonTask?.input || "");
   const [outputData, setOutputData] = useState<string>("");
   const [isOutputData, setIsOutputData] = useState<boolean>(false);
   const [isInputData, setIsInputData] = useState<boolean>(true);
@@ -162,7 +168,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   const { onOpen, onOpenChange, isOpen, onClose } = useDisclosure();
 
-  const taskId = searchParams.get("task_id") || null;
+  const taskId = lesson?.revision ? null : searchParams.get("task_id") || null;
   const [hostExpanded, setHostExpanded] = useState(false);
   useEffect(() => {
     setHostExpanded(false);
@@ -189,6 +195,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     fixedConfigurationLanguage || metadataConfigurationLanguage;
   const language =
     configurationLanguage ||
+    (lesson?.revision ? webSocketData?.language || lesson.language : undefined) ||
     resolveTaskLanguage(taskId, searchParams.get("lang"));
   const suppliedAnswerId = searchParams.get("answer_id")?.trim() || "";
   // Saved code belongs to the verified user and task. Direct task links may
@@ -198,6 +205,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     : null), [suppliedAnswerId, taskId]);
   const roomId = searchParams.get("roomId");
   const isHtmlMode = language === Language.HTML;
+  const desktopTaskMode = Boolean(lessonTask || (taskId && task && !isHtmlMode));
   const isConfigurationMode = Boolean(configurationLanguage);
   const configurationFileName = isConfigurationMode
     ? language === Language.DOCKERFILE
@@ -235,8 +243,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       currentAnswer,
       task,
       code,
-      inputData,
-      outputData,
+      inputData: lessonTask && !isInputData ? "" : inputData,
+      outputData: lessonTask ? "" : outputData,
+      roomWorkspace: Boolean(lesson?.revision),
       taskId,
       answer_id,
       clientId,
@@ -277,6 +286,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       primaryActionPendingRef.current ||
       isRunning || consoleExecution.isRunning ||
       isOpen ||
+      (lesson?.revision && webSocketData?.codeSyncState !== "synchronized") ||
       (taskId &&
         (!taskDataReady || !initialCodeReady || initialCodeLoadFailed))
     ) {
@@ -286,7 +296,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     primaryActionPendingRef.current = true;
     try {
       if (consoleMode) {
-        if (window.innerWidth < 768) setActiveTab("output");
+        setActiveTab("output");
         await consoleExecution.start(code, language);
         return;
       }
@@ -306,6 +316,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
   }, [
     consoleMode, consoleExecution.start, consoleExecution.isRunning, code, language,
+    lesson?.revision, webSocketData?.codeSyncState,
     initialCodeReady,
     initialCodeLoadFailed,
     isConfigurationMode,
@@ -825,7 +836,17 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
     return isAutoHtmlTemplateActive ? DEFAULT_HTML_TEMPLATE : "";
   }, [code, isAutoHtmlTemplateActive, isHtmlMode]);
-  const desktopTaskMode = Boolean(taskId && task && !isHtmlMode);
+  const displayTask: Task | null = lessonTask ? {
+    id: lessonTask.platformId ?? 0,
+    title: lessonTask.title,
+    description: lessonTask.description,
+    task_type: 'code',
+    has_public_example: Boolean(lessonTask.input || lessonTask.output),
+    answers: [{
+      id: 0, input: lessonTask.input, output: lessonTask.output ?? '',
+      code_before: '', code_after: '', hint: '', timeout: 30,
+    }],
+  } : task;
   const handleEmbeddedTaskNext = useCallback(() => {
     if (!isEmbeddedApp || !taskId) {
       return;
@@ -841,8 +862,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   }, [isEmbeddedApp, onClose, taskId]);
 
   const mobileConsoleNavigation = consoleMode ? <nav className="console-mobile-tabs" aria-label="Панель редактора">
-    <button type="button" aria-pressed={activeTab === 'editor'} onClick={() => setActiveTab('editor')}><CodeIcon/><span>Код</span></button>
-    <button type="button" aria-pressed={activeTab === 'output'} onClick={() => setActiveTab('output')}><TerminalIcon/><span>Консоль{consoleExecution.isRunning ? ' •' : ''}</span></button>
+    <button type="button" aria-label="Код" title="Код" aria-pressed={activeTab === 'editor'} onClick={() => setActiveTab('editor')}><CodeIcon/><span>Код</span></button>
+    <button type="button" aria-label={consoleExecution.isRunning ? "Консоль, программа выполняется" : "Консоль"} title="Консоль" aria-pressed={activeTab === 'output'} onClick={() => setActiveTab('output')}><TerminalIcon/><span>Консоль{consoleExecution.isRunning ? ' •' : ''}</span></button>
   </nav> : undefined;
 
   return (
@@ -879,6 +900,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         isOutputData={isOutputData}
         setIsOutputData={setIsOutputData}
         onApply={handleRunCode}
+        hideExpectedOutput={Boolean(lessonTask)}
         showNextAction={isEmbeddedApp && Boolean(taskId)}
         onNext={handleEmbeddedTaskNext}
       />
@@ -900,6 +922,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       {!isEmbeddedApp && (
         <Header
           mobileNavigation={mobileConsoleNavigation}
+          roomLessonControl={roomId && webSocketData?.isTeacher && !webSocketData.completed &&
+            webSocketData.isJoinedRoom && webSocketData.selectLesson ?
+            <LessonPicker room={roomId} active={lesson} select={webSocketData.selectLesson} /> : undefined}
           completedSession={webSocketData?.completed}
           onCompleteSession={webSocketData?.completeSession}
           members={webSocketData?.roomMembers}
@@ -920,8 +945,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         data-testid={desktopTaskMode ? "desktop-task-workspace" : undefined}
       >
         <TaskDescription
-          task={task}
-          hideTopSpacing={isEmbeddedApp}
+          task={displayTask}
+          lesson={lessonTask}
+          hideTopSpacing={isEmbeddedApp || Boolean(lessonTask)}
           desktopSidebar={desktopTaskMode}
           desktopWidth={taskPanelWidth}
         />
@@ -937,7 +963,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         <main className="flex-1 min-w-0 min-h-0 overflow-hidden">
           <div
             className={`h-full flex flex-col ${
-              desktopTaskMode ? "" : "md:flex-row"
+              desktopTaskMode
+                ? consoleMode && activeTab === "output" ? "desktop-task-console-layout" : ""
+                : "md:flex-row"
             }`}
           >
             <CodeEditorSection
@@ -985,7 +1013,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               />
             ) : null}
 
-            {consoleMode ? <ConsoleSection execution={consoleExecution} activeTab={activeTab} width={100 - editorWidth} /> : <OutputSection
+            {consoleMode ? <ConsoleSection execution={consoleExecution} activeTab={activeTab} width={100 - editorWidth} desktopStackedPane={desktopTaskMode} /> : <OutputSection
               output={output}
               inputData={runInputData}
               status={status}
@@ -1003,13 +1031,18 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         hideRetry={consoleMode}
         runModeSelector={consoleAvailable ? <div className="console-run-mode" role="group" aria-label="Режим запуска">
           <button type="button" aria-pressed={!consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => setRunMode('batch')}><InputIcon/><span>С входными данными</span></button>
-          <button type="button" aria-pressed={consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => setRunMode('console')}><TerminalIcon/><span>Консоль</span></button>
+          <button type="button" aria-pressed={consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => {
+            setRunMode('console');
+            if (desktopTaskMode && window.innerWidth >= 768) setActiveTab('output');
+          }}><TerminalIcon/><span>Консоль</span></button>
         </div> : undefined}
         checkProgress={checkProgress}
         status={status}
         taskId={taskId}
         isRunning={isRunning || consoleExecution.isRunning}
-        blockedReason={taskId && initialCodeLoadFailed
+        blockedReason={lesson?.revision && webSocketData?.codeSyncState !== "synchronized"
+          ? "Синхронизируем редактор…"
+          : taskId && initialCodeLoadFailed
           ? "Решение не загружено"
           : taskId && (!taskDataReady || !initialCodeReady)
           ? "Загружаем задание…"

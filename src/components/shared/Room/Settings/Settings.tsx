@@ -41,12 +41,12 @@ const Settings: React.FC<IProps> = ({
 
     return <Popover isOpen={showPermissionsCard} onOpenChange={setShowPermissionsCard}>
         <PopoverTrigger>
-            <Button size={"lg"} className="min-w-0 px-2 md:px-4">
-                <span className="text-base md:text-lg">⚙️</span>
-                <span className="hidden md:inline">Настройки</span>
+            <Button size="lg" aria-label="Настройки" className="h-8 min-w-8 gap-1.5 whitespace-nowrap px-2 text-sm md:min-w-0 md:h-12 md:gap-3 md:px-4 md:text-base">
+                <span aria-hidden="true" className="text-[13px] leading-none md:text-lg">⚙️</span>
+                <span className="room-settings-label hidden md:inline">Настройки</span>
 
                 {/* Индикатор активных разрешений */}
-                <span className="bg-white/20 text-xs px-1.5 md:px-2 py-1 rounded-full">
+                <span className="hidden bg-white/20 text-xs px-2 py-1 rounded-full md:inline">
 									{Object.values(roomPermissions).filter(Boolean).length}/
                     {Object.keys(roomPermissions).length}
 								</span>

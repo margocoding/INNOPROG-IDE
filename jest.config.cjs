@@ -2,14 +2,14 @@ module.exports = {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   transform: {
-    '^.+\\.[jt]sx?$': 'babel-jest',
+    '^.+\\.([jt]sx?|mjs)$': 'babel-jest',
   },
   moduleNameMapper: {
     '^react-router-dom$': '<rootDir>/src/test-mocks/react-router-dom.ts',
     '\\.(css|less|sass|scss)$': 'identity-obj-proxy',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(yjs|lib0|y-protocols|y-codemirror.next|@codemirror|@marijn|style-mod|w3c-keyname|crelt)/)',
+    'node_modules/(?!(yjs|lib0|y-protocols|y-codemirror.next|@codemirror|@marijn|style-mod|w3c-keyname|crelt|marked)/)',
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',

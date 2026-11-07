@@ -4,6 +4,17 @@
     flex: 0 0 calc(var(--desktop-pane-size) - 4px);
   }
 
+  .desktop-task-console-layout {
+    --task-console-min-height: 212px;
+  }
+
+  .desktop-task-console-layout .desktop-task-editor-pane {
+    --task-editor-height: min(calc(var(--desktop-pane-size) - 4px), max(0px, calc(100% - var(--task-console-min-height) - 8px)));
+    height: var(--task-editor-height) !important;
+    flex-basis: var(--task-editor-height);
+    min-height: 0;
+  }
+
   .desktop-task-output-pane {
     height: auto !important;
     min-height: 0;

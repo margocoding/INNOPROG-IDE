@@ -1,0 +1,99 @@
+@media (max-width: 767px) {
+  header.ide-header.room-owner-header {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 4px;
+    padding-inline: 12px;
+  }
+
+  .room-owner-header .console-header-brand { display: contents; }
+  .room-owner-header .room-header-brand-actions { gap: 4px; }
+  header.ide-header .room-header-brand-actions img {
+    width: clamp(88px, 25vw, 112px);
+    max-width: none;
+    height: auto;
+  }
+  .room-owner-header .console-mobile-tabs { margin-left: 0; }
+  .room-owner-header .console-mobile-tabs button { width: 32px; padding: 0; }
+  .room-owner-header .console-mobile-tabs button > span { display: none; }
+  .room-owner-header .room-header-members { margin-left: auto; }
+  .room-owner-header .room-header-avatar:nth-of-type(n + 3) { display: none; }
+  .room-owner-header .room-header-members > :is(.room-header-avatar, button) > span {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+@media (max-width: 389px) {
+  .room-owner-header .room-header-avatar + .room-header-avatar { display: none; }
+}
+
+@media (max-width: 359px) {
+  .room-owner-header .console-mobile-tabs button { width: 28px; }
+  .room-owner-header .room-header-members > :is(.room-header-avatar, button) > span {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.room-owner-navigation { display: none; }
+@media (max-width: 767px) {
+  .room-owner-navigation {
+    display: block;
+    flex: 1 0 74px;
+    min-width: 74px;
+    max-width: 170px;
+    container-type: inline-size;
+  }
+  .room-owner-navigation .console-mobile-tabs { width: max-content; }
+  @container (min-width: 154px) {
+    .room-owner-header .console-mobile-tabs button { width: auto; padding-inline: 9px; }
+    .room-owner-header .console-mobile-tabs button > span { display: block; }
+  }
+}
+@media (max-width: 359px) {
+  .room-owner-navigation { flex-basis: 66px; min-width: 66px; }
+}
+
+.room-header-controls { display: contents; }
+@media (max-width: 767px) {
+  .room-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 4 0 36px;
+    max-width: 112px;
+    container: room-header-controls / inline-size;
+  }
+
+  .room-header-controls--with-tasks {
+    flex-basis: 72px;
+    max-width: 200px;
+    container-name: room-owner-controls;
+  }
+
+  @container room-header-controls (min-width: 106px) {
+    .room-settings-label { display: inline; }
+  }
+
+  @container room-owner-controls (min-width: 128px) {
+    .room-header-controls .lesson-trigger {
+      width: auto;
+      padding-inline: 10px;
+    }
+
+    .room-header-controls .lesson-trigger > span { display: inline; }
+  }
+
+  @container room-owner-controls (min-width: 196px) {
+    .room-settings-label { display: inline; }
+  }
+}
+
+@media (min-width: 768px) {
+  .room-header-controls--with-tasks > button { margin-inline-end: auto; }
+}
+
+@media (max-width: 359px) {
+  header.ide-header.room-owner-header:has(.room-owner-navigation) .room-header-brand-actions img { width: 80px; }
+}
