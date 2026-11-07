@@ -21,7 +21,6 @@ import type * as Y from "yjs";
 import CodeEditorSection from "../CodeEditorSection/CodeEditorSection";
 import Loader from "../../Room/Loader/Loader";
 import OutputSection from "../OutputSection/OutputSection";
-import StartFormModal from "../../Room/StartFormModal/StartFormModal";
 import SubmitModal from "../SubmitModal/SubmitModal";
 import TaskDescription from "../TaskDescription/TaskDescription";
 import Header from "../../Header/Header";
@@ -132,11 +131,10 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     "success" | "error" | "no_data"
   >("success");
   const [submitMessage, setSubmitMessage] = useState<string>("");
-  const [inputData, setInputData] = useState<string>(lessonTask?.input || "");
+  const [inputData, setInputData] = useState<string>("");
   const [outputData, setOutputData] = useState<string>("");
   const [isOutputData, setIsOutputData] = useState<boolean>(false);
   const [isInputData, setIsInputData] = useState<boolean>(true);
-  const [showStartModal, setShowStartModal] = useState<boolean>(false);
   const [hasJoinedOnce, setHasJoinedOnce] = useState<boolean>(false);
   const [showBlockingLoader, setShowBlockingLoader] = useState<boolean>(true);
   const [taskDataReady, setTaskDataReady] = useState<boolean>(false);
@@ -193,8 +191,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       : null;
   const configurationLanguage =
     fixedConfigurationLanguage || metadataConfigurationLanguage;
+  const platformLessonLanguage = lessonTask?.platformId ? lessonTask.language : undefined;
   const language =
-    configurationLanguage ||
+    configurationLanguage || platformLessonLanguage ||
     (lesson?.revision ? webSocketData?.language || lesson.language : undefined) ||
     resolveTaskLanguage(taskId, searchParams.get("lang"));
   const suppliedAnswerId = searchParams.get("answer_id")?.trim() || "";
@@ -243,8 +242,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       currentAnswer,
       task,
       code,
-      inputData: lessonTask && !isInputData ? "" : inputData,
-      outputData: lessonTask ? "" : outputData,
+      inputData: isInputData ? inputData : "",
+      outputData: isOutputData ? outputData : "",
       roomWorkspace: Boolean(lesson?.revision),
       taskId,
       answer_id,
@@ -409,18 +408,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       (member) => member.isYourself
     );
 
-    if (
-      !savedUsername &&
-      (!currentMember?.username || currentMember.username.trim() === "")
-    ) {
-      setShowStartModal(true);
-    } else {
-      if (
-        savedUsername &&
-        (!currentMember?.username || currentMember.username.trim() === "")
-      ) {
-        webSocketData?.sendEditMember?.(savedUsername);
-      }
+    if (savedUsername && !currentMember?.username?.trim()) {
+      webSocketData.sendEditMember?.(savedUsername);
     }
   // The hook intentionally reacts only to connection identity changes. Member
   // collections/callbacks are consumed from the current socket facade.
@@ -700,7 +689,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   const handleLanguageChange = useCallback(
     (lang: Language) => {
-      if (configurationLanguage) {
+      if (configurationLanguage || platformLessonLanguage) {
         return;
       }
       setSearchParams((prev) => {
@@ -711,7 +700,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         webSocketData.sendChangeLanguage(lang);
       }
     },
-    [configurationLanguage, setSearchParams, webSocketData]
+    [configurationLanguage, platformLessonLanguage, setSearchParams, webSocketData]
   );
 
   const memoizedWebSocketData = useMemo(() => {
@@ -751,19 +740,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     webSocketData?.bindYDoc,
     searchParams,
   ]);
-
-  const {
-    isOpen: startFormIsOpen,
-    onOpen: startFormOnOpen,
-    onOpenChange: startFormOnOpenChange,
-  } = useDisclosure();
-
-  useEffect(() => {
-    const savedUsername = localStorage.getItem("innoprog-username");
-    if (!savedUsername) {
-      startFormOnOpen();
-    }
-  }, [startFormOnOpen]);
 
   const handleResize = useCallback((newWidth: number) => {
     setEditorWidth(newWidth);
@@ -900,24 +876,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         isOutputData={isOutputData}
         setIsOutputData={setIsOutputData}
         onApply={handleRunCode}
-        hideExpectedOutput={Boolean(lessonTask)}
         showNextAction={isEmbeddedApp && Boolean(taskId)}
         onNext={handleEmbeddedTaskNext}
       />
-
-      {roomId &&
-        webSocketData?.isConnected &&
-        webSocketData?.isJoinedRoom &&
-        showStartModal && (
-          <StartFormModal
-            onOpen={startFormOnOpen}
-            isOpen={startFormIsOpen}
-            onOpenChange={startFormOnOpenChange}
-            onSendForm={(username?: string) =>
-              webSocketData.sendEditMember(username)
-            }
-          />
-        )}
 
       {!isEmbeddedApp && (
         <Header
@@ -979,7 +940,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               activeTab={activeTab}
               webSocketData={memoizedWebSocketData}
               handleLanguageChange={handleLanguageChange}
-              languageLocked={Boolean(configurationLanguage) || consoleExecution.isRunning}
+              languageLocked={Boolean(configurationLanguage || platformLessonLanguage) || consoleExecution.isRunning}
               fileName={configurationFileName}
               width={editorWidth}
               desktopStackedPane={desktopTaskMode}

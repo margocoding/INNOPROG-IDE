@@ -17,19 +17,27 @@ const languages = [
 ].map(([id, label]) => ({ id, label }));
 const languageLabel = (value: string) => languages.find(item => item.id === value)?.label ?? value;
 
-function SearchSelect({ label, choices, value, select, search, busy }: {
+function SearchSelect({ label, choices, value, select, busy }: {
   label: string;
   choices: Choice[];
   value: string;
   select: (id: string) => void;
-  search?: (text: string) => void;
   busy?: boolean;
 }) {
   const root = React.useRef<HTMLDivElement>(null);
+  const searchable = React.useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const choice of choices) {
+      labels.set(choice.label, `${labels.get(choice.label) ?? ''} ${choice.label} ${choice.detail ?? ''}`.toLocaleLowerCase());
+    }
+    return labels;
+  }, [choices]);
   return <div ref={root} className="lesson-search-select"><Autocomplete
     label={label} placeholder="Поиск…" labelPlacement="outside" variant="bordered"
     selectedKey={value || null} onSelectionChange={key => select(key == null ? '' : String(key))}
-    {...(search ? { items: choices, onInputChange: search } : { defaultItems: choices })}
+    defaultItems={choices}
+    defaultFilter={(text, query) => (searchable.get(text) ?? text.toLocaleLowerCase()).includes(query.toLocaleLowerCase())}
+    itemHeight={48}
     isLoading={busy} allowsEmptyCollection
     inputProps={{ classNames: { inputWrapper: 'lesson-field', input: 'lesson-field-input' } }}
     popoverProps={{
@@ -46,13 +54,13 @@ function SearchSelect({ label, choices, value, select, search, busy }: {
   </Autocomplete></div>;
 }
 
-async function roomRequest<T>(room: string, path: string, signal?: AbortSignal, data?: unknown): Promise<T> {
+async function roomRequest<T>(room: string, path: string, signal?: AbortSignal, data?: unknown, method = data ? 'POST' : 'GET'): Promise<T> {
   const token = currentRoomToken(room);
   if (!token) throw new Error('Переподключитесь к комнате');
   const credential = path.startsWith('platform?') ? await roomLessonCredential() : '';
   const response = await fetch(`/api/room/${encodeURIComponent(room)}/lessons/${path}`, {
     signal, cache: 'no-store',
-    method: data ? 'POST' : 'GET',
+    method,
     headers: {
       'X-Room-Token': token,
       ...(credential ? { 'X-Platform-Auth': credential } : {}),
@@ -77,13 +85,14 @@ export default function LessonPicker({ room, active, select }: {
   const [moduleId, setModuleId] = useState('');
   const [catalog, setCatalog] = useState<CatalogTask[]>([]);
   const [personal, setPersonal] = useState<PersonalTask[]>([]);
+  const personalMutationVersion = React.useRef(0);
   const [taskId, setTaskId] = useState('');
-  const [query, setQuery] = useState('');
-  const [page, setPage] = useState(1);
-  const [more, setMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<PersonalTask>();
+  const [deleting, setDeleting] = useState<PersonalTask>();
+  const [formModuleId, setFormModuleId] = useState('');
   const [formSize, setFormSize] = useState<{ width: number; height: number }>();
   const formDrag = React.useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   const resizeForm = (width: number, height: number) => setFormSize({
@@ -108,7 +117,10 @@ export default function LessonPicker({ room, active, select }: {
     const controller = new AbortController();
     const report = (reason: Error) => { if (!controller.signal.aborted) setError(reason.message); };
     roomRequest<LessonModule[]>(room, 'modules', controller.signal).then(setModules).catch(report);
-    roomRequest<PersonalTask[]>(room, 'personal', controller.signal).then(setPersonal).catch(report);
+    const libraryVersion = personalMutationVersion.current;
+    roomRequest<PersonalTask[]>(room, 'personal', controller.signal).then(items => {
+      if (!controller.signal.aborted && libraryVersion === personalMutationVersion.current) setPersonal(items);
+    }).catch(report);
     return () => controller.abort();
   }, [open, room]);
 
@@ -116,32 +128,33 @@ export default function LessonPicker({ room, active, select }: {
     if (!open || tab !== 'platform' || !moduleId) return;
     const controller = new AbortController();
     setLoading(true);
-    setMore(false);
-    const timer = window.setTimeout(() => {
-      const params = new URLSearchParams({ module: moduleId, page: String(page), q: query });
-      roomRequest<{ items: CatalogTask[]; hasMore: boolean }>(room, 'platform?' + params, controller.signal)
-        .then(result => {
-          setCatalog(previous => page === 1 ? result.items : [...previous, ...result.items]);
-          setMore(result.hasMore);
-        })
-        .catch(reason => { if (!controller.signal.aborted) setError(reason.message); })
-        .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    }, 180);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [open, tab, moduleId, page, query, room]);
+    const load = async () => {
+      const tasks = new Map<number, CatalogTask>();
+      for (let page = 1; page <= 9999 && !controller.signal.aborted; page++) {
+        const params = new URLSearchParams({ module: moduleId, page: String(page) });
+        const result = await roomRequest<{ items: CatalogTask[]; hasMore: boolean }>(
+          room, 'platform?' + params, controller.signal,
+        );
+        if (controller.signal.aborted) return;
+        for (const task of result.items) tasks.set(task.id, task);
+        setCatalog([...tasks.values()]);
+        if (!result.hasMore) return;
+      }
+    };
+    load()
+      .catch(reason => { if (!controller.signal.aborted) setError(reason.message); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [open, tab, moduleId, room]);
 
   const resetChoice = () => {
     setTaskId('');
-    setQuery('');
-    setPage(1);
     setCatalog([]);
-    setMore(false);
     setError('');
   };
   const chooseModule = (id: string) => {
     if (id === moduleId) return;
     setModuleId(id);
-    setLanguage(modules.find(item => String(item.id) === id)?.language ?? '');
     resetChoice();
   };
   const apply = async (selection: LessonSelection) => {
@@ -151,20 +164,60 @@ export default function LessonPicker({ room, active, select }: {
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось открыть задачу'); }
     finally { setSaving(false); }
   };
+  const chooseFormModule = (id: string) => {
+    if (id === formModuleId) return;
+    setFormModuleId(id);
+    setLanguage(modules.find(item => String(item.id) === id)?.language ?? '');
+  };
+  const fillForm = (task?: PersonalTask) => {
+    setEditing(task);
+    setFormModuleId(task ? String(task.moduleId) : '');
+    setTitle(task?.title ?? '');
+    setDescription(task?.description ?? '');
+    setLanguage(task?.language ?? '');
+    setInput(task?.input ?? '');
+    setOutput(task?.output ?? '');
+    setInitialCode(task?.initialCode ?? '');
+    setAfter(task?.after ?? '');
+    setPreviewDescription(false);
+    setExpandedDescription(false);
+  };
+  const closeForm = () => {
+    if (editing) fillForm();
+    setCreating(false);
+    setExpandedDescription(false);
+  };
   const save = async () => {
     setSaving(true);
     setError('');
     try {
-      const task = await roomRequest<PersonalTask>(room, 'personal', undefined, {
-        title, description, descriptionFormat: 'markdown', moduleId: Number(moduleId), language, input, output, initialCode, after,
-      });
-      setPersonal(items => [task, ...items]);
+      const path = editing ? 'personal/' + encodeURIComponent(editing.id) : 'personal';
+      const task = await roomRequest<PersonalTask>(room, path, undefined, {
+        title, description, descriptionFormat: 'markdown', moduleId: Number(formModuleId), language, input, output, initialCode, after,
+      }, editing ? 'PUT' : 'POST');
+      personalMutationVersion.current++;
+      setPersonal(items => editing ? items.map(item => item.id === task.id ? task : item) : [task, ...items]);
       setCreating(false);
-      setPreviewDescription(false);
-      setTitle(''); setDescription(''); setInput(''); setOutput(''); setInitialCode(''); setAfter('');
+      fillForm();
+      setModuleId(String(task.moduleId));
       setTaskId(task.id);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Не удалось сохранить задачу');
+    } finally { setSaving(false); }
+  };
+  const remove = async () => {
+    if (!deleting) return;
+    setSaving(true);
+    setError('');
+    try {
+      await roomRequest(room, 'personal/' + encodeURIComponent(deleting.id), undefined, undefined, 'DELETE');
+      personalMutationVersion.current++;
+      setPersonal(items => items.filter(item => item.id !== deleting.id));
+      setTaskId('');
+      if (!personal.some(item => item.id !== deleting.id && String(item.moduleId) === moduleId)) setModuleId('');
+      setDeleting(undefined);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Не удалось удалить задачу');
     } finally { setSaving(false); }
   };
   const importDescription = async (file?: File) => {
@@ -185,6 +238,20 @@ export default function LessonPicker({ room, active, select }: {
       setImportingDescription(false);
     }
   };
+  const personalModuleIds = new Set(personal.map(task => String(task.moduleId)));
+  const moduleChoices = modules.map(item => ({ id: String(item.id), label: item.name }));
+  const availableModuleIds = new Set(moduleChoices.map(item => item.id));
+  const personalModuleChoices = [
+    ...moduleChoices.filter(item => personalModuleIds.has(item.id)),
+    ...[...personalModuleIds].filter(id => !availableModuleIds.has(id)).map(id => ({ id, label: `Модуль ${id}` })),
+  ];
+  const pickerModules = tab === 'personal' ? personalModuleChoices : moduleChoices;
+  const pickerModuleId = pickerModules.some(item => item.id === moduleId) ? moduleId : '';
+  const formModules = editing && !availableModuleIds.has(String(editing.moduleId))
+    ? [...moduleChoices, { id: String(editing.moduleId), label: `Модуль ${editing.moduleId}` }]
+    : moduleChoices;
+  const selectedPersonal = tab === 'personal' && pickerModuleId
+    ? personal.find(task => task.id === taskId && String(task.moduleId) === pickerModuleId) : undefined;
   const tasks = tab === 'platform' ? catalog : personal.filter(task => String(task.moduleId) === moduleId);
   const taskChoices = tasks.map(task => ({
     id: String(task.id), label: task.title,
@@ -198,7 +265,14 @@ export default function LessonPicker({ room, active, select }: {
       </svg>
       <span>Задачи</span>
     </button>
-    {open && <Modal isOpen={open} onOpenChange={next => { setOpen(next); if (!next) setExpandedDescription(false); }} isDismissable={!saving && !importingDescription} isKeyboardDismissDisabled={saving || importingDescription || expandedDescription} placement="center" scrollBehavior="inside"
+    {open && <Modal isOpen={open} onOpenChange={next => {
+      if (!next && saving) return;
+      setOpen(next);
+      if (!next) {
+        closeForm();
+        setDeleting(undefined);
+      }
+    }} hideCloseButton={saving} isDismissable={!saving && !importingDescription} isKeyboardDismissDisabled={saving || importingDescription || expandedDescription} placement="center" scrollBehavior="inside"
       style={creating && formSize ? {
         '--lesson-form-width': `${formSize.width}px`,
         '--lesson-form-height': `${formSize.height}px`,
@@ -212,28 +286,28 @@ export default function LessonPicker({ room, active, select }: {
         }
       }}>
         <ModalHeader>
-          <span>{expandedDescription ? "Условие задачи" : creating ? "Новая задача" : "Задача для занятия"}</span>
-          {!creating && active?.task && <div className="lesson-current">
+          <span>{deleting ? "Удаление задачи" : expandedDescription ? "Условие задачи" : creating ? editing ? "Редактирование задачи" : "Новая задача" : "Задача для занятия"}</span>
+          {!creating && !deleting && active?.task && <div className="lesson-current">
             <span>Сейчас в комнате</span><strong>{active.task.title}</strong>
           </div>}
         </ModalHeader>
         <ModalBody>
-          {!creating && <div className="lesson-picker-actions">
+          {!creating && !deleting && <div className="lesson-picker-actions">
           <Tabs aria-label="Источник задачи" selectedKey={tab} onSelectionChange={key => {
             setTab(String(key)); setCreating(false); resetChoice();
           }} color="secondary" variant="solid" classNames={{ tabList: 'lesson-tabs' }}>
             <Tab key="platform" title="С платформы" />
             <Tab key="personal" title="Мои задачи" />
           </Tabs>
-            {tab === 'personal' && <Button size="sm" radius="sm" className="lesson-add" aria-label="Добавить задачу" title="Добавить задачу" variant="solid" color="secondary" onPress={() => { setCreating(true); setError(''); }} startContent={
+            {tab === 'personal' && <Button size="sm" radius="sm" className="lesson-add" aria-label="Добавить задачу" title="Добавить задачу" variant="solid" color="secondary" onPress={() => { if (!formModuleId && availableModuleIds.has(pickerModuleId)) chooseFormModule(pickerModuleId); setCreating(true); setError(''); }} startContent={
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>
             }><span>Добавить задачу</span></Button>}
           </div>}
-          {creating ? <div className="lesson-create-grid">
+          {deleting ? <p>Удалить «{deleting.title}» из личных задач?</p> : creating ? <div className="lesson-create-grid">
             <div className="lesson-create-column">
               <Input label="Название задачи" labelPlacement="outside" placeholder="Введите название" variant="bordered" maxLength={160} value={title} onValueChange={setTitle} />
               <div className="lesson-fields-row">
-                <SearchSelect label="Модуль" choices={modules.map(item => ({ id: String(item.id), label: item.name }))} value={moduleId} select={chooseModule} />
+                <SearchSelect label="Модуль" choices={formModules} value={formModuleId} select={chooseFormModule} />
                 <SearchSelect label="Язык" choices={languages} value={language} select={id => setLanguage(id as Language | '')} />
               </div>
               <div className="lesson-description-editor">
@@ -280,8 +354,8 @@ export default function LessonPicker({ room, active, select }: {
               </div>
             </div>
             <div className="lesson-create-column">
-              <fieldset className="lesson-form-group">
-                <legend>Пример <span>необязательно</span></legend>
+              <div className="lesson-form-group" role="group" aria-label="Пример">
+                <div className="lesson-form-group-title">Пример <span>необязательно</span></div>
                 <div className="lesson-fields-row">
                   <label className="lesson-example-field">
                     <span>Входные данные</span>
@@ -292,30 +366,42 @@ export default function LessonPicker({ room, active, select }: {
                     <textarea className="lesson-description-input lesson-example-input" placeholder="Что выводит программа" value={output} onChange={event => setOutput(event.target.value)} />
                   </label>
                 </div>
-              </fieldset>
-              <fieldset className="lesson-form-group">
-                <legend>Код в редакторе <span>необязательно</span></legend>
+              </div>
+              <div className="lesson-form-group" role="group" aria-label="Код в редакторе">
+                <div className="lesson-form-group-title">Код в редакторе <span>необязательно</span></div>
                 <div className="lesson-code-fields">
                   <LessonCodeField label="Стартовый код" language={language} value={initialCode} onChange={setInitialCode} />
                   <LessonCodeField label="Код после решения" language={language} value={after} onChange={setAfter} />
                 </div>
-              </fieldset>
+              </div>
             </div>
           </div> : <>
-            <SearchSelect label="Модуль" choices={modules.map(item => ({ id: String(item.id), label: item.name }))} value={moduleId} select={chooseModule} />
-            {moduleId && <SearchSelect key={tab + moduleId} label="Задача" choices={taskChoices} value={taskId} select={setTaskId} busy={tab === 'platform' && loading}
-              search={tab === 'platform' ? text => {
-                if (taskChoices.some(item => item.label === text)) return;
-                if (text !== query) { setQuery(text); setPage(1); setCatalog([]); setMore(false); }
-              } : undefined} />}
-            {tab === 'platform' && more && <Button size="sm" variant="light" isLoading={loading} onPress={() => setPage(value => value + 1)}>Показать ещё</Button>}
+            {tab === 'personal' && !personal.length ? <p>Личных задач пока нет</p> :
+              <SearchSelect label="Модуль" choices={pickerModules} value={pickerModuleId} select={chooseModule} />}
+            {pickerModuleId && <div className="lesson-task-choice">
+              <SearchSelect key={tab + pickerModuleId} label="Задача" choices={taskChoices} value={taskId} select={setTaskId} busy={tab === 'platform' && loading} />
+              {tab === 'personal' && <>
+                <Button isIconOnly variant="bordered" isDisabled={!selectedPersonal} aria-label="Редактировать задачу" title="Редактировать задачу" onPress={() => {
+                  if (!selectedPersonal) return;
+                  fillForm(selectedPersonal); setError(''); setCreating(true);
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true"><path d="m4 13-1 4 4-1L17 6l-3-3L4 13zm8-8 3 3"/></svg>
+                </Button>
+                <Button isIconOnly color="danger" variant="flat" isDisabled={!selectedPersonal} aria-label="Удалить задачу" title="Удалить задачу" onPress={() => { setError(''); setDeleting(selectedPersonal); }}>
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 5h14M7 5V3h6v2M5 5l1 12h8l1-12M8 8v6m4-6v6"/></svg>
+                </Button>
+              </>}
+            </div>}
           </>}
           {error && <p role="alert" className="lesson-error">{error}</p>}
         </ModalBody>
         <ModalFooter>
-          {creating ? <>
-            <Button variant="light" isDisabled={importingDescription} onPress={() => setCreating(false)}>Назад</Button>
-            <Button color="secondary" isLoading={saving} isDisabled={importingDescription || !title.trim() || !description.trim() || !moduleId || !language} onPress={save}>Сохранить</Button>
+          {deleting ? <>
+            <Button variant="light" isDisabled={saving} onPress={() => { setDeleting(undefined); setError(''); }}>Отмена</Button>
+            <Button color="danger" isLoading={saving} onPress={remove}>Удалить</Button>
+          </> : creating ? <>
+            <Button variant="light" isDisabled={saving || importingDescription} onPress={closeForm}>Назад</Button>
+            <Button color="secondary" isLoading={saving} isDisabled={importingDescription || !title.trim() || !description.trim() || !formModuleId || !language} onPress={save}>Сохранить</Button>
             <button type="button" className="lesson-resize-handle"
               aria-label="Изменить размер окна стрелками" title="Потяните, чтобы изменить размер"
               onPointerDown={event => {
@@ -342,7 +428,7 @@ export default function LessonPicker({ room, active, select }: {
             ><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" aria-hidden="true"><path d="m2 12 10-10M7 12l5-5m-1 5 1-1" /></svg></button>
           </> : <>
             {active?.task && <Button variant="bordered" className="lesson-free-editor" isDisabled={saving} onPress={() => void apply({ source: 'free' })}>Свободный редактор</Button>}
-            <Button color="secondary" isLoading={saving} isDisabled={!tasks.some(task => String(task.id) === taskId)} onPress={() => void apply(tab === 'platform' ? { source: 'platform', id: Number(taskId) } : { source: 'personal', id: taskId })}>Открыть в комнате</Button>
+            <Button color="secondary" isLoading={saving} isDisabled={!pickerModuleId || !tasks.some(task => String(task.id) === taskId)} onPress={() => void apply(tab === 'platform' ? { source: 'platform', id: Number(taskId) } : { source: 'personal', id: taskId })}>Открыть в комнате</Button>
           </>}
         </ModalFooter>
       </ModalContent>

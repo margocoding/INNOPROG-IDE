@@ -19,6 +19,7 @@ export function consoleText(value: string) {
 
 export default function ConsoleSection({ execution, activeTab, width, desktopStackedPane = false }: Props) {
   const [line, setLine] = useState('');
+  const [showInput, setShowInput] = useState(false);
   const [eof, setEof] = useState(false);
   const scroll = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -49,14 +50,25 @@ export default function ConsoleSection({ execution, activeTab, width, desktopSta
     window.addEventListener('resize', measure);
     return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
   }, [execution.transcript, execution.state]);
-  const canInput = execution.state === 'running' && !eof;
+  const running = execution.state === 'running';
+  const canInput = running && showInput && !eof;
+  useEffect(() => {
+    if (!running) {
+      setShowInput(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowInput(true), 750);
+    return () => window.clearTimeout(timer);
+  }, [running]);
+  useEffect(() => {
+    if (canInput && activeTab === 'output') input.current?.focus();
+  }, [canInput, activeTab]);
   useEffect(() => {
     const element = scroll.current;
     if (element) element.scrollTop = execution.state === 'idle' ? 0 : element.scrollHeight;
-  }, [execution.transcript, execution.state]);
+  }, [execution.transcript, execution.state, showInput]);
   useEffect(() => {
     if (execution.state === 'connecting') { setEof(false); setLine(''); }
-    if (execution.state === 'running') input.current?.focus();
   }, [execution.state]);
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -78,7 +90,7 @@ export default function ConsoleSection({ execution, activeTab, width, desktopSta
         <div className="console-content" ref={scroll}>
           {!execution.transcript && execution.state === 'idle' && <div className="console-placeholder"><span>&gt;_</span><p>Запустите код, затем вводите данные в консоль</p></div>}
           <div ref={terminal} className="console-transcript">{execution.outputChunks?.length ? execution.outputChunks.map((chunk,index) => <span key={index} className={chunk.stream === 'stderr' ? 'console-output-error' : undefined}>{consoleText(chunk.text)}</span>) : <span>{consoleText(execution.transcript)}</span>}<span ref={inputAnchor} className="console-input-anchor" aria-hidden="true"/>
-          {execution.state === 'running' && <form onSubmit={submit} className="console-input-row" style={{width:`min(${Math.max(32, Math.min(60, Array.from(line).length + 3))}ch, ${inputRoom}px)`}}>
+          {running && showInput && <form onSubmit={submit} className="console-input-row" style={{width:`min(${Math.max(32, Math.min(60, Array.from(line).length + 3))}ch, ${inputRoom}px)`}}>
             <input ref={input} aria-label="Ввод для программы" value={line} disabled={!canInput} autoComplete="off" spellCheck={false}
               onChange={event => setLine(event.target.value)} maxLength={4000} placeholder={eof ? 'Ввод завершён' : 'Введите данные'} />
             <button type="submit" disabled={!canInput || new TextEncoder().encode(line).length > 4000} aria-label="Отправить строку">↵</button>

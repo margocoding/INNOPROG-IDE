@@ -28,7 +28,6 @@ interface SubmitModalProps {
 	setIsOutputData: (value: boolean) => void;
 	onApply: () => Promise<void>;
 	showNextAction?: boolean;
-	hideExpectedOutput?: boolean;
 	onNext?: () => void;
 }
 
@@ -49,7 +48,6 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 	setIsOutputData,
 	onApply,
 	showNextAction = false,
-	hideExpectedOutput = false,
 	onNext,
 }) => {
 	const handleConfirm = useCallback(async () => {
@@ -57,11 +55,10 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 			return;
 		}
 
+		onClose();
 		if (submitResult === "no_data") {
 			await onApply();
 		}
-
-		onClose();
 	}, [isRunning, onApply, onClose, submitResult]);
 
 	useEffect(() => {
@@ -173,8 +170,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 										onChange={(e) => setInputData(e.target.value)}
 									/>
 								)}
-								{!hideExpectedOutput && <>
-<div className="text-[15px] flex items-center gap-2">
+								<div className="text-[15px] flex items-center gap-2">
 									<Switch
 										size="sm"
 										color="secondary"
@@ -190,7 +186,6 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 										onChange={(e) => setOutputData(e.target.value)}
 									/>
 								)}{" "}
-</>}
 							</div>
 							)}
 					</div>

@@ -44,6 +44,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 
 	if (!task) return null;
 
+	const lessonTitle = lesson?.platformId ? lesson.topic?.trim() : lesson?.title;
 	const isPasteTask = getTaskType(task) === "paste";
 	const taskAnswer = task.answers?.[0];
 	const showPublicExample = task.has_public_example ?? (task.has_multiple_tests !== false);
@@ -86,7 +87,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 				>
 					<div className="container mx-auto">
 						<div className="prose prose-invert max-w-none">
-							{lesson && <h2 className="lesson-task-title">{lesson.title}</h2>}
+							{lessonTitle && <h2 className="lesson-task-title">{lessonTitle}</h2>}
 							{lesson && !lesson.platformId
 								? lesson.descriptionFormat === "markdown"
 									? <LessonMarkdown source={lesson.description} />

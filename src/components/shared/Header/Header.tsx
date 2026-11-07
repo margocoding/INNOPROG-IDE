@@ -356,6 +356,7 @@ const Header: React.FC<IProps> = ({
         onOpenChange={onOpenChange}
         onSendForm={handleEditSubmit}
         currentUsername={editingMember?.username || ""}
+        rememberName={editingMember?.telegramId === myTelegramId}
       />
     </>
   );

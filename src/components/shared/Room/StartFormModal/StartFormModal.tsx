@@ -15,36 +15,35 @@ interface IProps {
   onOpenChange: (val: boolean) => void;
   isOpen: boolean;
   currentUsername?: string;
+  rememberName?: boolean;
 }
 
 const StartFormModal: React.FC<IProps> = ({
   onSendForm,
-  onOpen,
   onOpenChange,
   isOpen,
   currentUsername,
+  rememberName = true,
 }) => {
   const [username, setUsername] = React.useState<string>("");
 
   useEffect(() => {
-    if (currentUsername) {
-      setUsername(currentUsername);
-    }
-  }, [currentUsername]);
+    if (isOpen) setUsername(currentUsername ?? "");
+  }, [currentUsername, isOpen]);
 
   const onSubmit = useCallback(() => {
     const currentName = username.trim();
     if (!currentName) return;
 
-    localStorage.setItem("innoprog-username", username.trim());
+    if (rememberName) localStorage.setItem("innoprog-username", currentName);
     onSendForm(currentName);
     onOpenChange(false);
-  }, [username, onSendForm, onOpenChange]);
+  }, [username, rememberName, onSendForm, onOpenChange]);
 
   return (
     <Modal onOpenChange={onOpenChange} isOpen={isOpen}>
       <ModalContent>
-        <ModalHeader>Стартовые данные</ModalHeader>
+        <ModalHeader>Имя участника</ModalHeader>
         <ModalBody>
           <Input
             onKeyUp={(e) => {
@@ -52,6 +51,7 @@ const StartFormModal: React.FC<IProps> = ({
                 onSubmit();
               }
             }}
+            aria-label="Имя участника"
             placeholder="Введите имя"
             value={username}
             onChange={(e) => setUsername(e.target.value)}

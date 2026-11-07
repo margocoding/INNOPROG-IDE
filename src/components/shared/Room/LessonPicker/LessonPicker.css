@@ -38,8 +38,8 @@
 
 .lesson-modal.lesson-modal--create { width: min(860px, calc(100% - 24px)); max-width: 860px; }
 .lesson-form-group { min-width: 0; margin: 0; padding: 0; border: 0; }
-.lesson-form-group legend { margin-bottom: 8px; font-size: 14px; font-weight: 600; }
-.lesson-form-group legend span { margin-inline-start: 6px; color: #a6b1c2; font-size: 12px; font-weight: 400; }
+.lesson-form-group-title { margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+.lesson-form-group-title span { margin-inline-start: 6px; color: #a6b1c2; font-size: 12px; font-weight: 400; }
 .lesson-form-group .lesson-fields-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 599px) {
   .lesson-modal.lesson-modal--create { width: calc(100% - 20px); }
@@ -152,10 +152,10 @@
 }
 
 .lesson-example-field { display: grid; gap: 6px; min-width: 0; font-size: 14px; }
-.lesson-description-input.lesson-example-input { height: calc(60px + var(--lesson-field-growth, 0px)); }
+.lesson-description-input.lesson-example-input { height: max(44px, calc(60px + var(--lesson-field-growth, 0px))); }
 @media (min-width: 768px) {
   .lesson-modal--create {
-    --lesson-extra-height: max(0px, calc(min(var(--lesson-form-height, 590px), 100dvh - 40px) - 590px));
+    --lesson-extra-height: max(-90px, calc(min(var(--lesson-form-height, 590px), 100dvh - 40px) - 590px));
     --lesson-field-growth: calc(var(--lesson-extra-height) / 3);
   }
   .lesson-code-field .cm-scroller {
@@ -206,4 +206,16 @@
 
 @media (min-width: 360px) and (max-width: 767px) {
   .lesson-modal--create .lesson-fields-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+}
+
+@media (min-width: 768px) {
+  .lesson-create-column { gap: 14px; }
+  .lesson-modal--create .lesson-modal-body { overflow-x: hidden; }
+}
+
+.lesson-task-choice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(2, auto);
+  align-items: end;
+  gap: 8px;
 }
