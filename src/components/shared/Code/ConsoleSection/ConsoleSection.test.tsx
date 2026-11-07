@@ -29,3 +29,20 @@ test('sends a long input intact and retains EOF as a separate action',()=>{
   expect(send).toHaveBeenCalledWith('eof');
   expect(input).toBeDisabled();
 });
+
+
+test.each(['c', 'с'])('Ctrl+C interrupts with key %s and the physical C key', key => {
+  const send = jest.fn(() => true);
+  render(<ConsoleSection activeTab="output" width={50} execution={{...base,state:'running',isRunning:true,send}}/>);
+  fireEvent.keyDown(screen.getByRole('textbox',{name:'Ввод для программы'}), {key,code:'KeyC',ctrlKey:true});
+  expect(send).toHaveBeenCalledWith('interrupt');
+});
+
+test('Ctrl+C keeps selected transcript text available for copy', () => {
+  const send = jest.fn(() => true);
+  const selection = jest.spyOn(window, 'getSelection').mockReturnValue({toString:()=> 'selected output'} as Selection);
+  render(<ConsoleSection activeTab="output" width={50} execution={{...base,state:'running',isRunning:true,send}}/>);
+  fireEvent.keyDown(screen.getByRole('textbox',{name:'Ввод для программы'}), {key:'с',code:'KeyC',ctrlKey:true});
+  expect(send).not.toHaveBeenCalled();
+  selection.mockRestore();
+});

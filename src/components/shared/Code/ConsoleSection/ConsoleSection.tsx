@@ -64,7 +64,7 @@ export default function ConsoleSection({ execution, activeTab, width }: Props) {
   return (
     <section className={`console-section ${activeTab === 'output' ? 'console-section--visible' : ''}`} style={{flexBasis:`${width}%`, "--console-width":`${width}%`} as React.CSSProperties} aria-label="Консоль программы">
       <div className="console-panel" onKeyDown={event => {
-        if (event.ctrlKey && event.key.toLowerCase() === 'c' && execution.isRunning && !window.getSelection()?.toString()) {
+        if (event.ctrlKey && (event.code === 'KeyC' || event.key.toLowerCase() === 'c') && execution.isRunning && !window.getSelection()?.toString()) {
           event.preventDefault(); execution.send('interrupt');
         }
       }}>
