@@ -47,3 +47,40 @@
 .lesson-markdown .footnotes { margin-top: 1.25em; border-top: 1px solid #394152; font-size: 0.9em; }
 .lesson-markdown .footnotes > ol { margin-bottom: 0; }
 .lesson-markdown :focus-visible { outline-offset: 3px; }
+
+.lesson-markdown .lesson-markdown-toc,
+.lesson-markdown .lesson-markdown-callout {
+  border: 1px solid #394152;
+  border-inline-start: 3px solid #a58aff;
+  border-radius: 8px;
+  padding: 0.65em 0.9em;
+  margin-block: 1em;
+  background: #1b2230;
+}
+.lesson-markdown .lesson-markdown-callout--tip { border-inline-start-color: #5dd8a2; }
+.lesson-markdown .lesson-markdown-callout--warning,
+.lesson-markdown .lesson-markdown-callout--caution { border-inline-start-color: #f0ad63; }
+.lesson-markdown .lesson-markdown-callout-title { font-weight: 650; }
+.lesson-markdown .lesson-markdown-callout > :first-child { margin-top: 0; }
+.lesson-markdown .lesson-markdown-callout > :last-child,
+.lesson-markdown .lesson-markdown-toc > ul { margin-bottom: 0; }
+.lesson-markdown .lesson-markdown-toc > ul { max-height: 16em; overflow: auto; }
+.lesson-markdown .lesson-markdown-spoiler { display: inline-block; padding: 0.15em 0.5em; margin-block: 0; }
+.lesson-markdown kbd { border: 1px solid #46536a; border-radius: 4px; padding: 0.1em 0.35em; }
+.lesson-markdown abbr[title] { cursor: help; text-decoration: underline dotted; }
+.lesson-markdown dt { font-weight: 600; }
+.lesson-markdown dd { margin-inline-start: 1.3em; }
+.lesson-markdown figcaption { color: #aab6cc; }
+.lesson-markdown table { display: block; overflow-x: auto; }
+.lesson-markdown [data-line-number]::before {
+  content: attr(data-line-number);
+  display: inline-block;
+  min-width: 2.5em;
+  margin-inline-end: 0.75em;
+  text-align: end;
+  color: #aab6cc;
+  user-select: none;
+}
+.lesson-markdown-highlight-line { background: #34314a; }
+.lesson-markdown-center { text-align: center; }
+.lesson-markdown-container { border-inline-start: 2px solid #46536a; padding-inline-start: 0.85em; }

@@ -6,6 +6,8 @@ it('formats lesson Markdown without allowing embedded markup or unsafe URLs', ()
     '## Условие',
     '**Решение**',
     '<img src="x" onerror="alert(1)">',
+    '<iframe src="https://example.com"></iframe>',
+    '<span style="background:url(https://example.com)">Стили</span>',
     '',
     '[опасная ссылка](javascript:alert%281%29)',
     '[пример](https://example.com)',
@@ -25,7 +27,7 @@ it('formats lesson Markdown without allowing embedded markup or unsafe URLs', ()
   expect(screen.getByRole('img', { name: 'изображение' })).toHaveAttribute('referrerpolicy', 'no-referrer');
   expect(screen.queryByRole('img', { name: 'опасное изображение' })).toBeNull();
   expect(container.querySelectorAll('img')).toHaveLength(1);
-  expect(container.querySelector('[onerror], [onclick], [onmouseover], [href^="javascript:"]')).toBeNull();
+  expect(container.querySelector('iframe, [onerror], [onclick], [onmouseover], [href^="javascript:"], [style*="url("]')).toBeNull();
 
 });
 
@@ -54,10 +56,11 @@ it('copies only the chosen code block without changing the code', async () => {
   try {
     render(<LessonMarkdown source={[
       '```python', 'print(1)', '```', '',
-      '```cpp', '  if (a < b && x > y) {', '    return;', '  }', '```',
+      '```cpp title="example.cpp" linenums="1" hl_lines="2"', '  if (a < b && x > y) {', '    return;', '  }', '```',
     ].join('\n')} />);
     expect(screen.getByText('Python')).toBeInTheDocument();
-    expect(screen.getByText('C++')).toBeInTheDocument();
+    expect(screen.getByText('C++, example.cpp')).toBeInTheDocument();
+    expect(document.querySelector('.lesson-markdown-highlight-line')).toHaveAttribute('data-line-number', '2');
     fireEvent.click(screen.getAllByRole('button', { name: 'Копировать' })[1]);
     expect(writeText).toHaveBeenCalledWith('  if (a < b && x > y) {\n    return;\n  }');
     expect(await screen.findByText('Код скопирован')).toBeInTheDocument();
@@ -65,4 +68,32 @@ it('copies only the chosen code block without changing the code', async () => {
     if (clipboard) Object.defineProperty(navigator, 'clipboard', clipboard);
     else Reflect.deleteProperty(navigator, 'clipboard');
   }
+});
+
+it('renders lesson dialects and resolves document links without changing the room URL', () => {
+  const source = [
+    '---', 'title: Test', 'published: true', '---', '',
+    '[Перейти](#11-таблицы)', '', '## 11. Таблицы [GFM]', '',
+    '#### Кастомный {#custom}', '',
+    '+++', '', '++подчёркнуто++ и H~2~O.', '',
+    String.raw`Экранирование \(круглые\) и формула \(x^2\).`, '',
+    String.raw`\[`, 'x^3', String.raw`\]`, '',
+    '> [!WARNING]', '> Пример предупреждения', '',
+    'Markdown', ': Определение с `кодом`.', '',
+    'HTML', '', '*[HTML]: HyperText Markup Language', '',
+    '<details open><summary>Открытый блок</summary>Внутри</details>', '',
+    'Сноска^[Встроенная сноска].', '', '[TOC]',
+  ].join('\n');
+  const { container } = render(<LessonMarkdown source={source} />);
+  expect(screen.queryByText('published: true')).toBeNull();
+  const target = screen.getByRole('heading', { name: '11. Таблицы [GFM]' });
+  expect(screen.getByRole('link', { name: 'Перейти' })).toHaveAttribute('href', '#' + target.id);
+  expect(screen.getByRole('navigation', { name: 'Оглавление' })).toBeInTheDocument();
+  expect(container.querySelectorAll('math')).toHaveLength(2);
+  expect(screen.getByText(/Экранирование \(круглые\)/)).toBeInTheDocument();
+  expect(container.querySelector('.lesson-markdown-callout--warning')).toHaveTextContent('Пример предупреждения');
+  expect(container.querySelector('dl dd')).toHaveTextContent('Определение с кодом');
+  expect(container.querySelector('abbr')).toHaveAttribute('title', 'HyperText Markup Language');
+  expect(container.querySelector('details')).toHaveAttribute('open');
+  expect(container.querySelector('.footnotes')).toHaveTextContent('Встроенная сноска');
 });
