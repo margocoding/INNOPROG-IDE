@@ -28,16 +28,20 @@ function lessonHtml(source: string, prefix: string) {
     const filename = /(?:^|\s)title="([^"\n]{1,100})"/.exec(lang ?? '')?.[1];
     const lineStart = /(?:^|\s)linenums="([1-9]\d{0,4})"/.exec(lang ?? '')?.[1];
     const highlighted = new Set(/(?:^|\s)hl_lines="([\d ]{1,100})"/.exec(lang ?? '')?.[1].trim().split(/ +/).map(Number));
-    const code = lineStart || highlighted.size ? text.split('\n').map((line, index) => {
+    const formatted = Boolean(lineStart || highlighted.size);
+    const lines = formatted ? text.split('\n') : [];
+    const gutter = lineStart ? Math.max(2, String(Number(lineStart) + lines.length - 1).length) : 0;
+    const attributes = formatted ? ` class="lesson-markdown-code-lines"${gutter ? ` style="--lesson-code-number-width:${gutter}ch"` : ''}` : '';
+    const code = formatted ? lines.map((line, index) => {
       const number = lineStart ? ` data-line-number="${Number(lineStart) + index}"` : '';
-      const emphasis = highlighted.has(index + 1) ? ' class="lesson-markdown-highlight-line"' : '';
-      return `<span${number}${emphasis}>${escapeText(line)}</span>`;
+      const emphasis = highlighted.has(index + 1) ? ' lesson-markdown-highlight-line' : '';
+      return `<span class="lesson-markdown-code-line${emphasis}"${number}>${escapeText(line)}</span>`;
     }).join('\n') : escapeText(text);
     return `<div class="lesson-markdown-code"><div class="lesson-markdown-code-toolbar">
       <span>${escapeText(name)}${filename ? `, ${escapeText(filename)}` : ''}</span><button type="button" data-copy-code>
         <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M13 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/></svg>
         Копировать
-      </button></div><pre><code>${code}</code></pre></div>`;
+      </button></div><pre><code${attributes}>${code}</code></pre></div>`;
   };
 
   renderer.html = ({ text }) => safeLessonHtml(text);

@@ -140,7 +140,18 @@
 .lesson-modal--description .lesson-create-column:first-child { flex: 1; min-height: 0; }
 .lesson-modal--description .lesson-create-column > :not(.lesson-description-editor),
 .lesson-modal--description .lesson-create-column:nth-child(2) { display: none; }
-.lesson-modal--description .lesson-modal-footer > :not(.lesson-resize-handle) { visibility: hidden; }
+.lesson-modal--description .lesson-modal-footer > :not(.lesson-resize-handle) { display: none; }
+@media (min-width: 768px) {
+  .lesson-modal--create.lesson-modal--description .lesson-modal-footer {
+    position: absolute;
+    inset-inline-end: 0;
+    inset-block-end: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+  }
+}
 .lesson-modal--description .lesson-description-editor {
   display: flex;
   flex: 1;

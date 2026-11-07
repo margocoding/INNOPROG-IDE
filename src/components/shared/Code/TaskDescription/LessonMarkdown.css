@@ -72,11 +72,25 @@
 .lesson-markdown dd { margin-inline-start: 1.3em; }
 .lesson-markdown figcaption { color: #aab6cc; }
 .lesson-markdown table { display: block; overflow-x: auto; }
-.lesson-markdown [data-line-number]::before {
+.lesson-markdown .lesson-markdown-code-lines {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  white-space: normal;
+}
+.lesson-markdown .lesson-markdown-code-line {
+  display: block;
+  min-height: 1lh;
+  white-space: pre;
+}
+.lesson-markdown .lesson-markdown-code-line[data-line-number]::before {
   content: attr(data-line-number);
   display: inline-block;
-  min-width: 2.5em;
+  width: var(--lesson-code-number-width);
   margin-inline-end: 0.75em;
+  padding-inline-end: 0.55em;
+  border-inline-end: 1px solid #394152;
+  box-sizing: content-box;
   text-align: end;
   color: #aab6cc;
   user-select: none;
