@@ -489,8 +489,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     let active = true;
 
     const loadCode = async () => {
-      // The task response carries the starter file for file-based completion
-      // tasks, so wait for it before deciding what an empty saved answer means.
+      // Wait for task metadata before choosing the initial editable code.
       if (taskId && !taskDataReady) {
         return;
       }
@@ -535,7 +534,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
             const initialCode = typeof task?.initial_code === "string"
               ? task.initial_code
               : "";
-            setCode(hasSavedCode ? data.code : (initialCode ? "" : (data.code || "")));
+            const starterCode = task?.editable_starter_code ?? (initialCode ? "" : data.code);
+            setCode(hasSavedCode ? data.code : starterCode);
             setCodeSource("api");
           }
         } catch (error) {
@@ -574,6 +574,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     userId,
     taskDataReady,
     task?.initial_code,
+    task?.editable_starter_code,
     isEmbeddedApp,
   ]);
 

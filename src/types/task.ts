@@ -23,6 +23,7 @@ export interface Task {
   has_public_example?: boolean;
   examples?: Example[];
   initial_code?: string;
+  editable_starter_code?: string;
   editor_language?: string;
   submission_ui?: string;
   tests?: Test[];

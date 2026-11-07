@@ -314,7 +314,7 @@ describe("IDE", () => {
     expect(screen.queryByText(/Напишите код здесь/)).toBeNull();
   });
 
-  it("keeps a saved answer instead of replacing it with the starter file", async () => {
+  it.each([false, true])("loads the editable starter or saved answer (saved: %s)", async (saved) => {
     window.history.replaceState(
       {}, "", "/?telegramId=123&task_id=80026&answer_id=a&lang=py",
     );
@@ -322,18 +322,20 @@ describe("IDE", () => {
       id: 80026,
       title: "Complete the file",
       type: "Дополнение кода",
-      initial_code: "starter code",
+      editable_starter_code: "starter code",
       answers: [{ code_before: "", code_after: "" }],
     });
     (api.getSubmitCode as jest.Mock).mockResolvedValue({
-      code: "student solution",
-      has_saved_code: true,
+      code: saved ? "student solution" : "# Напишите код здесь",
+      has_saved_code: saved,
     });
 
     render(<IDE telegramId="123" />);
 
-    await screen.findByText("student solution");
-    expect(screen.getByTestId("editable-code")).toHaveTextContent("student solution");
+    const expected = saved ? "student solution" : "starter code";
+    await waitFor(() => expect(screen.getByTestId("editable-code")).toHaveTextContent(expected));
+    fireEvent.click(screen.getByText("change-code"));
+    expect(screen.getByTestId("editable-code")).toHaveTextContent("changed");
   });
 
   it("loads submitted code when the app supplies an inactive socket facade", async () => {
