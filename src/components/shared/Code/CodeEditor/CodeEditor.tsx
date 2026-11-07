@@ -716,6 +716,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
       const isIOS =
         /iphone|ipad|ipod/.test(ua) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      const isTouchEditor = isIOS || window.matchMedia?.("(pointer: coarse)").matches;
 
       const handleEnterBetweenBraces = (view: EditorView) => {
         const { state, dispatch } = view;
@@ -959,7 +960,8 @@ const CodeEditor: React.FC<IProps> = React.memo(
           selectionHighlightField,
           lineNumbers(),
           foldGutter(),
-          scrollPastEnd(),
+          // Touch scrolling should stop at the last line instead of a blank viewport.
+          isTouchEditor ? [] : scrollPastEnd(),
           EditorState.tabSize.of(4),
           indentUnit.of("    "),
           EditorView.updateListener.of((update) => {
