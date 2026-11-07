@@ -2083,11 +2083,12 @@ export const useWebSocket = ({
         [completed, getCurrentTelegramId]
     );
 
-    const selectLesson = useCallback(async (selection: LessonSelection) => {
+    const selectLesson = useCallback(async (selection: LessonSelection, expectedRevision?: number) => {
         const socket = socketRef.current;
         const room = roomIdRef.current;
         const revision = lessonRef.current?.revision ?? 0;
         if (!socket?.connected || !room || !isTeacherRef.current) throw new Error('Комната недоступна');
+        if (expectedRevision !== undefined && expectedRevision !== revision) throw new Error('Задача в комнате изменилась');
         if (pendingUpdateRef.current || inFlightUpdateRef.current) {
             flushReliableQueueRef.current();
             throw new Error('Дождитесь сохранения кода и повторите выбор');

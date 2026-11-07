@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useOverlayPosition } from '@react-aria/overlays';
 import { Autocomplete, AutocompleteItem, Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Tab, Tabs } from '@heroui/react';
 import { roomLessonCredential } from '../../../../services/api';
 import { LessonModule, LessonSelection, RoomLessonState, RoomLessonTask } from '../../../../types/roomLesson';
@@ -17,6 +19,152 @@ const languages = [
 ].map(([id, label]) => ({ id, label }));
 const languageLabel = (value: string) => languages.find(item => item.id === value)?.label ?? value;
 
+function matchChoices(choices: Choice[], query: string, value: string) {
+  const selectedLabel = choices.find(choice => choice.id === value)?.label;
+  const term = query === selectedLabel ? '' : query.trim().toLocaleLowerCase();
+  const matches = term ? choices.flatMap(choice => {
+    if (choice.label.toLocaleLowerCase().includes(term)) return [{ choice, rank: 0 }];
+    if (choice.searchText?.toLocaleLowerCase().includes(term)) return [{ choice, rank: 1 }];
+    if (choice.detail?.toLocaleLowerCase().includes(term)) return [{ choice, rank: 2 }];
+    return [];
+  }).sort((left, right) => left.rank - right.rank).map(match => match.choice) : choices;
+  return matches;
+}
+
+type TaskAction = 'edit' | 'delete';
+const actionLabels: Record<TaskAction, string> = { edit: 'Редактировать', delete: 'Удалить' };
+const actionIcons: Record<TaskAction, string> = {
+  edit: 'm4 13-1 4 4-1L17 6l-3-3L4 13zm8-8 3 3',
+  delete: 'M3 5h14M7 5V3h6v2M5 5l1 12h8l1-12M8 8v6m4-6v6',
+};
+function TaskActions({ title, onAction }: {
+  title: string;
+  onAction: (action: TaskAction) => void;
+}) {
+  return <div className="lesson-task-actions">
+    {(['edit', 'delete'] as const).map(action => <button key={action} type="button" className={action === 'delete' ? 'lesson-task-action-danger' : undefined}
+      aria-label={`${actionLabels[action]}, ${title}`} title={actionLabels[action]} onClick={() => onAction(action)}>
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true"><path d={actionIcons[action]} /></svg>
+    </button>)}
+  </div>;
+}
+
+function PersonalTaskSelect({ choices, value, select, onAction, search, setSearch }: {
+  choices: Choice[];
+  value: string;
+  select: (id: string) => void;
+  onAction: (id: string, action: TaskAction) => void;
+  search: string | undefined;
+  setSearch: (search: string | undefined) => void;
+}) {
+  const expanded = search !== undefined;
+  const [{ width, placement }, setPopupGeometry] = useState<{ width: number; placement: 'top' | 'bottom' }>({ width: 0, placement: 'bottom' });
+  const root = React.useRef<HTMLDivElement>(null);
+  const input = React.useRef<HTMLInputElement>(null);
+  const list = React.useRef<HTMLUListElement>(null);
+  const firstResult = React.useRef<HTMLButtonElement>(null);
+  const listId = React.useId();
+  const modal = root.current?.closest('.lesson-modal');
+  const { overlayProps, updatePosition } = useOverlayPosition({
+    targetRef: root, overlayRef: list, isOpen: expanded, placement,
+    shouldFlip: false, offset: 5, maxHeight: 208,
+  });
+  React.useLayoutEffect(() => {
+    if (expanded && width) updatePosition();
+  }, [expanded, width, updatePosition]);
+  const selectedLabel = choices.find(choice => choice.id === value)?.label ?? '';
+  const matches = matchChoices(choices, search ?? '', value);
+  React.useLayoutEffect(() => {
+    const anchor = root.current;
+    if (!expanded || !anchor) return;
+    const viewport = window.visualViewport;
+    const measure = () => {
+      const { top, bottom } = anchor.getBoundingClientRect();
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const below = viewportTop + (viewport?.height ?? window.innerHeight) - bottom;
+      const placement = below < 140 && top - viewportTop > below ? 'top' : 'bottom';
+      const width = anchor.offsetWidth;
+      setPopupGeometry(previous => previous.width === width && previous.placement === placement
+        ? previous : { width, placement });
+    };
+    measure();
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : undefined;
+    observer?.observe(anchor);
+    window.addEventListener('resize', measure);
+    viewport?.addEventListener('resize', measure);
+    viewport?.addEventListener('scroll', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+      viewport?.removeEventListener('resize', measure);
+      viewport?.removeEventListener('scroll', measure);
+    };
+  }, [expanded]);
+  useEffect(() => {
+    if (!expanded) return;
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !root.current?.contains(event.target) && !list.current?.contains(event.target)) setSearch(undefined);
+    };
+    document.addEventListener('pointerdown', outside, true);
+    return () => document.removeEventListener('pointerdown', outside, true);
+  }, [expanded, setSearch]);
+
+  return <div ref={root} className="lesson-personal-select"
+    onBlur={event => {
+      if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget) && !list.current?.contains(event.relatedTarget)) setSearch(undefined);
+    }}
+    onKeyDown={event => {
+      if (expanded && event.key === 'Escape') {
+        event.stopPropagation();
+        setSearch(undefined);
+        input.current?.focus();
+      }
+    }}>
+    <Input ref={input} label="Задача" labelPlacement="outside" placeholder="Поиск…" variant="bordered"
+      value={expanded ? search : selectedLabel} aria-controls={expanded ? listId : undefined}
+      onFocus={event => { if (!expanded) event.currentTarget.select(); }}
+      onClick={() => { if (!expanded) setSearch(''); }}
+      onValueChange={setSearch}
+      onKeyDown={event => {
+        if (event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        if (expanded) firstResult.current?.focus();
+        else setSearch('');
+      }}
+      classNames={{ inputWrapper: 'lesson-field', input: 'lesson-field-input' }}
+      endContent={<button type="button" className="lesson-personal-toggle" aria-label="Список личных задач"
+        aria-expanded={expanded} aria-controls={expanded ? listId : undefined}
+        onKeyDown={event => {
+          if (expanded && event.key === 'Tab' && !event.shiftKey && firstResult.current) {
+            event.preventDefault();
+            firstResult.current.focus();
+          }
+        }}
+        onClick={() => { if (!expanded) input.current?.focus(); setSearch(expanded ? undefined : ''); }}>
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" aria-hidden="true"><path d={expanded ? 'm4 10 4-4 4 4' : 'm4 6 4 4 4-4'} /></svg>
+      </button>}
+    />
+    {expanded && modal && width > 0 && createPortal(
+      <ul {...overlayProps} ref={list} id={listId} aria-label="Личные задачи"
+        className="lesson-list-popover lesson-list-scroll lesson-personal-list"
+        style={{ ...overlayProps.style, width }}>
+        {!matches.length && <li className="lesson-personal-empty">Ничего не найдено</li>}
+        {matches.map((choice, index) => <li key={choice.id} className="lesson-personal-row">
+          <button ref={index === 0 ? firstResult : undefined} type="button" className="lesson-personal-choice"
+            aria-pressed={choice.id === value}
+            onClick={() => { select(choice.id); setSearch(undefined); input.current?.focus(); }}>
+            <strong>{choice.label}</strong><small>{choice.detail}</small>
+          </button>
+          <TaskActions title={choice.label} onAction={action => {
+            if (action === 'delete') setSearch(undefined);
+            onAction(choice.id, action);
+          }} />
+        </li>)}
+      </ul>, modal,
+    )}
+  </div>;
+}
+
 function SearchSelect({ label, choices, value, select, busy }: {
   label: string;
   choices: Choice[];
@@ -26,14 +174,7 @@ function SearchSelect({ label, choices, value, select, busy }: {
 }) {
   const root = React.useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
-  const selectedLabel = choices.find(choice => choice.id === value)?.label;
-  const term = query === selectedLabel ? '' : query.trim().toLocaleLowerCase();
-  const matches = term ? choices.flatMap(choice => {
-    if (choice.label.toLocaleLowerCase().includes(term)) return [{ choice, rank: 0 }];
-    if (choice.searchText?.toLocaleLowerCase().includes(term)) return [{ choice, rank: 1 }];
-    if (choice.detail?.toLocaleLowerCase().includes(term)) return [{ choice, rank: 2 }];
-    return [];
-  }).sort((left, right) => left.rank - right.rank).map(match => match.choice) : choices;
+  const matches = matchChoices(choices, query, value);
   return <div ref={root} className="lesson-search-select"><Autocomplete
     label={label} placeholder="Поиск…" labelPlacement="outside" variant="bordered"
     selectedKey={value || null} onSelectionChange={key => select(key == null ? '' : String(key))}
@@ -78,7 +219,7 @@ async function roomRequest<T>(room: string, path: string, signal?: AbortSignal, 
 
 export default function LessonPicker({ room, active, select }: {
   room: string; active?: RoomLessonState;
-  select: (selection: LessonSelection) => Promise<void>;
+  select: (selection: LessonSelection, expectedRevision?: number) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('platform');
@@ -93,6 +234,7 @@ export default function LessonPicker({ room, active, select }: {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<PersonalTask>();
   const [deleting, setDeleting] = useState<PersonalTask>();
+  const [personalSearch, setPersonalSearch] = useState<string>();
   const [formModuleId, setFormModuleId] = useState('');
   const [formSize, setFormSize] = useState<{ width: number; height: number }>();
   const formDrag = React.useRef<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -150,6 +292,7 @@ export default function LessonPicker({ room, active, select }: {
 
   const resetChoice = () => {
     setTaskId('');
+    setPersonalSearch(undefined);
     setCatalog([]);
     setError('');
   };
@@ -199,6 +342,7 @@ export default function LessonPicker({ room, active, select }: {
       personalMutationVersion.current++;
       setPersonal(items => editing ? items.map(item => item.id === task.id ? task : item) : [task, ...items]);
       setCreating(false);
+      setPersonalSearch(undefined);
       fillForm();
       setModuleId(String(task.moduleId));
       setTaskId(task.id);
@@ -214,9 +358,13 @@ export default function LessonPicker({ room, active, select }: {
       await roomRequest(room, 'personal/' + encodeURIComponent(deleting.id), undefined, undefined, 'DELETE');
       personalMutationVersion.current++;
       setPersonal(items => items.filter(item => item.id !== deleting.id));
-      setTaskId('');
+      setTaskId(current => current === deleting.id ? '' : current);
       if (!personal.some(item => item.id !== deleting.id && String(item.moduleId) === moduleId)) setModuleId('');
       setDeleting(undefined);
+      if (active?.key === 'personal:' + deleting.id) {
+        try { await select({ source: 'free' }, active.revision); }
+        catch { setError('Задача удалена из библиотеки. Если она ещё открыта, выберите «Свободный редактор».'); }
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Не удалось удалить задачу');
     } finally { setSaving(false); }
@@ -251,9 +399,14 @@ export default function LessonPicker({ room, active, select }: {
   const formModules = editing && !availableModuleIds.has(String(editing.moduleId))
     ? [...moduleChoices, { id: String(editing.moduleId), label: `Модуль ${editing.moduleId}` }]
     : moduleChoices;
-  const selectedPersonal = tab === 'personal' && pickerModuleId
-    ? personal.find(task => task.id === taskId && String(task.moduleId) === pickerModuleId) : undefined;
-  const tasks = tab === 'platform' ? catalog : personal.filter(task => String(task.moduleId) === moduleId);
+  const activePersonal = personal.find(task => active?.key === 'personal:' + task.id);
+  const personalTasks = personal.filter(task => String(task.moduleId) === moduleId);
+  const tasks = tab === 'platform' ? catalog : personalTasks;
+  const openTaskAction = (task: PersonalTask, action: TaskAction) => {
+    setError('');
+    if (action === 'edit') { fillForm(task); setCreating(true); }
+    if (action === 'delete') setDeleting(task);
+  };
   const taskChoices = tasks.map(task => ({
     id: String(task.id), label: task.title,
     detail: [task.topic, languageLabel(task.language)].filter(Boolean).join(', '),
@@ -273,6 +426,7 @@ export default function LessonPicker({ room, active, select }: {
       if (!next) {
         closeForm();
         setDeleting(undefined);
+        setPersonalSearch(undefined);
       }
     }} hideCloseButton={saving} isDismissable={!saving && !importingDescription} isKeyboardDismissDisabled={saving || importingDescription || expandedDescription} placement="center" scrollBehavior="inside"
       style={creating && formSize ? {
@@ -290,7 +444,9 @@ export default function LessonPicker({ room, active, select }: {
         <ModalHeader>
           <span>{deleting ? "Удаление задачи" : expandedDescription ? "Условие задачи" : creating ? editing ? "Редактирование задачи" : "Новая задача" : "Задача для занятия"}</span>
           {!creating && !deleting && active?.task && <div className="lesson-current">
-            <span>Сейчас в комнате</span><strong>{active.task.title}</strong>
+            <div><span>Сейчас в комнате</span><strong>{active.task.title}</strong></div>
+            {activePersonal && <TaskActions title={activePersonal.title}
+              onAction={action => openTaskAction(activePersonal, action)} />}
           </div>}
         </ModalHeader>
         <ModalBody>
@@ -301,11 +457,13 @@ export default function LessonPicker({ room, active, select }: {
             <Tab key="platform" title="С платформы" />
             <Tab key="personal" title="Мои задачи" />
           </Tabs>
-            {tab === 'personal' && <Button size="sm" radius="sm" className="lesson-add" aria-label="Добавить задачу" title="Добавить задачу" variant="solid" color="secondary" onPress={() => { if (!formModuleId && availableModuleIds.has(pickerModuleId)) chooseFormModule(pickerModuleId); setCreating(true); setError(''); }} startContent={
+            {tab === 'personal' && <Button size="sm" radius="sm" className="lesson-add" aria-label="Добавить задачу" title="Добавить задачу" variant="solid" color="secondary" onPress={() => { setPersonalSearch(undefined); setCreating(true); setError(''); }} startContent={
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>
             }><span>Добавить задачу</span></Button>}
           </div>}
-          {deleting ? <p>Удалить «{deleting.title}» из личных задач?</p> : creating ? <div className="lesson-create-grid">
+          {deleting ? <p>Удалить «{deleting.title}» из личных задач?
+            {active?.key === 'personal:' + deleting.id && ' В комнате откроется свободный редактор.'}
+          </p> : creating ? <div className="lesson-create-grid">
             <div className="lesson-create-column">
               <Input label="Название задачи" labelPlacement="outside" placeholder="Введите название" variant="bordered" maxLength={160} value={title} onValueChange={setTitle} />
               <div className="lesson-fields-row">
@@ -380,20 +538,15 @@ export default function LessonPicker({ room, active, select }: {
           </div> : <>
             {tab === 'personal' && !personal.length ? <p>Личных задач пока нет</p> :
               <SearchSelect label="Модуль" choices={pickerModules} value={pickerModuleId} select={chooseModule} />}
-            {pickerModuleId && <div className="lesson-task-choice">
-              <SearchSelect key={tab + pickerModuleId} label="Задача" choices={taskChoices} value={taskId} select={setTaskId} busy={tab === 'platform' && loading} />
-              {tab === 'personal' && <>
-                <Button isIconOnly variant="bordered" isDisabled={!selectedPersonal} aria-label="Редактировать задачу" title="Редактировать задачу" onPress={() => {
-                  if (!selectedPersonal) return;
-                  fillForm(selectedPersonal); setError(''); setCreating(true);
-                }}>
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true"><path d="m4 13-1 4 4-1L17 6l-3-3L4 13zm8-8 3 3"/></svg>
-                </Button>
-                <Button isIconOnly color="danger" variant="flat" isDisabled={!selectedPersonal} aria-label="Удалить задачу" title="Удалить задачу" onPress={() => { setError(''); setDeleting(selectedPersonal); }}>
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 5h14M7 5V3h6v2M5 5l1 12h8l1-12M8 8v6m4-6v6"/></svg>
-                </Button>
-              </>}
-            </div>}
+            {pickerModuleId && (tab === 'personal' ?
+              <PersonalTaskSelect key={pickerModuleId} choices={taskChoices} value={taskId} select={setTaskId}
+                search={personalSearch} setSearch={setPersonalSearch}
+                onAction={(id, action) => {
+                  const task = personalTasks.find(item => item.id === id);
+                  if (task) openTaskAction(task, action);
+                }} /> :
+              <SearchSelect key={pickerModuleId} label="Задача" choices={taskChoices} value={taskId} select={setTaskId} busy={loading} />
+            )}
           </>}
           {error && <p role="alert" className="lesson-error">{error}</p>}
         </ModalBody>

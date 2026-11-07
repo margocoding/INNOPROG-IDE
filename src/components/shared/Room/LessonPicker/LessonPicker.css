@@ -23,7 +23,8 @@
 .lesson-field-input { font-size: 16px; }
 .lesson-list-popover { background: #212530; border: 1px solid #424b5d; color: #e0e7f1; }
 .lesson-list-scroll { max-height: 230px; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-.lesson-current { display: grid; gap: 3px; border-left: 2px solid #a58aff; padding-left: 10px; min-width: 0; }
+.lesson-current { display: flex; align-items: center; gap: 5px; border-left: 2px solid #a58aff; padding-left: 10px; min-width: 0; }
+.lesson-current > div:first-child { display: grid; gap: 3px; min-width: 0; }
 .lesson-current span { color: #a6b1c2; font-size: 12px; }
 .lesson-current strong { font-size: 14px; overflow-wrap: anywhere; }
 .lesson-error { color: #ffb4bc; font-size: 13px; }
@@ -213,9 +214,51 @@
   .lesson-modal--create .lesson-modal-body { overflow-x: hidden; }
 }
 
-.lesson-task-choice {
+.lesson-personal-list {
+  z-index: 20;
+  padding: 5px;
+  border-radius: 12px;
+  overflow: auto;
+  box-shadow: 0 10px 24px #0d1018a6;
+}
+.lesson-personal-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px;
+  border-radius: 6px;
+}
+.lesson-personal-row:hover, .lesson-personal-row:focus-within { background: #242d3b; }
+.lesson-personal-choice {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(2, auto);
-  align-items: end;
-  gap: 8px;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  text-align: start;
+  font-size: 14px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  border-radius: 5px;
+}
+.lesson-personal-choice strong { font-weight: 500; }
+.lesson-personal-choice[aria-pressed="true"] { background: #303949; }
+.lesson-personal-choice small, .lesson-personal-empty { color: #a6b1c2; }
+.lesson-personal-empty { padding: 8px; }
+.lesson-task-actions { display: flex; flex-shrink: 0; gap: 2px; }
+.lesson-task-actions button, .lesson-personal-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 32px;
+  border-radius: 5px;
+  color: #b9c5d8;
+}
+.lesson-task-actions button:hover, .lesson-personal-toggle:hover { background: #394457; color: #fff; }
+.lesson-task-actions .lesson-task-action-danger { color: #ff9da9; }
+.lesson-task-actions .lesson-task-action-danger:hover { background: #452833; color: #ffbdc5; }
+.lesson-task-actions button:focus-visible, .lesson-personal-toggle:focus-visible,
+.lesson-personal-choice:focus-visible { outline: 2px solid #a58aff; outline-offset: -2px; }
+@media (max-width: 479px) {
+  .lesson-current { flex-wrap: wrap; }
 }

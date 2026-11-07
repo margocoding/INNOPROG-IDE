@@ -38,7 +38,7 @@ interface RoomPermissions {
 interface WebSocketData {
   socket: Socket | null;
   lesson?: RoomLessonState;
-  selectLesson?: (selection: LessonSelection) => Promise<void>;
+  selectLesson?: (selection: LessonSelection, expectedRevision?: number) => Promise<void>;
   isConnected: boolean;
   isJoinedRoom: boolean;
   connectionError: string | null;
