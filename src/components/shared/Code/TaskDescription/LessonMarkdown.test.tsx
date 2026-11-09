@@ -97,3 +97,18 @@ it('renders lesson dialects and resolves document links without changing the roo
   expect(container.querySelector('details')).toHaveAttribute('open');
   expect(container.querySelector('.footnotes')).toHaveTextContent('Встроенная сноска');
 });
+
+it('colors code by its language while keeping numbered multiline tokens and plain text intact', () => {
+  const { container } = render(<LessonMarkdown language="py" source={[
+    '```sql linenums="3"', '/* first line', 'second line */', 'SELECT 1;', '```', '',
+    '```', 'return 2', '```', '',
+    '```text', '<img src=x onerror=alert(1)>', '```',
+  ].join('\n')} />);
+  const [sql, python, plain] = container.querySelectorAll('pre code');
+  expect(sql.querySelector('[data-line-number="3"] .token.comment')).toHaveTextContent('/* first line');
+  expect(sql.querySelector('[data-line-number="4"] .token.comment')).toHaveTextContent('second line */');
+  expect(sql.querySelector('.token.keyword')).toHaveTextContent('SELECT');
+  expect(python.querySelector('.token.keyword')).toHaveTextContent('return');
+  expect(plain.textContent).toBe('<img src=x onerror=alert(1)>');
+  expect(plain.querySelector('img, .token')).toBeNull();
+});

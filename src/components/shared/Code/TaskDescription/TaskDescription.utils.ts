@@ -1,9 +1,4 @@
-import Prism from "prismjs";
-import "prismjs/components/prism-c";
-import "prismjs/components/prism-cpp";
-import "prismjs/components/prism-javascript";
-import "prismjs/components/prism-markup";
-import "prismjs/components/prism-python";
+import { highlightDescriptionCode } from "./DescriptionSyntax";
 
 const capitalizeFirstTextCharacter = (text: string): string => {
 	const match = text.match(/^(\s*)(\S)([\s\S]*)$/);
@@ -356,6 +351,10 @@ const inferCodeLanguage = (code: string): string => {
 		return "text";
 	}
 
+	if (/#include\s*<|std::|cout\s*<</.test(normalizedCode)) {
+		return "cpp";
+	}
+
 	if (/<\/?[a-z][\s\S]*?>/i.test(normalizedCode)) {
 		return "html";
 	}
@@ -372,22 +371,17 @@ const inferCodeLanguage = (code: string): string => {
 		return "python";
 	}
 
-	if (/#include\s*<|std::|cout\s*<</.test(normalizedCode)) {
-		return "cpp";
-	}
-
 	return "text";
 };
 
-const renderCodeBlock = (tokens: DescriptionToken[]): string => {
+const renderCodeBlock = (tokens: DescriptionToken[], defaultLanguage: string): string => {
 	const code = decodeCodeEntities(trimOuterCodeBlockLines(getTokensContent(tokens)));
-	const language = inferCodeLanguage(code);
-	const grammar = Prism.languages[language];
-	const highlightedCode = grammar
-		? Prism.highlight(code, grammar, language)
-		: escapeCode(code);
+	const inferredLanguage = inferCodeLanguage(code);
+	const language = inferredLanguage === "text" ? defaultLanguage : inferredLanguage;
+	const highlightedCode = highlightDescriptionCode(code, language).join("\n");
+	const languageClass = /^[a-z0-9+#-]+$/i.test(language) ? `language-${language}` : "";
 
-	return `<pre class="task-description-code-block language-${language}"><code class="language-${language}">${highlightedCode}</code></pre>`;
+	return `<pre class="task-description-code-block description-syntax ${languageClass}"><code class="${languageClass}">${highlightedCode}</code></pre>`;
 };
 
 const renderTag = (token: DescriptionTagToken): string => {
@@ -420,7 +414,7 @@ export const stripInlineIdeFormattingHint = (description: string): string => {
 		.trim();
 };
 
-export const processTaskDescription = (description: string): string => {
+export const processTaskDescription = (description: string, language = "text"): string => {
 	if (!description) return "";
 
 	let processed = stripInlineIdeFormattingHint(decodeHtmlEntities(description));
@@ -449,7 +443,7 @@ export const processTaskDescription = (description: string): string => {
 			const codeContent = trimOuterCodeBlockLines(getTokensContent(codeTokens));
 
 			if (codeContent.includes("\n")) {
-				renderedParts.push(renderCodeBlock(codeTokens));
+				renderedParts.push(renderCodeBlock(codeTokens, language));
 				index = token.matchingTagIndex;
 				continue;
 			}

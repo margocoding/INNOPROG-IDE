@@ -907,6 +907,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         data-testid={desktopTaskMode ? "desktop-task-workspace" : undefined}
       >
         <TaskDescription
+          language={language}
           task={displayTask}
           lesson={lessonTask}
           hideTopSpacing={isEmbeddedApp || Boolean(lessonTask)}

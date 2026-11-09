@@ -10,6 +10,7 @@ import { LessonMarkdown } from "./LessonMarkdown";
 interface TaskDescriptionProps {
 	task: Task | null;
 	lesson?: RoomLessonTask | null;
+	language?: string;
 	hideTopSpacing?: boolean;
 	desktopSidebar?: boolean;
 	desktopWidth?: number;
@@ -18,6 +19,7 @@ interface TaskDescriptionProps {
 const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	task,
 	lesson,
+	language,
 	hideTopSpacing = false,
 	desktopSidebar = false,
 	desktopWidth = 38,
@@ -92,10 +94,10 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 							{lessonTitle && <h2 className="lesson-task-title">{lessonTitle}</h2>}
 							{lesson && !lesson.platformId
 								? lesson.descriptionFormat === "markdown"
-									? <LessonMarkdown source={lesson.description} />
+									? <LessonMarkdown source={lesson.description} language={lesson.language} />
 									: <div className="whitespace-pre-wrap break-words">{lesson.description}</div>
 								: <div className="task-description-content"
-									dangerouslySetInnerHTML={{ __html: processTaskDescription(task.description) }} />}
+									dangerouslySetInnerHTML={{ __html: processTaskDescription(task.description, lesson?.language || task.editor_language || language) }} />}
 							{hasPublicExample && (
 								<>
 									{taskInput && (

@@ -115,58 +115,58 @@
   white-space: pre;
 }
 
-.task-description-content pre.task-description-code-block .token.comment,
-.task-description-content pre.task-description-code-block .token.prolog,
-.task-description-content pre.task-description-code-block .token.doctype,
-.task-description-content pre.task-description-code-block .token.cdata {
+.description-syntax .token.comment,
+.description-syntax .token.prolog,
+.description-syntax .token.doctype,
+.description-syntax .token.cdata {
   color: #7f8ea3;
 }
 
-.task-description-content pre.task-description-code-block .token.punctuation {
+.description-syntax .token.punctuation {
   color: #c8d3f5;
 }
 
-.task-description-content pre.task-description-code-block .token.property,
-.task-description-content pre.task-description-code-block .token.tag,
-.task-description-content pre.task-description-code-block .token.boolean,
-.task-description-content pre.task-description-code-block .token.number,
-.task-description-content pre.task-description-code-block .token.constant,
-.task-description-content pre.task-description-code-block .token.symbol,
-.task-description-content pre.task-description-code-block .token.deleted {
+.description-syntax .token.property,
+.description-syntax .token.tag,
+.description-syntax .token.boolean,
+.description-syntax .token.number,
+.description-syntax .token.constant,
+.description-syntax .token.symbol,
+.description-syntax .token.deleted {
   color: #ff966c;
 }
 
-.task-description-content pre.task-description-code-block .token.selector,
-.task-description-content pre.task-description-code-block .token.attr-name,
-.task-description-content pre.task-description-code-block .token.string,
-.task-description-content pre.task-description-code-block .token.char,
-.task-description-content pre.task-description-code-block .token.builtin,
-.task-description-content pre.task-description-code-block .token.inserted {
+.description-syntax .token.selector,
+.description-syntax .token.attr-name,
+.description-syntax .token.string,
+.description-syntax .token.char,
+.description-syntax .token.builtin,
+.description-syntax .token.inserted {
   color: #c3e88d;
 }
 
-.task-description-content pre.task-description-code-block .token.operator,
-.task-description-content pre.task-description-code-block .token.entity,
-.task-description-content pre.task-description-code-block .token.url,
-.task-description-content pre.task-description-code-block .language-css .token.string,
-.task-description-content pre.task-description-code-block .style .token.string {
+.description-syntax .token.operator,
+.description-syntax .token.entity,
+.description-syntax .token.url,
+.description-syntax .language-css .token.string,
+.description-syntax .style .token.string {
   color: #89ddff;
 }
 
-.task-description-content pre.task-description-code-block .token.atrule,
-.task-description-content pre.task-description-code-block .token.attr-value,
-.task-description-content pre.task-description-code-block .token.keyword {
+.description-syntax .token.atrule,
+.description-syntax .token.attr-value,
+.description-syntax .token.keyword {
   color: #c792ea;
 }
 
-.task-description-content pre.task-description-code-block .token.function,
-.task-description-content pre.task-description-code-block .token.class-name {
+.description-syntax .token.function,
+.description-syntax .token.class-name {
   color: #82aaff;
 }
 
-.task-description-content pre.task-description-code-block .token.regex,
-.task-description-content pre.task-description-code-block .token.important,
-.task-description-content pre.task-description-code-block .token.variable {
+.description-syntax .token.regex,
+.description-syntax .token.important,
+.description-syntax .token.variable {
   color: #f78c6c;
 }
 

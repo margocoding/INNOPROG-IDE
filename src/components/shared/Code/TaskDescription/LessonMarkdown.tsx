@@ -4,6 +4,7 @@ import markedKatex from 'marked-katex-extension';
 import 'katex/dist/katex.min.css';
 import { MouseEvent, useId, useMemo, useState } from 'react';
 import './LessonMarkdown.css';
+import { highlightDescriptionCode } from './DescriptionSyntax';
 import { callout, escapeAttribute, escapeText, imageMarkup, lessonDialect, mathOptions, safeLessonHtml } from './LessonMarkdownExtensions';
 
 const languageNames = new Map([
@@ -14,7 +15,7 @@ const languageNames = new Map([
   ['json', 'JSON'], ['yaml', 'YAML'], ['yml', 'YAML'], ['md', 'Markdown'], ['markdown', 'Markdown'],
   ['bat', 'Windows CMD'], ['powershell', 'PowerShell'], ['mermaid', 'Mermaid'], ['plantuml', 'PlantUML'], ['dot', 'Graphviz DOT'], ['diff', 'Diff'],
 ]);
-function lessonHtml(source: string, prefix: string) {
+function lessonHtml(source: string, prefix: string, defaultLanguage: string) {
   const renderer = new Renderer();
   const headings: { level: number; id: string; title: string }[] = [];
   const headingIds = new Set<string>();
@@ -29,19 +30,19 @@ function lessonHtml(source: string, prefix: string) {
     const lineStart = /(?:^|\s)linenums="([1-9]\d{0,4})"/.exec(lang ?? '')?.[1];
     const highlighted = new Set(/(?:^|\s)hl_lines="([\d ]{1,100})"/.exec(lang ?? '')?.[1].trim().split(/ +/).map(Number));
     const formatted = Boolean(lineStart || highlighted.size);
-    const lines = formatted ? text.split('\n') : [];
+    const lines = highlightDescriptionCode(text, language || defaultLanguage);
     const gutter = lineStart ? Math.max(2, String(Number(lineStart) + lines.length - 1).length) : 0;
     const attributes = formatted ? ` class="lesson-markdown-code-lines"${gutter ? ` style="--lesson-code-number-width:${gutter}ch"` : ''}` : '';
     const code = formatted ? lines.map((line, index) => {
       const number = lineStart ? ` data-line-number="${Number(lineStart) + index}"` : '';
       const emphasis = highlighted.has(index + 1) ? ' lesson-markdown-highlight-line' : '';
-      return `<span class="lesson-markdown-code-line${emphasis}"${number}>${escapeText(line)}</span>`;
-    }).join('\n') : escapeText(text);
+      return `<span class="lesson-markdown-code-line${emphasis}"${number}>${line}</span>`;
+    }).join('\n') : lines.join('\n');
     return `<div class="lesson-markdown-code"><div class="lesson-markdown-code-toolbar">
       <span>${escapeText(name)}${filename ? `, ${escapeText(filename)}` : ''}</span><button type="button" data-copy-code>
         <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M13 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/></svg>
         Копировать
-      </button></div><pre><code${attributes}>${code}</code></pre></div>`;
+      </button></div><pre class="description-syntax"><code${attributes}>${code}</code></pre></div>`;
   };
 
   renderer.html = ({ text }) => safeLessonHtml(text);
@@ -152,13 +153,13 @@ function lessonHtml(source: string, prefix: string) {
   return html.replace(tocMarker, contents).replaceAll(tocMarker, '') + notes;
 }
 
-export function LessonMarkdown({ source }: { source: string }) {
+export function LessonMarkdown({ source, language = '' }: { source: string; language?: string }) {
   const id = useId().replace(/[^a-z0-9_-]/gi, '');
   const prefix = `lesson-${id}-`;
   const html = useMemo(() => {
-    try { return lessonHtml(source, prefix); }
+    try { return lessonHtml(source, prefix, language); }
     catch { return null; }
-  }, [source, prefix]);
+  }, [source, prefix, language]);
   const [message, setMessage] = useState('');
   const copyCode = async (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
