@@ -1,5 +1,4 @@
 import type { LessonSelection, RoomLessonState } from '../types/roomLesson';
-import { roomLessonCredential } from '../services/api';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { io, Socket } from "socket.io-client";
@@ -2093,10 +2092,8 @@ export const useWebSocket = ({
             flushReliableQueueRef.current();
             throw new Error('Дождитесь сохранения кода и повторите выбор');
         }
-        const credential = selection.source === 'platform' ? await roomLessonCredential() : '';
-        if (socketRef.current !== socket || roomIdRef.current !== room) throw new Error('Комната изменилась');
         const result = await emitWithAck<{ ok: boolean; error?: string }>(socket, 'room-lesson:select', {
-            ...selection, roomId: room, telegramId: getCurrentTelegramId(), credential, revision,
+            ...selection, roomId: room, telegramId: getCurrentTelegramId(), revision,
         });
         if (!result?.ok) throw new Error(result?.error || 'Не удалось открыть задачу');
     }, [emitWithAck, getCurrentTelegramId]);

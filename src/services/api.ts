@@ -164,10 +164,6 @@ async function restorePlatformSession(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_M
 	return platformSessionPromise;
 }
 
-export async function roomLessonCredential() {
-  return LOCAL_PREVIEW ? '' : platformAccessToken || await restorePlatformSession();
-}
-
 async function protectedTaskHeaders(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_MS): Promise<Record<string, string>> {
 	if (LOCAL_PREVIEW) return {};
 	const headers: Record<string, string> = {};

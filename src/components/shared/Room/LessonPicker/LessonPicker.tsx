@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useOverlayPosition } from '@react-aria/overlays';
 import { Autocomplete, AutocompleteItem, Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Tab, Tabs } from '@heroui/react';
-import { roomLessonCredential } from '../../../../services/api';
 import { LessonModule, LessonSelection, RoomLessonState, RoomLessonTask } from '../../../../types/roomLesson';
 import { Language } from '../../../../types/task';
 import { currentRoomToken } from '../../../../utils/roomSession';
@@ -147,6 +146,13 @@ function PersonalTaskSelect({ choices, value, select, onAction, search, setSearc
     {expanded && modal && width > 0 && createPortal(
       <ul {...overlayProps} ref={list} id={listId} aria-label="Личные задачи"
         className="lesson-list-popover lesson-list-scroll lesson-personal-list"
+        onMouseDown={event => {
+          // WebKit moves focus to the dialog before dispatching a button click.
+          // Keep the list mounted until the row action runs.
+          if (event.button === 0 && event.target instanceof Element && event.target.closest('button')) {
+            event.preventDefault();
+          }
+        }}
         style={{ ...overlayProps.style, width }}>
         {!matches.length && <li className="lesson-personal-empty">Ничего не найдено</li>}
         {matches.map((choice, index) => <li key={choice.id} className="lesson-personal-row">
@@ -199,13 +205,11 @@ function SearchSelect({ label, choices, value, select, busy }: {
 async function roomRequest<T>(room: string, path: string, signal?: AbortSignal, data?: unknown, method = data ? 'POST' : 'GET'): Promise<T> {
   const token = currentRoomToken(room);
   if (!token) throw new Error('Переподключитесь к комнате');
-  const credential = path.startsWith('platform?') ? await roomLessonCredential() : '';
   const response = await fetch(`/api/room/${encodeURIComponent(room)}/lessons/${path}`, {
     signal, cache: 'no-store',
     method,
     headers: {
       'X-Room-Token': token,
-      ...(credential ? { 'X-Platform-Auth': credential } : {}),
       ...(data ? { 'Content-Type': 'application/json' } : {}),
     },
     body: data ? JSON.stringify(data) : undefined,
