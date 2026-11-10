@@ -701,9 +701,11 @@ describe("IDE", () => {
     window.history.replaceState({}, "", "/?roomId=r1&telegramId=123");
     const data = socketData({ isConnected: false, isJoinedRoom: false });
     render(<IDE telegramId="123" webSocketData={data} />);
-    expect(screen.getByTestId("loader")).toHaveTextContent("Подключение");
+    expect(screen.getByTestId("loader")).toHaveTextContent("Подключаемся к серверу");
+    expect(document.querySelector("[inert]")).not.toBeNull();
     act(() => jest.advanceTimersByTime(12000));
     expect(screen.queryByTestId("loader")).toBeNull();
+    expect(document.querySelector("[inert]")).toBeNull();
     jest.useRealTimers();
   });
 

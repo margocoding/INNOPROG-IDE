@@ -843,23 +843,24 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     <button type="button" aria-label={consoleExecution.isRunning ? "Консоль, программа выполняется" : "Консоль"} title="Консоль" aria-pressed={activeTab === 'output'} onClick={() => setActiveTab('output')}><TerminalIcon/><span>Консоль{consoleExecution.isRunning ? ' •' : ''}</span></button>
   </nav> : undefined;
 
+  const isRoomLoading = Boolean(
+    roomId && !hasJoinedOnce && showBlockingLoader &&
+    (!webSocketData?.isConnected || !webSocketData?.isJoinedRoom)
+  );
+
   return (
-    <div className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden">
-      {roomId &&
-        !hasJoinedOnce &&
-        showBlockingLoader &&
-        (!webSocketData?.isConnected || !webSocketData?.isJoinedRoom) && (
-          <Loader
-            message={
-              webSocketData?.connectionError
-                ? webSocketData.connectionError
-                : !webSocketData?.isConnected
-                ? "Подключение к серверу..."
-                : "Присоединение к комнате..."
-            }
-            isError={Boolean(webSocketData?.connectionError ?? false)}
-          />
-        )}
+    <div
+      className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden"
+      ref={(workspace) => { workspace?.toggleAttribute("inert", isRoomLoading); }}
+    >
+      {isRoomLoading && (
+        <Loader
+          message={webSocketData?.connectionError || (
+            webSocketData?.isConnected ? "Присоединяемся к комнате…" : "Подключаемся к серверу…"
+          )}
+          isError={Boolean(webSocketData?.connectionError)}
+        />
+      )}
 
       <SubmitModal
         isOpen={isOpen}
