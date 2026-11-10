@@ -271,12 +271,16 @@ const CodeEditor: React.FC<IProps> = React.memo(
             || payload.taskId !== taskId || typeof payload.requestId !== "string" || !payload.requestId
             || payload.requestId.length > 128 || typeof payload.revision !== "string"
             || !payload.revision || payload.revision.length > 128) return;
-        const code = editor.current?.state.doc.toString() || "";
+        const document = editor.current?.state.doc.toString();
+        if (document === undefined || document.length < codeBefore.length + codeAfter.length
+            || !document.startsWith(codeBefore) || !document.endsWith(codeAfter)) return;
+        // Share the same editable slice that is submitted for grading.
+        const code = document.slice(codeBefore.length, document.length - codeAfter.length);
         postToParent({ source: "innoprog-ide", type: "innoprog:editor-code-ready", version: 1, requestId: payload.requestId, taskId, revision: payload.revision, ...(code.length > 30000 ? { error: "code_too_large" } : { code }) });
       };
       window.addEventListener("message", handleAssistantCodeRequest);
       return () => window.removeEventListener("message", handleAssistantCodeRequest);
-    }, []);
+    }, [codeBefore, codeAfter]);
 
     const lastLocalEditTime = useRef<number>(0);
     const hadTextSelection = useRef<boolean>(false);

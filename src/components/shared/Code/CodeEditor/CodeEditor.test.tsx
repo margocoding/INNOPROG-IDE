@@ -56,7 +56,10 @@ describe("CodeEditor", () => {
     Object.defineProperty(document, "referrer", { configurable: true, value: "https://app.innoprog.ru/courses" });
     window.history.replaceState({}, "", "/?task_id=42");
     try {
-      render(<CodeEditor {...props} language="py" value="print(42)" />);
+      const { container } = render(<CodeEditor {...props} language="py" value="print(42)"
+        codeBefore={"# fixed header\n"} codeAfter={"\nprint(check_result())"} />);
+      const view = EditorView.findFromDOM(container.querySelector(".cm-editor")!)!;
+      expect(view.state.doc.toString()).toBe("# fixed header\nprint(42)\nprint(check_result())");
       await waitFor(() => expect(document.querySelector(".cm-content")?.textContent).toContain("print(42)"));
       const request = { type: "innoprog:get-editor-code", version: 1, requestId: "request-1", taskId: "42", revision: "42:1" };
       window.dispatchEvent(new MessageEvent("message", { data: request, origin: "https://evil.example", source: parentWindow }));
