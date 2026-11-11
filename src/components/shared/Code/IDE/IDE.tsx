@@ -127,6 +127,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [output, setOutput] = useState<string>("");
   const [runInputData, setRunInputData] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"editor" | "output">("editor");
+  const [outputCollapsed, setOutputCollapsed] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [currentAnswer, setCurrentAnswer] = useState<Answer | null>(null);
   const [submitResult, setSubmitResult] = useState<
@@ -276,6 +277,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [runMode, setRunMode] = useState<'batch' | 'console'>('batch');
   const consoleAvailable = !taskId && CONSOLE_LANGUAGES.has(language);
   const consoleMode = consoleAvailable && runMode === 'console';
+  const desktopOutputCollapsed = desktopTaskMode && activeTab === "output" &&
+    !consoleMode && !isHtmlMode && outputCollapsed;
   const consoleContext = `${roomId || ''}:${taskId || ''}`;
   const previousConsoleContext = useRef(consoleContext);
   useEffect(() => {
@@ -951,7 +954,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           <div
             className={`h-full flex flex-col ${
               desktopTaskMode
-                ? consoleMode && activeTab === "output" ? "desktop-task-console-layout" : ""
+                ? consoleMode && activeTab === "output"
+                  ? "desktop-task-console-layout"
+                  : desktopOutputCollapsed ? "desktop-task-output-collapsed" : ""
                 : "md:flex-row"
             }`}
           >
@@ -985,7 +990,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               )}
             />
 
-            {desktopTaskMode && activeTab === "output" ? (
+            {desktopTaskMode && activeTab === "output" && !desktopOutputCollapsed ? (
               <Resizer
                 onResize={handleDesktopEditorResize}
                 minSize={30}
@@ -1009,6 +1014,10 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               htmlPreview={htmlPreviewContent}
               width={100 - editorWidth}
               desktopStackedPane={desktopTaskMode}
+              collapsed={outputCollapsed}
+              onToggleCollapsed={desktopTaskMode && !isHtmlMode
+                ? () => setOutputCollapsed(previous => !previous)
+                : undefined}
             />}
           </div>
         </main>

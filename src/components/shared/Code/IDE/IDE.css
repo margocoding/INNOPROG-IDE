@@ -20,4 +20,14 @@
     min-height: 0;
     flex: 1 1 0;
   }
+
+  .desktop-task-output-collapsed > .desktop-task-editor-pane {
+    height: auto !important;
+    min-height: 0;
+    flex: 1 1 0;
+  }
+
+  .desktop-task-output-collapsed > .desktop-task-output-pane {
+    flex: 0 0 auto;
+  }
 }

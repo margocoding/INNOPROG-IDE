@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useId, useRef } from "react";
 
 interface OutputSectionProps {
 	output: string;
@@ -10,6 +10,8 @@ interface OutputSectionProps {
 	width?: number;
 	desktopSinglePane?: boolean;
 	desktopStackedPane?: boolean;
+	collapsed?: boolean;
+	onToggleCollapsed?: () => void;
 }
 
 const OutputSection: React.FC<OutputSectionProps> = ({
@@ -22,10 +24,14 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 	width = 50,
 	desktopSinglePane = false,
 	desktopStackedPane = false,
+	collapsed = false,
+	onToggleCollapsed,
 }) => {
 	const outputRef = useRef<HTMLPreElement>(null);
+	const contentId = useId();
 	const isHtmlMode = language === "html";
 	const hasInputData = inputData.length > 0;
+	const canCollapse = Boolean(onToggleCollapsed) && !isHtmlMode;
 
 	const getStatusIcon = () => {
 		switch (status) {
@@ -89,14 +95,31 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 					: { flex: `0 0 ${width}%`, minWidth: 0 }
 			}
 		>
-			<div className="h-full p-4">
+			<div className={`h-full p-4 ${canCollapse && collapsed ? "md:pt-0" : ""}`}>
 				<div className="flex flex-col h-full bg-ide-editor rounded-lg overflow-hidden">
-					<div className="bg-ide-secondary px-3 py-2 border-b border-ide-border flex items-center justify-between">
+					<div className={`bg-ide-secondary px-3 py-2 border-b border-ide-border flex items-center justify-between ${canCollapse ? "md:hidden" : ""}`}>
 						<span className="text-ide-text-secondary text-sm">
 							{isHtmlMode ? "HTML Preview" : "Output"}
 						</span>
 						{!isHtmlMode && getStatusIcon()}
 					</div>
+					{canCollapse && (
+						<button
+							type="button"
+							aria-expanded={!collapsed}
+							aria-controls={contentId}
+							onClick={onToggleCollapsed}
+							className="hidden md:flex w-full items-center justify-between gap-3 bg-ide-secondary border-b border-ide-border px-3 py-2 text-sm text-ide-text-secondary hover:bg-ide-editor focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2"
+						>
+							<span>Output</span>
+							<span className="flex items-center gap-2">
+								{getStatusIcon()}
+								<svg aria-hidden="true" className={`h-4 w-4 ${collapsed ? "" : "rotate-180"}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+									<path d="m4 6 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+								</svg>
+							</span>
+						</button>
+					)}
 					{isHtmlMode ? (
 						<div className="flex-1 bg-white">
 							<iframe
@@ -107,7 +130,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 							/>
 						</div>
 					) : (
-						<div className="flex-1 p-4 overflow-auto space-y-4">
+						<div id={contentId} className={`flex-1 p-4 overflow-auto space-y-4 ${canCollapse && collapsed ? "md:hidden" : ""}`}>
 							{hasInputData && (
 								<section className="space-y-2">
 									<div className="text-xs font-medium uppercase tracking-wide text-ide-text-secondary">
