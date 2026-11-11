@@ -264,6 +264,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       language,
       setOutput,
       setRunInputData,
+      onRunFinished: () => setOutputCollapsed(false),
       setStatus,
       setActiveTab,
       setSubmitResult,

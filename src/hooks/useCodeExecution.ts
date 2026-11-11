@@ -35,6 +35,7 @@ interface UseCodeExecutionProps {
 	language: string;
 	setOutput: (output: string) => void;
 	setRunInputData: (inputData: string) => void;
+	onRunFinished?: () => void;
 	setStatus: (status: "idle" | "success" | "error") => void;
 	setActiveTab: (tab: "editor" | "output") => void;
 	setSubmitResult: (result: "success" | "error" | "no_data") => void;
@@ -57,6 +58,7 @@ export const useCodeExecution = ({
 	language,
 	setOutput,
 	setRunInputData,
+	onRunFinished,
 	setStatus,
 	setActiveTab,
 	setSubmitResult,
@@ -243,6 +245,7 @@ export const useCodeExecution = ({
 			activeRun.current = null;
 			executionInFlight.current = false;
 			setIsRunning(false);
+			if (!controller?.signal.aborted) onRunFinished?.();
 			if (taskId || roomWorkspace || window.innerWidth < 768) {
 				setActiveTab("output");
 			}
