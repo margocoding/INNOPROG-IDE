@@ -277,8 +277,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [runMode, setRunMode] = useState<'batch' | 'console'>('batch');
   const consoleAvailable = !taskId && CONSOLE_LANGUAGES.has(language);
   const consoleMode = consoleAvailable && runMode === 'console';
-  const desktopOutputCollapsed = desktopTaskMode && activeTab === "output" &&
-    !consoleMode && !isHtmlMode && outputCollapsed;
+  const desktopOutputLayout = desktopTaskMode && activeTab === "output" &&
+    !consoleMode && !isHtmlMode;
+  const desktopOutputCollapsed = desktopOutputLayout && outputCollapsed;
   const consoleContext = `${roomId || ''}:${taskId || ''}`;
   const previousConsoleContext = useRef(consoleContext);
   useEffect(() => {
@@ -956,7 +957,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               desktopTaskMode
                 ? consoleMode && activeTab === "output"
                   ? "desktop-task-console-layout"
-                  : desktopOutputCollapsed ? "desktop-task-output-collapsed" : ""
+                  : desktopOutputLayout
+                    ? `desktop-task-output-layout ${desktopOutputCollapsed ? "desktop-task-output-collapsed" : ""}`
+                    : ""
                 : "md:flex-row"
             }`}
           >
@@ -990,7 +993,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               )}
             />
 
-            {desktopTaskMode && activeTab === "output" && !desktopOutputCollapsed ? (
+            {desktopTaskMode && activeTab === "output" ? (
               <Resizer
                 onResize={handleDesktopEditorResize}
                 minSize={30}
