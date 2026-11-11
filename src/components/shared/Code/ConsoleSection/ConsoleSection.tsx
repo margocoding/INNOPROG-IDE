@@ -51,6 +51,7 @@ export default function ConsoleSection({ execution, activeTab, width, desktopSta
     return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
   }, [execution.transcript, execution.state]);
   const running = execution.state === 'running';
+  const showPlaceholder = execution.state === 'idle' && !execution.transcript;
   const canInput = running && showInput && !eof;
   useEffect(() => {
     if (!running) {
@@ -88,13 +89,13 @@ export default function ConsoleSection({ execution, activeTab, width, desktopSta
           <button type="button" className="console-icon-button" onClick={execution.clear} title="Очистить экран" aria-label="Очистить консоль">⌫</button>
         </div>
         <div className="console-content" ref={scroll}>
-          {!execution.transcript && execution.state === 'idle' && <div className="console-placeholder"><span>&gt;_</span><p>Запустите код, затем вводите данные в консоль</p></div>}
-          <div ref={terminal} className="console-transcript">{execution.outputChunks?.length ? execution.outputChunks.map((chunk,index) => <span key={index} className={chunk.stream === 'stderr' ? 'console-output-error' : undefined}>{consoleText(chunk.text)}</span>) : <span>{consoleText(execution.transcript)}</span>}<span ref={inputAnchor} className="console-input-anchor" aria-hidden="true"/>
+          {showPlaceholder ? <div className="console-placeholder"><span>&gt;_</span><p>Запустите код, затем вводите данные в консоль</p></div>
+          : <div ref={terminal} className="console-transcript">{execution.outputChunks?.length ? execution.outputChunks.map((chunk,index) => <span key={index} className={chunk.stream === 'stderr' ? 'console-output-error' : undefined}>{consoleText(chunk.text)}</span>) : <span>{consoleText(execution.transcript)}</span>}<span ref={inputAnchor} className="console-input-anchor" aria-hidden="true"/>
           {running && showInput && <form onSubmit={submit} className="console-input-row" style={{width:`min(${Math.max(32, Math.min(60, Array.from(line).length + 3))}ch, ${inputRoom}px)`}}>
             <input ref={input} aria-label="Ввод для программы" value={line} disabled={!canInput} autoComplete="off" spellCheck={false}
               onChange={event => setLine(event.target.value)} maxLength={4000} placeholder={eof ? 'Ввод завершён' : 'Введите данные'} />
             <button type="submit" disabled={!canInput || new TextEncoder().encode(line).length > 4000} aria-label="Отправить строку">↵</button>
-          </form>}</div>
+          </form>}</div>}
           {execution.message && <div className={`console-result ${['error','failed'].includes(execution.state) ? 'console-result--error' : ''}`} role="status">{execution.message}{execution.exitCode !== null ? `, код выхода ${execution.exitCode}` : ''}</div>}
         </div>
         <div className="console-bottom" ref={bottom}>

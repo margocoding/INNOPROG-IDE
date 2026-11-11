@@ -203,6 +203,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     ? (globalThis.crypto?.randomUUID?.() || `ide-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     : null), [suppliedAnswerId, taskId]);
   const roomId = searchParams.get("roomId");
+  const taskScrollSocket = roomId && telegramId && webSocketData?.isJoinedRoom &&
+    webSocketData.isConnected && !webSocketData.completed &&
+    webSocketData.roomPermissions.studentCursorEnabled ? webSocketData.socket : null;
   const isHtmlMode = language === Language.HTML;
   const desktopTaskMode = Boolean(lessonTask || (taskId && task && !isHtmlMode));
   const isConfigurationMode = Boolean(configurationLanguage);
@@ -914,6 +917,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           hideTopSpacing={isEmbeddedApp || Boolean(lessonTask)}
           desktopSidebar={desktopTaskMode}
           desktopWidth={taskPanelWidth}
+          scrollSync={taskScrollSocket && roomId
+            ? { socket: taskScrollSocket, roomId, telegramId, lessonRevision: lesson?.revision ?? 0, taskId }
+            : undefined}
         />
 
         {desktopTaskMode && (

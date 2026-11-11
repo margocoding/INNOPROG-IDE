@@ -10,7 +10,12 @@ import { LessonMarkdown } from '../../Code/TaskDescription/LessonMarkdown';
 import './LessonPicker.css';
 
 type Choice = { id: string; label: string; detail?: string; searchText?: string };
-type CatalogTask = Pick<RoomLessonTask, 'title' | 'topic' | 'language' | 'moduleId'> & { id: number; searchText?: string };
+type CatalogTask = Pick<RoomLessonTask, 'title' | 'topic' | 'language' | 'moduleId'> & {
+  id: number;
+  videoTitle?: string;
+  taskNumber?: number;
+  searchText?: string;
+};
 type PersonalTask = RoomLessonTask & { id: string };
 const languages = [
   ['py', 'Python'], ['cpp', 'C++'], ['java', 'Java'], ['js', 'JavaScript'],
@@ -171,18 +176,19 @@ function PersonalTaskSelect({ choices, value, select, onAction, search, setSearc
   </div>;
 }
 
-function SearchSelect({ label, choices, value, select, busy }: {
+function SearchSelect({ label, choices, value, select, busy, placeholder = 'Поиск…' }: {
   label: string;
   choices: Choice[];
   value: string;
   select: (id: string) => void;
   busy?: boolean;
+  placeholder?: string;
 }) {
   const root = React.useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
   const matches = matchChoices(choices, query, value);
   return <div ref={root} className="lesson-search-select"><Autocomplete
-    label={label} placeholder="Поиск…" labelPlacement="outside" variant="bordered"
+    label={label} placeholder={placeholder} labelPlacement="outside" variant="bordered"
     selectedKey={value || null} onSelectionChange={key => select(key == null ? '' : String(key))}
     items={matches} onInputChange={setQuery}
     itemHeight={48}
@@ -411,10 +417,15 @@ export default function LessonPicker({ room, active, select }: {
     if (action === 'edit') { fillForm(task); setCreating(true); }
     if (action === 'delete') setDeleting(task);
   };
-  const taskChoices = tasks.map(task => ({
+  const taskChoices = tab === 'platform' ? catalog.map(task => ({
     id: String(task.id), label: task.title,
+    detail: [task.videoTitle || task.topic, task.taskNumber ? `Задача ${task.taskNumber}` : '', languageLabel(task.language)]
+      .filter(Boolean).join(', '),
+    searchText: [task.topic, task.searchText].filter(Boolean).join('\n'),
+  })) : personalTasks.map(task => ({
+    id: task.id, label: task.title,
     detail: [task.topic, languageLabel(task.language)].filter(Boolean).join(', '),
-    searchText: 'description' in task ? task.description : task.searchText,
+    searchText: task.description,
   }));
 
   return <>
@@ -549,7 +560,7 @@ export default function LessonPicker({ room, active, select }: {
                   const task = personalTasks.find(item => item.id === id);
                   if (task) openTaskAction(task, action);
                 }} /> :
-              <SearchSelect key={pickerModuleId} label="Задача" choices={taskChoices} value={taskId} select={setTaskId} busy={loading} />
+              <SearchSelect key={pickerModuleId} label="Задача" placeholder="Тема, видео или номер задачи" choices={taskChoices} value={taskId} select={setTaskId} busy={loading} />
             )}
           </>}
           {error && <p role="alert" className="lesson-error">{error}</p>}

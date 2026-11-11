@@ -41,9 +41,15 @@
 }
 
 .console-toolbar, .console-bottom { flex-shrink: 0; }
-.console-placeholder { margin: 0; }
+.console-placeholder {
+  display: grid;
+  align-content: center;
+  min-height: 100%;
+  margin: 0;
+}
 .console-placeholder > span { line-height: 1.2; margin-bottom: 8px; }
 @media (min-width: 768px) {
   .console-section--stacked.console-section--visible { min-height: var(--task-console-min-height, 212px); }
   .console-section--stacked .console-content { padding-block: 10px; }
+  .console-section--stacked .console-placeholder { min-height: 0; }
 }

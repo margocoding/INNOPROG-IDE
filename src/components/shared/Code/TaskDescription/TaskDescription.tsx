@@ -6,6 +6,7 @@ import { getTaskType } from "../../../../utils/taskType";
 import { isLegacyLessonTitle, processTaskDescription } from "./TaskDescription.utils";
 import "./TaskDescription.css";
 import { LessonMarkdown } from "./LessonMarkdown";
+import { type TaskScrollSync, useTaskScrollSync } from "./useTaskScrollSync";
 
 interface TaskDescriptionProps {
 	task: Task | null;
@@ -14,6 +15,7 @@ interface TaskDescriptionProps {
 	hideTopSpacing?: boolean;
 	desktopSidebar?: boolean;
 	desktopWidth?: number;
+	scrollSync?: TaskScrollSync;
 }
 
 const TaskDescription: React.FC<TaskDescriptionProps> = ({
@@ -23,10 +25,13 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	hideTopSpacing = false,
 	desktopSidebar = false,
 	desktopWidth = 38,
+	scrollSync,
 }) => {
 	const [height, setHeight] = useState(200);
 	const isResizing = useRef(false);
 	const containerRef = useRef<HTMLDivElement | null>(null);
+	const scrollRef = useRef<HTMLDivElement | null>(null);
+	useTaskScrollSync(scrollRef, task ? scrollSync : undefined);
 	const resizeBounds = () => ({ min: 64, max: Math.max(64, window.innerHeight - 200) });
 	const resizeTo = (nextHeight: number) => {
 		const { min, max } = resizeBounds();
@@ -84,6 +89,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 				className="task-description-panel flex-none bg-ide-secondary p-4 border-b border-ide-border"
 			>
 				<div
+					ref={scrollRef}
 					style={{
 						overflow: "auto",
 						height: "100%",
