@@ -28,6 +28,8 @@ import Footer from "../../Footer/Footer";
 import Resizer from "../Resizer/Resizer";
 import { CursorData, RoomMember } from "../../../../hooks/useWebSocket";
 import "./IDE.css";
+import { useRoomFocus } from "./useRoomFocus";
+import "./RoomFocus.css";
 
 interface RoomPermissions {
   studentCursorEnabled: boolean;
@@ -203,6 +205,13 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     ? (globalThis.crypto?.randomUUID?.() || `ide-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     : null), [suppliedAnswerId, taskId]);
   const roomId = searchParams.get("roomId");
+  const joinedFocusSocket = webSocketData?.isJoinedRoom && webSocketData.isConnected && !webSocketData.completed
+    ? webSocketData.socket : null;
+  const canShowRoomPlace = Boolean(roomId && joinedFocusSocket && webSocketData?.isTeacher);
+  const roomFocus = useRoomFocus({
+    socket: joinedFocusSocket, roomId, telegramId, lessonRevision: lesson?.revision ?? 0, taskId,
+    owner: canShowRoomPlace, setTab: setActiveTab,
+  });
   const taskScrollSocket = roomId && telegramId && webSocketData?.isJoinedRoom &&
     webSocketData.isConnected && !webSocketData.completed &&
     webSocketData.roomPermissions.studentCursorEnabled ? webSocketData.socket : null;
@@ -900,14 +909,22 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           isTeacher={webSocketData?.isTeacher || false}
           onPermissionsChange={webSocketData?.sendRoomPermissions}
           roomId={roomId}
+          onShowRoomPlace={canShowRoomPlace ? roomFocus.start : undefined}
         />
       )}
 
       {isEmbeddedApp && mobileConsoleNavigation}
       <div
+        ref={roomFocus.workspace}
+        onClickCapture={roomFocus.pick}
+        onMouseDownCapture={event => {
+          if (roomFocus.picking && event.target instanceof Element && event.target.closest(".cm-editor")) {
+            event.preventDefault();
+          }
+        }}
         className={`flex-1 min-h-0 overflow-hidden ${
           desktopTaskMode ? "flex flex-col md:flex-row" : "flex flex-col"
-        }`}
+        } ${roomFocus.picking ? "room-focus-picking" : ""}`}
         data-testid={desktopTaskMode ? "desktop-task-workspace" : undefined}
       >
         <TaskDescription

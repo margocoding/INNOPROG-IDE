@@ -1,5 +1,5 @@
 import type { RoomLessonTask } from '../../../../types/roomLesson';
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { isDesktop } from "../../../../utils/platform";
 import { Task } from "../../../../types/task";
 import { getTaskType } from "../../../../utils/taskType";
@@ -32,6 +32,12 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 	useTaskScrollSync(scrollRef, task ? scrollSync : undefined);
+	const description = task?.description;
+	const descriptionLanguage = lesson?.language || task?.editor_language || language;
+	const renderLegacyDescription = Boolean(task && (!lesson || lesson.platformId));
+	const legacyHtml = useMemo(() => renderLegacyDescription
+		? { __html: processTaskDescription(description ?? "", descriptionLanguage) }
+		: undefined, [renderLegacyDescription, description, descriptionLanguage]);
 	const resizeBounds = () => ({ min: 64, max: Math.max(64, window.innerHeight - 200) });
 	const resizeTo = (nextHeight: number) => {
 		const { min, max } = resizeBounds();
@@ -90,6 +96,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 			>
 				<div
 					ref={scrollRef}
+					data-room-focus-task
 					style={{
 						overflow: "auto",
 						height: "100%",
@@ -101,9 +108,8 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 							{lesson && !lesson.platformId
 								? lesson.descriptionFormat === "markdown"
 									? <LessonMarkdown source={lesson.description} language={lesson.language} />
-									: <div className="whitespace-pre-wrap break-words">{lesson.description}</div>
-								: <div className="task-description-content"
-									dangerouslySetInnerHTML={{ __html: processTaskDescription(task.description, lesson?.language || task.editor_language || language) }} />}
+								: <div className="room-focus-text whitespace-pre-wrap break-words">{lesson.description}</div>
+								: <div className="task-description-content" dangerouslySetInnerHTML={legacyHtml} />}
 							{hasPublicExample && (
 								<>
 									{taskInput && (

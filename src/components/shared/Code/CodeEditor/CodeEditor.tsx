@@ -1,4 +1,5 @@
 import { editorLanguage } from "./editorLanguage";
+import { roomFocusLineField } from "../IDE/useRoomFocus";
 import { missingWrapperInsertions } from "../../../../utils/pasteTaskWrappers";
 import {
   cursorCharLeft,
@@ -962,6 +963,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
           iosEnterHandler,
           iosKeydownHandler,
           selectionHighlightField,
+          roomFocusLineField,
           lineNumbers(),
           foldGutter(),
           // Touch scrolling should stop at the last line instead of a blank viewport.

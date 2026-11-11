@@ -1,0 +1,16 @@
+.room-focus-highlight,
+.cm-editor .cm-line.room-focus-highlight {
+  border-radius: 3px;
+  background: rgb(183 145 255 / 17%);
+}
+
+.room-focus-picking :is(.cm-line, .cm-lineNumbers, [data-room-focus-task]) {
+  cursor: crosshair;
+  user-select: none;
+}
+
+@media (hover: hover) {
+  .room-focus-picking :is(.cm-line, [data-room-focus-task] :is(p, pre, li, h2, h3)):hover {
+    background: rgb(183 145 255 / 9%);
+  }
+}

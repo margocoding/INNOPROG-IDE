@@ -157,7 +157,7 @@ export function LessonMarkdown({ source, language = '' }: { source: string; lang
   const id = useId().replace(/[^a-z0-9_-]/gi, '');
   const prefix = `lesson-${id}-`;
   const html = useMemo(() => {
-    try { return lessonHtml(source, prefix, language); }
+    try { return { __html: lessonHtml(source, prefix, language) }; }
     catch { return null; }
   }, [source, prefix, language]);
   const [message, setMessage] = useState('');
@@ -189,7 +189,7 @@ export function LessonMarkdown({ source, language = '' }: { source: string; lang
   return html === null
     ? <div className="whitespace-pre-wrap break-words">{source}</div>
     : <div className="lesson-markdown">
-      <div className="break-words [&>:first-child]:mt-0 [&>:last-child]:mb-0" onClick={copyCode} dangerouslySetInnerHTML={{ __html: html }} />
+      <div className="break-words [&>:first-child]:mt-0 [&>:last-child]:mb-0" onClick={copyCode} dangerouslySetInnerHTML={html} />
       <div className="lesson-markdown-copy-status" role="status">{message}</div>
     </div>;
 }

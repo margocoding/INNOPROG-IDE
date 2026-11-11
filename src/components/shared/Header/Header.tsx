@@ -17,6 +17,7 @@ import "./Header.css";
 interface IProps {
   mobileNavigation?: React.ReactNode;
   roomLessonControl?: React.ReactNode;
+  onShowRoomPlace?: () => void;
   members?: RoomMember[];
   onEditMember?: (username?: string, telegramId?: string) => void;
   onCompleteSession?: () => void;
@@ -31,6 +32,7 @@ interface IProps {
 const Header: React.FC<IProps> = ({
   mobileNavigation,
   roomLessonControl,
+  onShowRoomPlace,
   members,
   onEditMember,
   myTelegramId,
@@ -203,14 +205,14 @@ const Header: React.FC<IProps> = ({
               </div>
             ))}
 
-            {mobileHasMoreMembers && (
+            {(mobileHasMoreMembers || onShowRoomPlace) && (
               <Popover
                 isOpen={showMembersCard}
                 onOpenChange={setShowMembersCard}
               >
                 <PopoverTrigger>
                   <button
-                    onClick={() => setShowMembersCard(!showMembersCard)}
+                    aria-label="Участники комнаты"
                     className="border-2 border-dashed border-gray-500 p-[2px] md:p-[3px] rounded-full cursor-pointer transition-all duration-200 hover:scale-105 hover:border-gray-400 flex-shrink-0"
                     title={
                       sortedMembers.length > (isDesktop() ? 3 : 2)
@@ -239,31 +241,51 @@ const Header: React.FC<IProps> = ({
                         {onlineMembers.length}
                       </p>
                     </div>
-                    <Button
-                      size="sm"
-                      onPress={copyStudentRoomLink}
-                      className="shrink-0 min-w-0 h-8 px-3 gap-2 bg-ide-secondary hover:bg-ide-editor border border-ide-border text-ide-text-primary text-xs font-medium rounded-xl transition-colors duration-200 disabled:opacity-60"
-                      disabled={!roomId}
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {onShowRoomPlace && (
+                        <Button
+                          isIconOnly
+                          size="sm"
+                          aria-label="Показать место всем"
+                          title="Показать место всем"
+                          className="h-8 w-8 min-w-0 rounded-xl border border-ide-border bg-ide-secondary text-ide-text-primary hover:bg-ide-editor"
+                          onPress={() => {
+                            setShowMembersCard(false);
+                            onShowRoomPlace();
+                          }}
+                        >
+                          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                            <circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2" />
+                            <path d="M12 2v3m0 14v3M2 12h3m14 0h3" />
+                          </svg>
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        onPress={copyStudentRoomLink}
+                        className="shrink-0 min-w-0 h-8 px-3 gap-2 bg-ide-secondary hover:bg-ide-editor border border-ide-border text-ide-text-primary text-xs font-medium rounded-xl transition-colors duration-200 disabled:opacity-60"
+                        disabled={!roomId}
                       >
-                        <circle cx="18" cy="5" r="3" />
-                        <circle cx="6" cy="12" r="3" />
-                        <circle cx="18" cy="19" r="3" />
-                        <path d="M8.59 13.51 15.42 17.49" />
-                        <path d="M15.41 6.51 8.59 10.49" />
-                      </svg>
-                      <span>Поделиться</span>
-                    </Button>
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <circle cx="18" cy="5" r="3" />
+                          <circle cx="6" cy="12" r="3" />
+                          <circle cx="18" cy="19" r="3" />
+                          <path d="M8.59 13.51 15.42 17.49" />
+                          <path d="M15.41 6.51 8.59 10.49" />
+                        </svg>
+                        <span>Поделиться</span>
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="max-h-60 overflow-y-auto space-y-2 w-full">
