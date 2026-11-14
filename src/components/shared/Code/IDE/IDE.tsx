@@ -857,7 +857,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   const mobileConsoleNavigation = consoleMode ? <nav className="console-mobile-tabs" aria-label="Панель редактора">
     <button type="button" aria-label="Код" title="Код" aria-pressed={activeTab === 'editor'} onClick={() => setActiveTab('editor')}><CodeIcon/><span>Код</span></button>
-    <button type="button" aria-label={consoleExecution.isRunning ? "Консоль, программа выполняется" : "Консоль"} title="Консоль" aria-pressed={activeTab === 'output'} onClick={() => setActiveTab('output')}><TerminalIcon/><span>Консоль{consoleExecution.isRunning ? ' •' : ''}</span></button>
+    <button type="button" aria-label={consoleExecution.isRunning ? "Консоль, программа выполняется" : "Консоль"} title="Консоль" aria-pressed={activeTab === 'output'} onClick={() => setActiveTab('output')}><TerminalIcon/><span>{consoleExecution.isRunning ? 'Выполняется…' : 'Консоль'}</span></button>
   </nav> : undefined;
 
   const isRoomLoading = Boolean(

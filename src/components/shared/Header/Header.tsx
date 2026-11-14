@@ -237,7 +237,7 @@ const Header: React.FC<IProps> = ({
                         Участники комнаты
                       </h3>
                       <p className="text-xs text-ide-text-secondary">
-                        Всего: {sortedMembers.length} • Онлайн:{" "}
+                        Всего: {sortedMembers.length}, Онлайн:{" "}
                         {onlineMembers.length}
                       </p>
                     </div>
