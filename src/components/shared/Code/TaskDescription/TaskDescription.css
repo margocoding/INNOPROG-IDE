@@ -207,3 +207,44 @@
     max-height: clamp(74px, 21vw, 132px);
   }
 }
+
+.task-teacher-tests {
+  margin: 16px 0 8px;
+  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.task-teacher-tests summary {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  list-style: none;
+}
+
+.task-teacher-tests summary::-webkit-details-marker { display: none; }
+.task-teacher-tests summary:hover { text-decoration: underline; }
+.task-teacher-tests[open] summary svg { transform: rotate(180deg); }
+
+.task-teacher-test {
+  padding: 10px 0 4px;
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  font-size: 0.875rem;
+}
+
+.task-teacher-test .task-teacher-test-number {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.task-teacher-test pre {
+  margin: 5px 0 10px;
+}
+
+.task-teacher-test-note {
+  margin: -5px 0 10px;
+  font-size: 0.8rem;
+}

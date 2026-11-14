@@ -373,3 +373,26 @@ describe("TaskDescription component", () => {
 		).toBeInTheDocument();
 	});
 });
+
+it("shows extra tests as a disclosure only in the cabinet task view", () => {
+	const task = {
+		id: 42,
+		description: "Проверьте функцию",
+		teacher_tests: [
+			{ number: 2, input: "4\n20", output: "5" },
+			{ number: 3, append_code: "assert f(2) == 2" },
+		],
+	};
+	const { rerender } = render(<TaskDescription task={task} />);
+	expect(screen.queryByText("Посмотреть другие тесты")).not.toBeInTheDocument();
+	rerender(<TaskDescription task={task} showTeacherTests />);
+	const summary = screen.getByText("Посмотреть другие тесты").closest("summary")!;
+	const details = summary.closest("details");
+	expect(details).not.toHaveAttribute("open");
+	fireEvent.click(summary);
+	expect(details).toHaveAttribute("open");
+	expect(screen.getByText("Выходные данные")).toBeVisible();
+	expect(screen.getByText("assert f(2) == 2")).toBeVisible();
+	rerender(<TaskDescription task={{ ...task, teacher_tests: [] }} showTeacherTests />);
+	expect(screen.queryByText("Посмотреть другие тесты")).not.toBeInTheDocument();
+});

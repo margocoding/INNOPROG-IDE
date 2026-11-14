@@ -267,17 +267,18 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
 }
 
 export const api = {
-	async getTask(taskId: string, clientId: string): Promise<Task> {
+	async getTask(taskId: string, clientId: string, teacherTests = false): Promise<Task> {
 		const localPreview = getLocalTaskPreview(taskId);
 		if (localPreview) {
 			return localPreview;
 		}
 
+		const params = { client_id: clientId, ...(teacherTests ? { teacher_tests: "1" } : {}) };
 		try {
 			const headers = await protectedTaskHeaders();
 			const response = await axios.get(`${PLATFORM_API_URL}/task/${taskId}`, {
 				timeout: API_REQUEST_TIMEOUT_MS,
-				params: { client_id: clientId },
+				params,
 				headers,
 				withCredentials: true,
 			});
@@ -289,7 +290,7 @@ export const api = {
 			if (!headers.Authorization && !headers["X-Telegram-Init-Data"]) throw error;
 			const response = await axios.get(`${PLATFORM_API_URL}/task/${taskId}`, {
 				timeout: API_REQUEST_TIMEOUT_MS,
-				params: { client_id: clientId },
+				params,
 				headers,
 				withCredentials: true,
 			});

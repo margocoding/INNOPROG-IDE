@@ -3,7 +3,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
-const source = html.match(/<script>\s*([\s\S]*?)\s*<\/script>\s*<script type="module"/);
+const source = html.match(/<script>\s*((?:(?!<\/script>)[\s\S])*?)\s*<\/script>\s*<script type="module"/);
 assert.ok(source, "the diagnostics bootstrap must execute before the app module");
 
 function createHarness({ withTiming = true, withBeacon = true } = {}) {

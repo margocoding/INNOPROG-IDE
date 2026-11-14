@@ -10,6 +10,7 @@ import { type TaskScrollSync, useTaskScrollSync } from "./useTaskScrollSync";
 
 interface TaskDescriptionProps {
 	task: Task | null;
+	showTeacherTests?: boolean;
 	lesson?: RoomLessonTask | null;
 	language?: string;
 	hideTopSpacing?: boolean;
@@ -20,6 +21,7 @@ interface TaskDescriptionProps {
 
 const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	task,
+	showTeacherTests = false,
 	lesson,
 	language,
 	hideTopSpacing = false,
@@ -64,6 +66,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	const headline = lesson && !lesson.platformId ? lessonTitle : task.title || lessonTitle;
 	const isPasteTask = getTaskType(task) === "paste";
 	const taskAnswer = task.answers?.[0];
+	const teacherTests = showTeacherTests ? task.teacher_tests : undefined;
 	const showPublicExample = task.has_public_example ?? (task.has_multiple_tests !== false);
 	const rawTaskInput = showPublicExample
 		? (isPasteTask
@@ -128,6 +131,39 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 										<pre>{taskAnswer?.output}</pre>
 									</>}
 								</>
+							)}
+							{Boolean(teacherTests?.length) && (
+								<details className="task-teacher-tests" key={task.id}>
+									<summary>
+										<span>Посмотреть другие тесты</span>
+										<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+											<path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+										</svg>
+									</summary>
+									{teacherTests?.map(test => (
+										<div className="task-teacher-test" key={test.number}>
+											<p className="task-teacher-test-number">Тест {test.number}</p>
+											{"append_code" in test ? (
+												<>
+													<div>Код, который добавится в конце</div>
+													<pre>{test.append_code}</pre>
+												</>
+											) : (
+												<>
+													<div>Входные данные</div>
+													<pre>{test.input}</pre>
+													{!test.input.trim() && <div className="task-teacher-test-note">
+														{test.input === "\n" ? "Одна пустая строка" : "Только пробельные символы"}
+													</div>}
+													{test.output !== undefined && <>
+														<div>Выходные данные</div>
+														<pre>{test.output}</pre>
+													</>}
+												</>
+											)}
+										</div>
+									))}
+								</details>
 							)}
 						</div>
 					</div>

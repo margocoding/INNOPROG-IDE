@@ -275,6 +275,10 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
   }, [platform, platforma]);
 
+  const parentOrigin = resolveParentOrigin();
+  const isCabinetTask = isEmbeddedApp && !roomId && Boolean(parentOrigin) &&
+    (document.referrer === parentOrigin || document.referrer.startsWith(`${parentOrigin}/`));
+
   useEffect(() => {
     document.documentElement.classList.toggle("ide-loading-light", lightTheme);
     return () => document.documentElement.classList.remove("ide-loading-light");
@@ -494,7 +498,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       if (!taskId) return;
 
       try {
-        const taskData = await api.getTask(taskId, clientId);
+        const taskData = isCabinetTask
+          ? await api.getTask(taskId, clientId, true)
+          : await api.getTask(taskId, clientId);
         if (!active) return;
         setTask(taskData);
         if (taskData.answers && taskData.answers.length > 0) {
@@ -524,7 +530,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     return () => {
       active = false;
     };
-  }, [clientId, isEmbeddedApp, taskId]);
+  }, [clientId, isCabinetTask, isEmbeddedApp, taskId]);
 
   useEffect(() => {
     setInitialCodeReady(!taskId);
@@ -970,6 +976,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         <TaskDescription
           language={language}
           task={displayTask}
+          showTeacherTests={isCabinetTask}
           lesson={lessonTask}
           hideTopSpacing={isEmbeddedApp || Boolean(lessonTask)}
           desktopSidebar={desktopTaskMode}

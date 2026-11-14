@@ -22,6 +22,7 @@ export interface Task {
   task_type?: TaskType;
   has_multiple_tests?: boolean;
   has_public_example?: boolean;
+  teacher_tests?: TeacherTaskTest[];
   examples?: Example[];
   initial_code?: string;
   editable_starter_code?: string;
@@ -30,6 +31,10 @@ export interface Task {
   tests?: Test[];
   answers?: Answer[];
 }
+
+export type TeacherTaskTest =
+  | { number: number; input: string; output?: string }
+  | { number: number; append_code: string };
 
 export interface Example {
   input: string;
