@@ -188,3 +188,22 @@
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
+
+.task-description-illustration {
+  display: block;
+  width: auto;
+  max-width: min(100%, 560px);
+  max-height: clamp(132px, 31vw, 224px);
+  height: auto;
+  margin: 2px 0 16px;
+}
+
+.task-description-shell:not(.task-description-shell--sidebar) .task-description-illustration {
+  max-height: 132px;
+}
+
+@media (max-width: 767px) {
+  .task-description-illustration {
+    max-height: clamp(74px, 21vw, 132px);
+  }
+}

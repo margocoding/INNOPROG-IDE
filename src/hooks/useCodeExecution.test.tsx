@@ -411,7 +411,7 @@ describe("useCodeExecution", () => {
     } as any);
     const first = setup({ outputData: "expected" });
     await act(() => first.result.current.handleRunCode());
-    expect(first.callbacks.setOutput.mock.calls.at(-1)[0]).toContain("Ожидалось: expected");
+    expect(first.result.current.outputMismatch).toMatchObject({ expected: "expected" });
     expect(first.callbacks.setActiveTab).toHaveBeenCalledWith("output");
 
     mockedApi.runCode.mockRejectedValue(new Error("offline"));
@@ -489,7 +489,7 @@ describe("useCodeExecution", () => {
     });
     await act(() => result.current.onSendCheck());
     expect(callbacks.setSubmitMessage).toHaveBeenCalledWith(
-      "Не удалось проверить решение. Попробуйте еще раз",
+      "Сервис не смог проверить решение",
     );
     expect(callbacks.setSubmitResult).toHaveBeenCalledWith("error");
     expect(callbacks.setOutput).toHaveBeenLastCalledWith("");
@@ -553,8 +553,12 @@ describe("standalone Python expected output", () => {
     expect(mockedApi.checkCode).not.toHaveBeenCalled();
     expect(callbacks.setRunInputData).toHaveBeenLastCalledWith("Name: Ada");
     expect(callbacks.setStatus).toHaveBeenLastCalledWith(matches ? "success" : "error");
-    expect(callbacks.setOutput.mock.calls.at(-1)[0]).toContain("Hello Ada");
-    expect(callbacks.setOutput.mock.calls.at(-1)[0]).not.toContain("Name:");
+    if (matches) {
+      expect(callbacks.setOutput.mock.calls.at(-1)[0]).toContain("Hello Ada");
+      expect(callbacks.setOutput.mock.calls.at(-1)[0]).not.toContain("Name:");
+    } else {
+      expect(result.current.outputMismatch?.actual).toBe("Hello Ada");
+    }
   });
 });
 

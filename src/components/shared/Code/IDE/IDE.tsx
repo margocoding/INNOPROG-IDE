@@ -120,6 +120,17 @@ const DEFAULT_BASH_TEMPLATE = "#!/bin/bash";
 
 const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [taskTheme, setTaskTheme] = useState<"light" | "dark">(() => {
+    const launchTheme = searchParams.get("theme");
+    if (launchTheme === "light" || launchTheme === "dark") return launchTheme;
+    try {
+      const savedTheme = localStorage.getItem("innoprog-task-ide-theme");
+      if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
+    } catch {
+      // Use the embedding page's preference when iframe storage is blocked.
+    }
+    return "dark";
+  });
   const lesson = webSocketData?.lesson;
   const lessonTask = lesson?.task;
   const [task, setTask] = useState<Task | null>(null);
@@ -194,9 +205,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       : null;
   const configurationLanguage =
     fixedConfigurationLanguage || metadataConfigurationLanguage;
-  const platformLessonLanguage = lessonTask?.platformId ? lessonTask.language : undefined;
   const language =
-    configurationLanguage || platformLessonLanguage ||
+    configurationLanguage ||
     (lesson?.revision ? webSocketData?.language || lesson.language : undefined) ||
     resolveTaskLanguage(taskId, searchParams.get("lang"));
   const suppliedAnswerId = searchParams.get("answer_id")?.trim() || "";
@@ -216,6 +226,21 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const taskScrollSocket = roomId && telegramId && webSocketData?.isJoinedRoom &&
     webSocketData.isConnected && !webSocketData.completed &&
     webSocketData.roomPermissions.studentCursorEnabled ? webSocketData.socket : null;
+  const lightTheme = taskTheme === "light";
+
+  function toggleTaskTheme() {
+    const nextTheme = lightTheme ? "dark" : "light";
+    setTaskTheme(nextTheme);
+    if (isEmbeddedApp && taskId) {
+      postToParent({ source: "innoprog-ide", type: "innoprog:ide-theme", taskId: Number(taskId), theme: nextTheme });
+    }
+    try {
+      localStorage.setItem("innoprog-task-ide-theme", nextTheme);
+    } catch {
+      // The switch still works when the browser blocks persistent storage.
+    }
+  }
+
   const isHtmlMode = language === Language.HTML;
   const desktopTaskMode = Boolean(lessonTask || (taskId && task && !isHtmlMode));
   const isConfigurationMode = Boolean(configurationLanguage);
@@ -250,7 +275,12 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
   }, [platform, platforma]);
 
-  const { isRunning, checkProgress, handleRunCode, onSendCheck, setCurrentCode } =
+  useEffect(() => {
+    document.documentElement.classList.toggle("ide-loading-light", lightTheme);
+    return () => document.documentElement.classList.remove("ide-loading-light");
+  }, [lightTheme]);
+
+  const { isRunning, checkProgress, outputMismatch, handleRunCode, onSendCheck, setCurrentCode } =
     useCodeExecution({
       currentAnswer,
       task,
@@ -707,7 +737,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   const handleLanguageChange = useCallback(
     (lang: Language) => {
-      if (configurationLanguage || platformLessonLanguage) {
+      if (configurationLanguage) {
         return;
       }
       setSearchParams((prev) => {
@@ -718,7 +748,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         webSocketData.sendChangeLanguage(lang);
       }
     },
-    [configurationLanguage, platformLessonLanguage, setSearchParams, webSocketData]
+    [configurationLanguage, setSearchParams, webSocketData]
   );
 
   const memoizedWebSocketData = useMemo(() => {
@@ -867,13 +897,20 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   return (
     <div
-      className="min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden"
-      ref={(workspace) => { workspace?.toggleAttribute("inert", isRoomLoading); }}
+      className={`min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden${lightTheme ? " ide-task-light" : ""}`}
+      ref={(workspace) => {
+        workspace?.toggleAttribute("inert", isRoomLoading);
+      }}
     >
+      {(isRunning && activeTab === "editor" && !consoleMode) && (
+        <span className="ide-output-spinner ide-workspace-spinner" role="status" aria-label="Выполняется проверка" />
+      )}
       {isRoomLoading && (
         <Loader
           message={webSocketData?.connectionError || (
-            webSocketData?.isConnected ? "Присоединяемся к комнате…" : "Подключаемся к серверу…"
+            webSocketData?.isConnected
+              ? "Присоединяемся к комнате…"
+              : "Подключаемся к серверу…"
           )}
           isError={Boolean(webSocketData?.connectionError)}
         />
@@ -928,8 +965,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           }
         }}
         className={`flex-1 min-h-0 overflow-hidden ${
-          desktopTaskMode ? "flex flex-col md:flex-row" : "flex flex-col"
+          desktopTaskMode ? "flex flex-col ide-task-workspace" : "flex flex-col"
         } ${roomFocus.picking ? "room-focus-picking" : ""}`}
+        style={desktopTaskMode ? { "--ide-task-width": `${taskPanelWidth}%` } as React.CSSProperties : undefined}
         data-testid={desktopTaskMode ? "desktop-task-workspace" : undefined}
       >
         <TaskDescription
@@ -966,6 +1004,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           >
             <CodeEditorSection
               key={roomId || "standalone"}
+              lightTheme={lightTheme}
+              onToggleTheme={toggleTaskTheme}
               code={code}
               setCode={handleCodeChange}
               language={language}
@@ -975,7 +1015,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               activeTab={activeTab}
               webSocketData={memoizedWebSocketData}
               handleLanguageChange={handleLanguageChange}
-              languageLocked={Boolean(configurationLanguage || platformLessonLanguage) || consoleExecution.isRunning}
+              languageLocked={Boolean(configurationLanguage) || consoleExecution.isRunning}
               fileName={configurationFileName}
               width={editorWidth}
               desktopStackedPane={desktopTaskMode}
@@ -1011,6 +1051,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
             {consoleMode ? <ConsoleSection execution={consoleExecution} activeTab={activeTab} width={100 - editorWidth} desktopStackedPane={desktopTaskMode} /> : <OutputSection
               output={output}
+              mismatch={outputMismatch}
+              running={isRunning && activeTab === "output"}
               inputData={runInputData}
               status={status}
               activeTab={activeTab}
@@ -1025,39 +1067,39 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
             />}
           </div>
         </main>
-      </div>
 
-      <Footer
-        hideRetry={consoleMode}
-        runModeSelector={consoleAvailable ? <div className="console-run-mode" role="group" aria-label="Режим запуска">
-          <button type="button" aria-pressed={!consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => setRunMode('batch')}><InputIcon/><span>С входными данными</span></button>
-          <button type="button" aria-pressed={consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => {
-            setRunMode('console');
-            if (desktopTaskMode && window.innerWidth >= 768) setActiveTab('output');
-          }}><TerminalIcon/><span>Консоль</span></button>
-        </div> : undefined}
-        checkProgress={checkProgress}
-        status={status}
-        taskId={taskId}
-        isRunning={isRunning || consoleExecution.isRunning}
-        blockedReason={lesson?.revision && webSocketData?.codeSyncState !== "synchronized"
-          ? "Синхронизируем редактор…"
-          : taskId && initialCodeLoadFailed
-          ? "Решение не загружено"
-          : taskId && (!taskDataReady || !initialCodeReady)
-          ? "Загружаем задание…"
-          : undefined}
-        activeTab={activeTab}
-        language={language}
-        onRunCode={onModalRunCode}
-        onSubmitCheck={onSendCheck}
-        setActiveTab={setActiveTab}
-        setStatus={setStatus}
-        desktopTaskMode={desktopTaskMode}
-        compactEmbedded={isEmbeddedApp && !hostExpanded}
-        submitOnly={isConfigurationMode}
-        onPrimaryAction={runPrimaryAction}
-      />
+        <Footer
+          hideRetry={consoleMode}
+          runModeSelector={consoleAvailable ? <div className="console-run-mode" role="group" aria-label="Режим запуска">
+            <button type="button" aria-pressed={!consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => setRunMode('batch')}><InputIcon/><span>С входными данными</span></button>
+            <button type="button" aria-pressed={consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => {
+              setRunMode('console');
+              if (desktopTaskMode && window.innerWidth >= 768) setActiveTab('output');
+            }}><TerminalIcon/><span>Консоль</span></button>
+          </div> : undefined}
+          checkProgress={checkProgress}
+          status={status}
+          taskId={taskId}
+          isRunning={isRunning || consoleExecution.isRunning}
+          blockedReason={lesson?.revision && webSocketData?.codeSyncState !== "synchronized"
+            ? "Синхронизируем редактор…"
+            : taskId && initialCodeLoadFailed
+            ? "Решение не загружено"
+            : taskId && (!taskDataReady || !initialCodeReady)
+            ? "Загружаем задание…"
+            : undefined}
+          activeTab={activeTab}
+          language={language}
+          onRunCode={onModalRunCode}
+          onSubmitCheck={onSendCheck}
+          setActiveTab={setActiveTab}
+          setStatus={setStatus}
+          desktopTaskMode={desktopTaskMode}
+          compactEmbedded={isEmbeddedApp && !hostExpanded}
+          submitOnly={isConfigurationMode}
+          onPrimaryAction={runPrimaryAction}
+        />
+      </div>
     </div>
   );
 });

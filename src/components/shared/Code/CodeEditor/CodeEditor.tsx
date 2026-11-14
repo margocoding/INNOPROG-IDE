@@ -1,3 +1,4 @@
+import "./CodeFileActions.css";
 import { editorLanguage } from "./editorLanguage";
 import { roomFocusLineField } from "../IDE/useRoomFocus";
 import { missingWrapperInsertions } from "../../../../utils/pasteTaskWrappers";
@@ -18,8 +19,10 @@ import {
   indentRange,
   indentString,
   indentUnit,
+  defaultHighlightStyle,
+  syntaxHighlighting,
 } from "@codemirror/language";
-import { EditorState, StateEffect, StateField, Transaction } from "@codemirror/state";
+import { Compartment, EditorState, StateEffect, StateField, Transaction } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import {
   Decoration,
@@ -47,7 +50,20 @@ import {
   normalizeImportedCode,
 } from "./CodeEditor.utils";
 
+const lightEditorTheme = [
+  EditorView.theme({
+    "&": { backgroundColor: "#fff", color: "#252136" },
+    ".cm-gutters": { backgroundColor: "#f7f5fb", color: "#625a76", borderRight: "1px solid #e4dfec" },
+    ".cm-activeLine, .cm-activeLineGutter": { backgroundColor: "#f2edfb" },
+    ".cm-content": { caretColor: "#252136" },
+    ".cm-cursor, .cm-dropCursor": { borderLeftColor: "#252136" },
+  }, { dark: false }),
+  syntaxHighlighting(defaultHighlightStyle),
+];
+
 interface IProps {
+  lightTheme?: boolean;
+  onToggleTheme?: () => void;
   value: string;
   onChange: (value: string) => void;
   language?: string;
@@ -225,6 +241,8 @@ function createIndentGuides(state: EditorState): DecorationSet {
 
 const CodeEditor: React.FC<IProps> = React.memo(
   ({
+    lightTheme = false,
+    onToggleTheme,
     value,
     onChange,
     language = "javascript",
@@ -252,6 +270,8 @@ const CodeEditor: React.FC<IProps> = React.memo(
     myTelegramId,
   }) => {
     const editor = useRef<EditorView>();
+    const [themeCompartment] = useState(() => new Compartment());
+    const lightThemeRef = useRef(lightTheme);
     const editorContainer = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const fileExtension = fileExtensionByLanguage[language] || language;
@@ -940,7 +960,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
           }),
           yCollab(ydoc.getText("codemirror"), awareness),
           languageSupport,
-          oneDark,
+          themeCompartment.of(lightThemeRef.current ? lightEditorTheme : oneDark),
           closeBrackets(),
           indentGuidesField,
           keymap.of([
@@ -1190,9 +1210,6 @@ const CodeEditor: React.FC<IProps> = React.memo(
               fontFamily: "Consolas, monospace",
               lineHeight: "1.6",
             },
-            ".cm-content": {
-              caretColor: "#fff",
-            },
             "&.cm-focused": {
               outline: "none",
             },
@@ -1277,7 +1294,14 @@ const CodeEditor: React.FC<IProps> = React.memo(
       // Volatile values/callbacks are read through refs; adding them here would
       // destroy and recreate CodeMirror on every keystroke.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [language, effectiveReadOnly, codeBefore, codeAfter, ensureCollaborativeWrappers, ydoc]);
+    }, [language, effectiveReadOnly, codeBefore, codeAfter, ensureCollaborativeWrappers, ydoc, themeCompartment]);
+
+    useEffect(() => {
+      lightThemeRef.current = lightTheme;
+      editor.current?.dispatch({
+        effects: themeCompartment.reconfigure(lightTheme ? lightEditorTheme : oneDark),
+      });
+    }, [lightTheme, themeCompartment]);
 
     useEffect(() => {
       if (!editor.current) {
@@ -1493,11 +1517,11 @@ const CodeEditor: React.FC<IProps> = React.memo(
         className="relative h-full rounded-lg overflow-clip bg-ide-editor"
         data-testid="code-editor-shell"
       >
-        <div className="px-3 py-2 border-b border-ide-border bg-ide-secondary flex justify-between items-center">
+        <div className="px-3 py-2 border-b border-ide-border bg-ide-secondary flex flex-wrap justify-between items-center gap-x-2 gap-y-1">
           <span className="text-ide-text-secondary text-sm">
             {displayedFileName}
           </span>
-          <div className="flex items-center gap-4">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <input
               ref={fileInputRef}
               type="file"
@@ -1505,7 +1529,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
               className="hidden"
               onChange={handleCodeFileChange}
             />
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
                 className="code-file-action-button"
@@ -1554,6 +1578,26 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 </svg>
               </button>
             </div>
+            {onToggleTheme ? (
+              <button
+                type="button"
+                className="code-theme-button"
+                onClick={onToggleTheme}
+                role="switch"
+                aria-checked={lightTheme}
+                aria-label="Светлая тема"
+              >
+                <span className="code-theme-thumb" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                    {lightTheme ? (
+                      <><circle cx="8" cy="8" r="2.6" /><path d="M8 1.5v1.25M8 13.25v1.25M1.5 8h1.25M13.25 8h1.25M3.4 3.4l.9.9m7.4 7.4.9.9m0-9.2-.9.9m-7.4 7.4-.9.9" /></>
+                    ) : (
+                      <path d="M13.5 10.2A5.6 5.6 0 0 1 5.8 2.5a5.7 5.7 0 1 0 7.7 7.7Z" />
+                    )}
+                  </svg>
+                </span>
+              </button>
+            ) : null}
             <Select
               items={[
                 { key: Language.JS, label: "JS" },
@@ -1575,7 +1619,8 @@ const CodeEditor: React.FC<IProps> = React.memo(
               isDisabled={(!isWebSocket && isTeacher === false) || languageLocked}
               onChange={(e) => handleLanguageChange(e.target.value as Language)}
               size={"sm"}
-              className={"min-w-[100px] w-auto bg-[#333] rounded-xl"}
+              className="code-language-select min-w-[100px] w-auto bg-[#333] rounded-xl"
+              classNames={lightTheme ? { popoverContent: "light", value: "!text-[#413554]", selectorIcon: "!text-[#413554]" } : undefined}
               variant={"bordered"}
               placeholder={"Язык программирования"}
             >

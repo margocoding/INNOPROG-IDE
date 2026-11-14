@@ -13,6 +13,7 @@ export interface Task {
   };
   title?: string;
   description: string;
+  illustration?: { src: string; alt: string };
   points?: number;
   type?: TaskType;
   input_description?: string;

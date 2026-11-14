@@ -69,11 +69,21 @@ describe("SubmitModal", () => {
   });
 
   it.each([
-    ["success", "Все тесты прошли успешно!"],
-    ["error", "Неверное решение."],
+    ["success", "Верно 🎉"],
+    ["error", "Не все проверки прошли"],
   ])("renders %s result", (result, text) => {
     render(<SubmitModal {...props({ submitResult: result as any })} />);
     expect(screen.getByText(text)).toBeInTheDocument();
+  });
+
+  it("shows only the success heading even when an explanation is supplied", () => {
+    render(<SubmitModal {...props({
+      submitResult: "success",
+      submitMessage: "Верно. Проверьте вывод.",
+    })} />);
+    expect(screen.getByText("Верно 🎉")).toBeInTheDocument();
+    expect(screen.queryByText(/Проверьте вывод/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Верно. Проверьте вывод")).not.toBeInTheDocument();
   });
 
   it("does not apply while running", () => {

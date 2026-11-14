@@ -107,7 +107,9 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 	return (
 		<Modal onOpenChange={onOpenChange} isOpen={isOpen}>
 			<ModalContent>
-				{submitResult === "no_data" ? <ModalHeader>Введите данные</ModalHeader> : <ModalHeader />}
+				<ModalHeader>
+					{submitResult === "no_data" ? "Введите данные" : submitResult === "error" ? "Решение не принято 😕" : null}
+				</ModalHeader>
 				<ModalBody>
 					<div className="text-center text-3xl">
 						{submitResult === "success" ? (
@@ -128,7 +130,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 									</svg>
 								</div>
 								<div className="text-base font-medium leading-6">
-									{submitMessage || "Все тесты прошли успешно!"}
+									<strong className="block">Верно 🎉</strong>
 								</div>
 							</div>
 						) : submitResult === "error" ? (
@@ -149,7 +151,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 									</svg>
 								</div>
 								<div className="text-base font-medium leading-6">
-									{submitMessage || "Неверное решение."}
+									{(submitMessage || "Не все проверки прошли").trim().replace(/[.\s]+$/, "")}
 								</div>
 							</div>
 						) : (
@@ -202,6 +204,13 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 							<div className="flex gap-2 items-center">
 								{isRunning && <Spinner />} Применить
 							</div>
+						</Button>
+					</ModalFooter>
+				)}
+				{submitResult === "error" && (
+					<ModalFooter className="flex justify-center w-full">
+						<Button color="secondary" className="w-full" onPress={onClose}>
+							Попробуйте ещё раз
 						</Button>
 					</ModalFooter>
 				)}

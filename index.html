@@ -4,7 +4,23 @@
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#1E1F26" />
+    <style>
+      html { background: #1E1F26; }
+      html.ide-loading-light { background: #f4f1f8; }
+    </style>
+    <script>
+      (() => {
+        const params = new URLSearchParams(location.search);
+        let theme = params.get("theme");
+        try {
+          if (theme !== "light" && theme !== "dark") theme = localStorage.getItem("innoprog-task-ide-theme");
+        } catch {
+          // Fall back to the theme provided by the task page.
+        }
+        document.documentElement.classList.toggle("ide-loading-light", theme === "light");
+      })();
+    </script>
     <meta name="referrer" content="no-referrer" />
     <meta name="description" content="INNOPROG IDE - Онлайн редактор кода и платформа для совместного программирования для решения задач по программированию" />
     <link rel="apple-touch-icon" href="/logo192.png" />

@@ -22,6 +22,11 @@ const maintenanceMessage = (error: any): string | null =>
 		? "Сервис выполнения кода обновляется. Код остаётся в редакторе. Повторите запуск через минуту."
 		: null;
 
+export interface OutputMismatch {
+	actual: string;
+	expected: string;
+}
+
 interface UseCodeExecutionProps {
 	currentAnswer: Answer | null;
 	roomWorkspace?: boolean;
@@ -67,6 +72,8 @@ export const useCodeExecution = ({
 	isInIframe,
 	setSubmitMessage,
 }: UseCodeExecutionProps) => {
+	const [outputMismatch, setOutputMismatch] = useState<OutputMismatch | null>(null);
+	useEffect(() => setOutputMismatch(null), [taskId]);
 	const executionInFlight = useRef(false);
 	const activeRun = useRef<AbortController | null>(null);
 	useEffect(() => () => activeRun.current?.abort(), []);
@@ -130,9 +137,7 @@ export const useCodeExecution = ({
 		if (executionInFlight.current) return;
 		executionInFlight.current = true;
 		setIsRunning(true);
-		setStatus("idle");
-		setOutput("");
-		setRunInputData("");
+		// Keep the previous result visible until the new execution returns.
 
 		const controller = roomWorkspace ? new AbortController() : null;
 		activeRun.current = controller;
@@ -181,6 +186,7 @@ export const useCodeExecution = ({
 					...(controller ? [controller.signal] as const : [])
 				);
 
+				setOutputMismatch(null);
 				setRunInputData(result.input ?? runInputData);
 				if (!taskId && (runLanguage === Language.PY || runLanguage === Language.CPP) && outputData.trim() && result.result) {
 					const actual = result.output || "";
@@ -188,7 +194,8 @@ export const useCodeExecution = ({
 					const matches = actual.trim() === expected;
 					setOutput(matches
 						? `Программа успешно выполнена${actual ? `\nРезультат программы: ${actual}` : ""}`
-						: `Ошибка: Неверный ответ\nПолучено: ${actual}\nОжидалось: ${expected}`);
+						: "");
+					if (!matches) setOutputMismatch({ actual, expected });
 					setStatus(matches ? "success" : "error");
 					return;
 				}
@@ -208,6 +215,7 @@ export const useCodeExecution = ({
 			}
 
 			const result = await api.checkCode(checkData, runLanguage);
+			setOutputMismatch(null);
 			setRunInputData(checkData.input_data === "-" ? "" : checkData.input_data);
 
 			if (result.result) {
@@ -228,17 +236,18 @@ export const useCodeExecution = ({
 					await onSendCheck();
 				}
 			} else {
-				setOutput(
-					`Ошибка: ${result.comment || "Неверный результат"}${result.output !== "error"
-						? `\nПолучено: ${result.output}\nОжидалось: ${task?.answers![0]?.output || outputData.trim()
-						}`
-						: ""
-					}`
-				);
+				if (typeof result.output === "string" && result.output !== "error") {
+					setOutputMismatch({ actual: result.output, expected: selectedAnswer?.output || outputData });
+					setOutput("");
+				} else {
+					setOutput(result.comment || result.error || "Не удалось выполнить программу");
+				}
 				setStatus("error");
 			}
 		} catch (error: any) {
 			if (controller?.signal.aborted) return;
+			setRunInputData("");
+			setOutputMismatch(null);
 			setOutput(maintenanceMessage(error) || admissionMessage(error) || `Ошибка выполнения: ${error.message}`);
 			setStatus("error");
 		} finally {
@@ -291,6 +300,7 @@ export const useCodeExecution = ({
 				}
 
 				setSubmitResult("error");
+				setOutputMismatch(null);
 				setOutput("");
 				setStatus("idle");
 				return;
@@ -309,10 +319,11 @@ export const useCodeExecution = ({
 			keepEditorOpen = maintenanceMessage(error) !== null;
 			setSubmitMessage(
 				maintenanceMessage(error) || (isInIframe
-					? "Не удалось проверить решение. Попробуйте еще раз"
+					? "Сервис не смог проверить решение"
 					: "")
 			);
 			setSubmitResult("error");
+			setOutputMismatch(null);
 			setOutput("");
 			setStatus("idle");
 			shouldOpenModal = true;
@@ -336,6 +347,7 @@ export const useCodeExecution = ({
 	return {
 		isRunning,
 		checkProgress,
+		outputMismatch,
 		handleRunCode,
 		onSendCheck,
 		currentCode,

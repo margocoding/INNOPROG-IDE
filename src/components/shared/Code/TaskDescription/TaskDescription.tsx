@@ -27,7 +27,8 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	desktopWidth = 38,
 	scrollSync,
 }) => {
-	const [height, setHeight] = useState(200);
+	const [height, setHeight] = useState<number | null>(null);
+	const panelHeight = height ?? (task?.illustration ? 260 : 200);
 	const isResizing = useRef(false);
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -60,6 +61,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	const lessonTitle = lesson?.platformId && isLegacyLessonTitle(lesson.title, lesson.description)
 		? lesson.topic?.trim()
 		: lesson?.title;
+	const headline = lesson && !lesson.platformId ? lessonTitle : task.title || lessonTitle;
 	const isPasteTask = getTaskType(task) === "paste";
 	const taskAnswer = task.answers?.[0];
 	const showPublicExample = task.has_public_example ?? (task.has_multiple_tests !== false);
@@ -90,7 +92,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 				ref={containerRef}
 				style={{
 					position: "relative",
-					height: `${height}px`,
+					height: `${panelHeight}px`,
 				}}
 				className="task-description-panel flex-none bg-ide-secondary p-4 border-b border-ide-border"
 			>
@@ -104,7 +106,10 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 				>
 					<div className="container mx-auto">
 						<div className="prose prose-invert max-w-none">
-							{lessonTitle && <h2 className="lesson-task-title">{lessonTitle}</h2>}
+							{headline && <h2 className="lesson-task-title">{headline}</h2>}
+							{task.illustration && (!lesson || lesson.platformId) && (
+								<img className="task-description-illustration" src={task.illustration.src} alt={task.illustration.alt} />
+							)}
 							{lesson && !lesson.platformId
 								? lesson.descriptionFormat === "markdown"
 									? <LessonMarkdown source={lesson.description} language={lesson.language} />
@@ -135,7 +140,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 					aria-orientation="horizontal"
 					aria-valuemin={resizeBounds().min}
 					aria-valuemax={resizeBounds().max}
-					aria-valuenow={height}
+					aria-valuenow={panelHeight}
 					tabIndex={0}
 					onPointerDown={handlePointerDown}
 					onPointerMove={handlePointerMove}
@@ -145,7 +150,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 					onKeyDown={(event) => {
 						if (event.key === "ArrowUp" || event.key === "ArrowDown") {
 							event.preventDefault();
-							resizeTo(height + (event.key === "ArrowUp" ? -24 : 24));
+							resizeTo(panelHeight + (event.key === "ArrowUp" ? -24 : 24));
 						}
 					}}
 				><span /></div>

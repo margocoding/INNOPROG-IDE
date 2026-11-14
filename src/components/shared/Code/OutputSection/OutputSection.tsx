@@ -1,7 +1,11 @@
 import React, { useId, useRef } from "react";
+import type { OutputMismatch } from "../../../../hooks/useCodeExecution";
+import "./OutputSection.css";
 
 interface OutputSectionProps {
 	output: string;
+	mismatch?: OutputMismatch | null;
+	running?: boolean;
 	inputData?: string;
 	status: "idle" | "success" | "error";
 	activeTab: "editor" | "output";
@@ -16,6 +20,8 @@ interface OutputSectionProps {
 
 const OutputSection: React.FC<OutputSectionProps> = ({
 	output,
+	mismatch,
+	running = false,
 	inputData = "",
 	status,
 	activeTab,
@@ -101,7 +107,9 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 						<span className="text-ide-text-secondary text-sm">
 							{isHtmlMode ? "HTML Preview" : "Output"}
 						</span>
-						{!isHtmlMode && getStatusIcon()}
+						{!isHtmlMode && (running ? (
+							<span className="ide-output-spinner" role="status" aria-label="Выполняется проверка" />
+						) : getStatusIcon())}
 					</div>
 					{canCollapse && (
 						<button
@@ -131,7 +139,18 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 						</div>
 					) : (
 						<div id={contentId} className="task-output-content flex-1 p-4 overflow-auto space-y-4">
-							{hasInputData && (
+							{mismatch && (
+								<div className="ide-check-result" role="status">
+									<strong className="ide-check-verdict">Неверно 😕 — вывод не совпал</strong>
+									{hasInputData && <div>Входные данные<pre>{inputData}</pre></div>}
+									<div className="ide-check-comparison">
+										<div>Получено<pre aria-label="Вывод вашей программы">{mismatch.actual.trim() ? mismatch.actual : "Программа ничего не вывела"}</pre></div>
+										<div>Ожидалось<pre aria-label="Ожидаемый вывод">{mismatch.expected.trim() ? mismatch.expected : "Пустой вывод"}</pre></div>
+									</div>
+									<p>Сравните вывод с примером, поправьте код и попробуйте ещё раз</p>
+								</div>
+							)}
+							{!mismatch && hasInputData && (
 								<section className="space-y-2">
 									<div className="text-xs font-medium uppercase tracking-wide text-ide-text-secondary">
 										Входные данные
@@ -141,8 +160,11 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 									</pre>
 								</section>
 							)}
-							<section className="space-y-2">
-								{hasInputData && (
+							{!mismatch && <section className="space-y-2">
+								{status === "error" && output && (
+									<strong className="ide-check-verdict block">Не удалось выполнить проверку 😕</strong>
+								)}
+								{hasInputData && status !== "error" && (
 									<div className="text-xs font-medium uppercase tracking-wide text-ide-text-secondary">
 										Вывод программы
 									</div>
@@ -159,7 +181,10 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 								>
 									{output || "Нет результата"}
 								</pre>
-							</section>
+								{status === "error" && output && (
+									<p className="text-sm">Проверьте сообщение об ошибке и попробуйте ещё раз</p>
+								)}
+							</section>}
 						</div>
 					)}
 				</div>

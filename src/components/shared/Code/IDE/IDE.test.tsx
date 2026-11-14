@@ -38,6 +38,8 @@ jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
     code,
     setCode,
     handleLanguageChange,
+    language,
+    languageLocked,
     webSocketData,
     collaborativeCodeSeed,
     canInitializeCollaborativeCode,
@@ -54,11 +56,12 @@ jest.mock("../CodeEditorSection/CodeEditorSection", () => ({
       data-has-websocket={String(Boolean(webSocketData))}
       data-can-initialize={String(Boolean(canInitializeCollaborativeCode))}
       data-file-name={fileName || ""}
+      data-language={language}
     >
       <span data-testid="editable-code">{code}</span>
       <span data-testid="collaborative-seed">{collaborativeCodeSeed}</span>
       <button onClick={() => setCode("changed")}>change-code</button>
-      <button onClick={() => handleLanguageChange("js")}>change-language</button>
+      <button disabled={languageLocked} onClick={() => handleLanguageChange("js")}>change-language</button>
     </section>
   ),
 }));
@@ -694,6 +697,21 @@ describe("IDE", () => {
     expect(mockSendEditMember).toHaveBeenCalledWith("Alice");
     fireEvent.click(screen.getByText("change-language"));
     expect(mockSendChangeLanguage).toHaveBeenCalledWith("js");
+  });
+
+  it("allows a language change after a platform task is selected", () => {
+    window.history.replaceState({}, "", "/?roomId=r1&telegramId=123");
+    const lesson = {
+      revision: 1,
+      language: "py",
+      task: { platformId: 42, title: "Задача", language: "py" },
+    };
+    const { rerender } = render(<IDE telegramId="123" webSocketData={socketData({ lesson })} />);
+    expect(screen.getByTestId("editor")).toHaveAttribute("data-language", "py");
+    fireEvent.click(screen.getByRole("button", { name: "change-language" }));
+    expect(mockSendChangeLanguage).toHaveBeenCalledWith("js");
+    rerender(<IDE telegramId="123" webSocketData={socketData({ lesson, language: "js" })} />);
+    expect(screen.getByTestId("editor")).toHaveAttribute("data-language", "js");
   });
 
   it("shows room loader before joining and stops it after timeout", () => {

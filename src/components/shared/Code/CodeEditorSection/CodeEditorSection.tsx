@@ -13,6 +13,8 @@ interface CodeEditorSectionProps {
   task: Task | null;
   activeTab: string;
   setCurrentCode: Dispatch<SetStateAction<string>>;
+  lightTheme?: boolean;
+  onToggleTheme?: () => void;
   width?: number;
   desktopSinglePane?: boolean;
   desktopStackedPane?: boolean;
@@ -71,6 +73,8 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     languageLocked = false,
     fileName,
     setCurrentCode,
+    lightTheme,
+    onToggleTheme,
     width = 50,
     desktopSinglePane = false,
     desktopStackedPane = false,
@@ -104,6 +108,8 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
         }
       >
         <CodeEditor
+          lightTheme={lightTheme}
+          onToggleTheme={onToggleTheme}
           value={code}
           onChange={setCode}
           language={language}
