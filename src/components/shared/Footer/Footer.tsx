@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { Button } from "@heroui/react";
 import "./Footer.css";
 import { isDesktop } from "../../../utils/platform";
@@ -43,6 +43,8 @@ const Footer: React.FC<FooterProps> = ({
   onPrimaryAction,
 }) => {
   const actionPendingRef = useRef(false);
+  const [actionPending, setActionPending] = useState(false);
+  const busy = isRunning || actionPending;
   const isHtmlMode = language === "html";
   const isSubmitOnlyMode = isHtmlMode || submitOnly;
   const hasTask = Boolean(taskId);
@@ -51,6 +53,7 @@ const Footer: React.FC<FooterProps> = ({
     if (isRunning || blockedReason || actionPendingRef.current) return;
 
     actionPendingRef.current = true;
+    setActionPending(true);
     try {
       if (onPrimaryAction) {
         await onPrimaryAction();
@@ -69,6 +72,7 @@ const Footer: React.FC<FooterProps> = ({
       }
     } finally {
       actionPendingRef.current = false;
+      setActionPending(false);
     }
   };
 
@@ -92,7 +96,8 @@ const Footer: React.FC<FooterProps> = ({
         <div className={runModeSelector ? "ide-footer-primary-frame" : "contents"}>
         <Button
           onPress={handleButtonClick}
-          disabled={isRunning || Boolean(blockedReason)}
+          disabled={busy || Boolean(blockedReason)}
+          aria-busy={busy}
           color={
             isSubmitOnlyMode || (status === "success" && taskId)
               ? "secondary"
@@ -102,7 +107,8 @@ const Footer: React.FC<FooterProps> = ({
             desktopTaskMode ? "md:w-auto" : "lg:w-auto"
           }`}
         >
-            <svg
+            {busy ? <span className="ide-output-spinner ide-footer-run-spinner shrink-0" aria-hidden="true" /> : <svg
+              aria-hidden="true"
               className="ide-footer-run-icon w-4 h-4 shrink-0"
               fill="none"
               stroke="currentColor"
@@ -120,7 +126,7 @@ const Footer: React.FC<FooterProps> = ({
                 strokeWidth="2"
                 d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
-            </svg>
+            </svg>}
           {blockedReason || (isSubmitOnlyMode
             ? "Отправить решение"
             : status === "success" && taskId

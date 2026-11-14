@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import Footer from "./Footer";
 
 jest.mock("@heroui/react", () => ({
@@ -40,6 +40,19 @@ describe("Footer", () => {
     rerender(<Footer {...second} />);
     fireEvent.click(screen.getByText("Отправить на проверку"));
     expect(second.onSubmitCheck).toHaveBeenCalled();
+  });
+
+  it("shows the spinner from the first click until execution settles", async () => {
+    let finish!: () => void;
+    const onRunCode = () => new Promise<void>((resolve) => { finish = resolve; });
+    render(<Footer {...props()} onRunCode={onRunCode} />);
+    const button = screen.getByRole("button", { name: "Выполнить" });
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+    expect(button.querySelector(".ide-footer-run-spinner")).toBeInTheDocument();
+    await act(async () => finish());
+    expect(button.querySelector(".ide-footer-run-spinner")).not.toBeInTheDocument();
+    expect(button).toBeEnabled();
   });
 
   it("handles HTML task and hides standalone HTML controls", () => {

@@ -52,12 +52,4 @@
   .ide-output-spinner { animation: none; }
 }
 
-.ide-workspace-spinner {
-  position: fixed;
-  z-index: 10;
-  inset-block-start: 8px;
-  inset-inline-end: 8px;
-  pointer-events: none;
-}
-
 .ide-footer-primary:disabled { opacity: 1; }

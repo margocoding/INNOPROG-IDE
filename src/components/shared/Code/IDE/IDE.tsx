@@ -902,9 +902,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         workspace?.toggleAttribute("inert", isRoomLoading);
       }}
     >
-      {(isRunning && activeTab === "editor" && !consoleMode) && (
-        <span className="ide-output-spinner ide-workspace-spinner" role="status" aria-label="Выполняется проверка" />
-      )}
       {isRoomLoading && (
         <Loader
           message={webSocketData?.connectionError || (
