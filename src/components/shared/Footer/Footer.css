@@ -1,4 +1,9 @@
 @media (max-width: 767px) {
+  .ide-footer.ide-footer--compact,
+  [data-host-expanded] .ide-footer {
+    padding-bottom: 0;
+  }
+
   .ide-footer--compact:not(.ide-footer--modes) > .container {
     padding: 6px 8px;
     gap: 8px;

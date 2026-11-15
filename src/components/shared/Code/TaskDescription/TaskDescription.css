@@ -190,9 +190,13 @@
 .task-description-shell .task-description-panel {
   padding-bottom: calc(var(--task-description-grip-height) + var(--task-description-touch-gap));
 }
+@media (max-width: 767px) {
+  .task-description-shell { --task-description-grip-height: 24px; }
+}
+
 @media (max-width: 767px) and (pointer: coarse) {
-  /* Keep swipes near the last line outside the browser's expanded grip hit area. */
-  .task-description-shell { --task-description-touch-gap: 12px; }
+  /* Leave room to swipe the description above the resize handle. */
+  .task-description-shell { --task-description-touch-gap: 6px; }
 }
 
 .task-description-row-resizer {
