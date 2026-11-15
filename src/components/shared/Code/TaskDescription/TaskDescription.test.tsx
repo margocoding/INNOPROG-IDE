@@ -291,6 +291,31 @@ describe("TaskDescription component", () => {
     expect(screen.queryByText("print(-robot1)")).toBeNull();
   });
 
+	it("shows the public training CSV as both a downloadable file and a readable table", () => {
+		const csv = "город,выручка\nМосква,10\nКазань,\n";
+		render(<TaskDescription task={{
+			id: 900001,
+			description: "Найдите общую выручку",
+			has_public_example: true,
+			has_multiple_tests: false,
+			input_file: {
+				name: "sales.csv",
+				content: csv,
+				columns: ["город", "выручка"],
+				rows: [["Москва", "10"], ["Казань", ""]],
+			},
+			answers: [{ id: 1, code_before: "", code_after: "", output: "10", hint: "", timeout: 30 }],
+		}} />);
+		const download = screen.getByRole("link", { name: "sales.csv" });
+		expect(download).toHaveAttribute("download", "sales.csv");
+		expect(decodeURIComponent(download.getAttribute("href")!.split(",")[1])).toBe(csv);
+		expect(screen.getByRole("columnheader", { name: "выручка" })).toBeInTheDocument();
+		expect(screen.getByRole("row", { name: /Москва 10/ })).toBeInTheDocument();
+		expect(screen.getByRole("row", { name: /Казань Пустое поле/ })).toBeInTheDocument();
+		const expectedOutputLabel = screen.getByText("Ожидаемый вывод для учебного файла");
+		expect(expectedOutputLabel.nextElementSibling).toHaveTextContent("10");
+	});
+
 	it("keeps paste wrappers in the editor instead of duplicating them in the description", () => {
 		const { rerender } = render(
 			<TaskDescription
