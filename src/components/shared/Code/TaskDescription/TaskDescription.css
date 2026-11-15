@@ -279,7 +279,6 @@
 
 .task-teacher-tests {
   margin: 16px 0 8px;
-  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
 }
 
 .task-teacher-tests summary {
