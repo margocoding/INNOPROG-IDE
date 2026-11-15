@@ -24,3 +24,65 @@
   cursor: not-allowed;
   opacity: 0.45;
 }
+
+@media (max-width: 767px) {
+  .code-editor-toolbar {
+    container: code-editor-toolbar / inline-size;
+    flex-wrap: nowrap;
+    padding: 5px 8px;
+  }
+
+  .code-editor-toolbar > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .code-editor-toolbar .code-editor-toolbar-actions {
+    gap: 6px;
+  }
+
+  .code-editor-toolbar .code-file-action-button {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+  }
+
+  .code-editor-toolbar .code-file-action-button svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .code-editor-toolbar .code-theme-button {
+    width: 36px;
+    height: 26px;
+  }
+
+  .code-editor-toolbar .code-theme-thumb {
+    width: 18px;
+    height: 18px;
+  }
+
+  .code-editor-toolbar .code-theme-thumb svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .code-editor-toolbar .code-language-select {
+    min-width: 94px;
+  }
+
+  .code-editor-toolbar .code-language-select [data-slot="trigger"] {
+    height: 28px;
+    min-height: 28px;
+    padding-inline: 8px;
+    border-radius: 8px;
+  }
+
+  @container code-editor-toolbar (max-width: 272px) {
+    .code-editor-toolbar .code-editor-file-actions {
+      display: none;
+    }
+  }
+}

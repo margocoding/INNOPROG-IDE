@@ -31,8 +31,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 }) => {
 	const [height, setHeight] = useState<number | null>(null);
 	const panelHeight = height ?? (task?.illustration ? 260 : 200);
-	const isResizing = useRef(false);
-	const containerRef = useRef<HTMLDivElement | null>(null);
+	const resizeStart = useRef<{ pointerId: number; y: number; height: number } | null>(null);
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 	useTaskScrollSync(scrollRef, task ? scrollSync : undefined);
 	const description = task?.description;
@@ -48,15 +47,18 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	};
 	const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
 		if (event.button !== 0) return;
+		const grip = event.currentTarget.getBoundingClientRect();
+		if (event.pointerType === "touch" && (event.clientY < grip.top || event.clientY > grip.bottom)) return;
 		event.preventDefault();
-		isResizing.current = true;
+		resizeStart.current = { pointerId: event.pointerId, y: event.clientY, height: panelHeight };
 		event.currentTarget.setPointerCapture(event.pointerId);
 	};
 	const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-		if (!isResizing.current || !containerRef.current) return;
-		resizeTo(event.clientY - containerRef.current.getBoundingClientRect().top);
+		const start = resizeStart.current;
+		if (start?.pointerId !== event.pointerId) return;
+		resizeTo(start.height + event.clientY - start.y);
 	};
-	const stopResize = () => { isResizing.current = false; };
+	const stopResize = () => { resizeStart.current = null; };
 
 	if (!task) return null;
 
@@ -92,10 +94,9 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 			}
 		>
 			<div
-				ref={containerRef}
 				style={{
 					position: "relative",
-					height: `${panelHeight}px`,
+					height: `calc(${panelHeight}px + var(--task-description-touch-gap))`,
 				}}
 				className="task-description-panel flex-none bg-ide-secondary p-4 border-b border-ide-border"
 			>
@@ -107,7 +108,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 						height: "100%",
 					}}
 				>
-					<div className="container mx-auto">
+					<div className="task-description-body container mx-auto">
 						<div className="prose prose-invert max-w-none">
 							{headline && <h2 className="lesson-task-title">{headline}</h2>}
 							{task.illustration && (!lesson || lesson.platformId) && (

@@ -55,7 +55,7 @@
 
 .task-description-content p {
   white-space: pre-wrap;
-  margin-bottom: 1em;
+  margin: 0 0 12px;
   line-height: 1.6;
 }
 
@@ -86,12 +86,12 @@
 }
 
 .task-description-content pre.task-description-code-block {
-  margin: 12px 0;
+  margin: 0 0 12px;
   padding: 12px 14px;
   overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.24);
+  border: 0;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.18);
   line-height: 1.5;
   white-space: pre;
 }
@@ -113,6 +113,17 @@
 
 .task-description-content pre.task-description-code-block * {
   white-space: pre;
+}
+
+@media (max-width: 767px) {
+  .task-description-content pre.task-description-code-block {
+    padding-inline-end: 0;
+  }
+
+  .task-description-content pre.task-description-code-block > code {
+    min-width: max-content;
+    padding-inline-end: 16px;
+  }
 }
 
 .description-syntax .token.comment,
@@ -170,17 +181,32 @@
   color: #f78c6c;
 }
 
-/* A full-width touch target, with a small visual grip. */
-.task-description-panel { padding-bottom: 40px; }
+/* Reserve the touch handle below the scrollable description. */
+.task-description-shell {
+  --task-description-grip-height: 32px;
+  --task-description-touch-gap: 0px;
+}
+
+.task-description-shell .task-description-panel {
+  padding-bottom: calc(var(--task-description-grip-height) + var(--task-description-touch-gap));
+}
+@media (max-width: 767px) and (pointer: coarse) {
+  /* Keep swipes near the last line outside the browser's expanded grip hit area. */
+  .task-description-shell { --task-description-touch-gap: 12px; }
+}
+
 .task-description-row-resizer {
   position: absolute; bottom: 0; left: 0; right: 0;
-  height: 32px; display: flex; align-items: center; justify-content: center;
+  height: var(--task-description-grip-height); display: flex; align-items: center; justify-content: center;
   cursor: row-resize; touch-action: none; user-select: none;
   background: #222632; z-index: 5;
 }
 .task-description-row-resizer > span { width: 64px; height: 4px; border-radius: 4px; background: #8990a4; }
 .task-description-row-resizer:focus-visible { outline: 2px solid #aa8eff; outline-offset: -2px; }
-@media(min-width:768px) { .task-description-shell--sidebar .task-description-panel { padding-bottom: 16px; } }
+@media (min-width: 768px) {
+  .task-description-shell--sidebar .task-description-panel { padding-bottom: 0; }
+  .task-description-shell--sidebar .task-description-body { margin-bottom: 16px; }
+}
 
 .prose .lesson-task-title {
   margin: 0 0 0.65em;

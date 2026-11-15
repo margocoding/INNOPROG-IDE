@@ -904,6 +904,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   return (
     <div
       className={`min-h-[100dvh] h-[100dvh] flex flex-col bg-ide-background text-ide-text-primary overflow-hidden${lightTheme ? " ide-task-light" : ""}`}
+      data-host-expanded={isEmbeddedApp && hostExpanded ? "" : undefined}
       ref={(workspace) => {
         workspace?.toggleAttribute("inert", isRoomLoading);
       }}

@@ -87,7 +87,7 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
 
     return (
       <div
-        className={`h-full min-w-0 p-4 ${
+        className={`code-editor-section h-full min-w-0 p-4 ${
           activeTab === "editor"
             ? "block"
             : desktopStackedPane

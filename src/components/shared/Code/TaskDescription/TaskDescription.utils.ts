@@ -414,6 +414,16 @@ export const stripInlineIdeFormattingHint = (description: string): string => {
 		.trim();
 };
 
+const blockTags = new Set([
+	"blockquote", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "ol", "p", "pre", "table", "tbody", "td", "th", "tr", "ul",
+]);
+
+const isBlockTag = (token?: DescriptionToken): boolean =>
+	token?.type === "tag" && token.shouldRender && blockTags.has(token.tagName);
+
+const isLayoutWhitespace = (token: DescriptionToken): boolean =>
+	token.type === "text" && /^\s*$/.test(token.content);
+
 export const processTaskDescription = (description: string, language = "text"): string => {
 	if (!description) return "";
 
@@ -431,6 +441,26 @@ export const processTaskDescription = (description: string, language = "text"): 
 
 	for (let index = 0; index < tokens.length; index += 1) {
 		const token = tokens[index];
+
+		if (isLayoutWhitespace(token) && isBlockTag(tokens[index - 1]) && isBlockTag(tokens[index + 1])) {
+			continue;
+		}
+
+		if (token.type === "tag" && token.tagName === "pre" && token.shouldRender
+			&& !token.isClosing && typeof token.matchingTagIndex === "number") {
+			const end = token.matchingTagIndex;
+			const first = tokens.slice(index + 1, end).findIndex((child) => !isLayoutWhitespace(child));
+			const codeIndex = index + 1 + first;
+			const code = tokens[codeIndex];
+			if (first >= 0 && code?.type === "tag" && code.tagName === "code"
+				&& !code.isClosing && code.shouldRender && typeof code.matchingTagIndex === "number"
+				&& code.matchingTagIndex < end
+				&& tokens.slice(code.matchingTagIndex + 1, end).every(isLayoutWhitespace)) {
+				renderedParts.push(renderCodeBlock(tokens.slice(codeIndex + 1, code.matchingTagIndex), language));
+				index = end;
+				continue;
+			}
+		}
 
 		if (
 			token.type === "tag" &&

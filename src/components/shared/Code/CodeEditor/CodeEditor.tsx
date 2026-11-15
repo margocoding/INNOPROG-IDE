@@ -1517,11 +1517,11 @@ const CodeEditor: React.FC<IProps> = React.memo(
         className="relative h-full rounded-lg overflow-clip bg-ide-editor"
         data-testid="code-editor-shell"
       >
-        <div className="px-3 py-2 border-b border-ide-border bg-ide-secondary flex flex-wrap justify-between items-center gap-x-2 gap-y-1">
+        <div className="code-editor-toolbar px-3 py-2 border-b border-ide-border bg-ide-secondary flex flex-wrap justify-between items-center gap-x-2 gap-y-1">
           <span className="text-ide-text-secondary text-sm">
             {displayedFileName}
           </span>
-          <div className="ml-auto flex shrink-0 items-center gap-2">
+          <div className="code-editor-toolbar-actions ml-auto flex shrink-0 items-center gap-2">
             <input
               ref={fileInputRef}
               type="file"
@@ -1529,7 +1529,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
               className="hidden"
               onChange={handleCodeFileChange}
             />
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="code-editor-file-actions flex shrink-0 items-center gap-1">
               <button
                 type="button"
                 className="code-file-action-button"

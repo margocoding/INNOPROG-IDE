@@ -114,6 +114,47 @@
   }
 }
 
+@media (max-width: 767px) {
+  .code-editor-section .cm-scroller,
+  .task-description-panel pre {
+    scrollbar-width: thin;
+    scrollbar-color: #8994ab transparent;
+  }
+
+  .code-editor-section .cm-scroller::-webkit-scrollbar,
+  .task-description-panel pre::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  .code-editor-section .cm-scroller::-webkit-scrollbar-thumb,
+  .task-description-panel pre::-webkit-scrollbar-thumb {
+    background: #8994ab;
+    border-radius: 5px;
+  }
+
+  .code-editor-section .cm-line {
+    padding-inline-end: 16px;
+  }
+
+  .bg-ide-background :is(.code-editor-section, .task-output-inner) {
+    padding: 6px;
+  }
+
+  [data-host-expanded] :is(.code-editor-section, .task-output-inner) {
+    padding: 4px;
+  }
+
+  [data-host-expanded] .task-description-panel {
+    padding-block-start: 8px;
+    padding-inline: 8px;
+  }
+
+  [data-host-expanded] .ide-footer > .container {
+    padding: 4px 8px;
+  }
+}
+
 .code-theme-button {
   display: flex;
   align-items: center;

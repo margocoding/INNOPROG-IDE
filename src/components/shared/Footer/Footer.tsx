@@ -48,6 +48,7 @@ const Footer: React.FC<FooterProps> = ({
   const isHtmlMode = language === "html";
   const isSubmitOnlyMode = isHtmlMode || submitOnly;
   const hasTask = Boolean(taskId);
+  const primaryColor = isSubmitOnlyMode || (status === "success" && taskId) ? "secondary" : "success";
 
   const handleButtonClick = async () => {
     if (isRunning || blockedReason || actionPendingRef.current) return;
@@ -98,11 +99,7 @@ const Footer: React.FC<FooterProps> = ({
           onPress={handleButtonClick}
           disabled={busy || Boolean(blockedReason)}
           aria-busy={busy}
-          color={
-            isSubmitOnlyMode || (status === "success" && taskId)
-              ? "secondary"
-              : "success"
-          }
+          color={primaryColor}
           className={`ide-footer-primary w-full text-white ${
             desktopTaskMode ? "md:w-auto" : "lg:w-auto"
           }`}
@@ -148,14 +145,7 @@ const Footer: React.FC<FooterProps> = ({
         )}
         </div>
         {!hideRetry && !isSubmitOnlyMode && activeTab === "output" && (
-          <div
-            className={
-              desktopTaskMode
-                ? "w-full md:hidden"
-                : "lg:hidden w-full md:hidden"
-            }
-          >
-            <div className="ide-footer-retry-frame md:hidden">
+          <div className="w-full md:hidden">
             <Button
               disabled={isRunning}
               onPress={() => {
@@ -163,11 +153,14 @@ const Footer: React.FC<FooterProps> = ({
                 setStatus("idle");
               }}
               color="danger"
-              className={`ide-footer-retry w-full ${desktopTaskMode ? "md:w-auto" : ""}`}
+              className="ide-footer-retry w-full text-white"
             >
+              <svg aria-hidden="true" className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 11a8 8 0 1 1 2 6M4 5v6h6" />
+              </svg>
               Попробовать снова
             </Button>
-            </div>
           </div>
         )}
       </div>

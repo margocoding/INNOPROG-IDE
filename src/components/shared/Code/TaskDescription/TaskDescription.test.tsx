@@ -111,6 +111,17 @@ describe("processTaskDescription", () => {
 		expect(container.textContent).not.toContain("`");
 	});
 
+	it("renders one code block and does not show source line breaks between task paragraphs", () => {
+		const container = document.createElement("div");
+		container.innerHTML = processTaskDescription(
+			"<p>Добавьте строку.</p>\n\n<pre><code>if ready:\n    print(1)</code></pre>\n<p>Выведите число.</p>",
+			"python",
+		);
+		expect(Array.from(container.childNodes).map((node) => node.nodeName)).toEqual(["P", "PRE", "P"]);
+		expect(container.querySelector("pre pre")).toBeNull();
+		expect(container.querySelector("pre code")?.textContent).toBe("if ready:\n    print(1)");
+	});
+
 	it("renders multiline code as a code block and preserves indentation", () => {
 		const description = `имеется код:
 <code>
@@ -204,21 +215,32 @@ describe("TaskDescription component", () => {
 		);
 		expect(screen.getByText("Решите задачу")).toBeInTheDocument();
 		expect(screen.getByText("Входные данные:")).toHaveClass("mt-3");
-		const outer = container.querySelector(".bg-ide-secondary") as HTMLElement;
-		jest.spyOn(outer, "getBoundingClientRect").mockReturnValue({
-			top: 10,
+		const handle = container.querySelector('[role="separator"]') as HTMLElement;
+		jest.spyOn(handle, "getBoundingClientRect").mockReturnValue({
+			top: 180,
+			bottom: 212,
 		} as DOMRect);
-		const handle = outer.lastElementChild as HTMLElement;
 		window.PointerEvent = MouseEvent as typeof PointerEvent;
 		handle.setPointerCapture = jest.fn();
-		fireEvent.pointerDown(handle, { button: 0, pointerId: 1 });
-		fireEvent.pointerMove(handle, { clientY: 310, pointerId: 1 });
-		expect(outer.style.height).toBe("300px");
+		const pointer = (name: string, clientY: number) =>
+			Object.assign(new MouseEvent(name, { bubbles: true, button: 0, clientY }), {
+				pointerId: 1,
+				pointerType: "touch",
+			});
+
+		fireEvent(handle, pointer("pointerdown", 177));
+		fireEvent(handle, pointer("pointermove", 310));
+		expect(handle).toHaveAttribute("aria-valuenow", "200");
+		expect(handle.setPointerCapture).not.toHaveBeenCalled();
+
+		fireEvent(handle, pointer("pointerdown", 210));
+		fireEvent(handle, pointer("pointermove", 310));
+		expect(handle).toHaveAttribute("aria-valuenow", "300");
 		fireEvent.pointerCancel(handle);
-		fireEvent.pointerMove(handle, { clientY: 410, pointerId: 1 });
-		expect(outer.style.height).toBe("300px");
+		fireEvent(handle, pointer("pointermove", 410));
+		expect(handle).toHaveAttribute("aria-valuenow", "300");
 		fireEvent.keyDown(handle, { key: "ArrowUp" });
-		expect(outer.style.height).toBe("276px");
+		expect(handle).toHaveAttribute("aria-valuenow", "276");
 	});
 
 	it.each(["-", "–", "—"])(
