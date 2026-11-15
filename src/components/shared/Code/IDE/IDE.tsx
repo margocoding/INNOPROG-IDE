@@ -173,9 +173,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     const saved = localStorage.getItem("innoprog-task-panel-width");
     return saved ? parseFloat(saved) : 38;
   });
-  const [desktopEditorHeight, setDesktopEditorHeight] = useState<number>(() => {
-    const saved = localStorage.getItem("innoprog-task-editor-height");
-    return saved ? parseFloat(saved) : 58;
+  const [desktopEditorHeight, setDesktopEditorHeight] = useState<number | null>(() => {
+    const saved = parseFloat(localStorage.getItem("innoprog-task-editor-height") || "");
+    return Number.isFinite(saved) ? saved : null;
   });
 
   const { onOpen, onOpenChange, isOpen, onClose } = useDisclosure();
@@ -284,7 +284,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     return () => document.documentElement.classList.remove("ide-loading-light");
   }, [lightTheme]);
 
-  const { isRunning, checkProgress, outputMismatch, handleRunCode, onSendCheck, setCurrentCode } =
+  const { isRunning, checkProgress, outputMismatch, programOutput, outputImages, handleRunCode, onSendCheck, setCurrentCode } =
     useCodeExecution({
       currentAnswer,
       task,
@@ -1025,7 +1025,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               desktopStackedPane={desktopTaskMode}
               desktopPaneSize={
                 desktopTaskMode && activeTab === "output"
-                  ? desktopEditorHeight
+                  ? desktopEditorHeight ?? (outputImages?.length ? 45 : 58)
                   : 100
               }
               collaborativeCodeSeed={
@@ -1057,7 +1057,10 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               output={output}
               mismatch={outputMismatch}
               running={isRunning && activeTab === "output"}
-              inputData={runInputData}
+              inputData={task?.input_file ? "" : runInputData}
+              inputFile={task?.input_file}
+              programOutput={programOutput}
+              images={outputImages}
               status={status}
               activeTab={activeTab}
               language={language}

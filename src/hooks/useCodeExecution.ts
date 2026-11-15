@@ -1,7 +1,7 @@
 import { TaskCheckProgress } from "../services/taskCheckProgress";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
-import { Answer, Language, Task, TaskAnswerCheckRequest } from "../types/task";
+import { Answer, CheckResult, Language, OutputImage, Task, TaskAnswerCheckRequest } from "../types/task";
 import { postToParent } from "../utils/parentMessaging";
 
 const admissionMessage = (error: any): string | null => {
@@ -73,7 +73,22 @@ export const useCodeExecution = ({
 	setSubmitMessage,
 }: UseCodeExecutionProps) => {
 	const [outputMismatch, setOutputMismatch] = useState<OutputMismatch | null>(null);
-	useEffect(() => setOutputMismatch(null), [taskId]);
+	const [programOutput, setProgramOutput] = useState<string | null>(null);
+	const [outputImages, setOutputImages] = useState<OutputImage[]>([]);
+	useEffect(() => {
+		setOutputMismatch(null);
+		setProgramOutput(null);
+		setOutputImages([]);
+	}, [taskId]);
+
+	function recordExecution(result: CheckResult) {
+		const images = (result.artifacts ?? []).filter(
+			(image) => image.mime_type === "image/png" || image.mime_type === "image/jpeg",
+		);
+		setOutputImages(images);
+		const showProgramOutput = Boolean(task?.input_file || images.length);
+		setProgramOutput(showProgramOutput && result.output !== "error" ? result.output ?? "" : null);
+	}
 	const executionInFlight = useRef(false);
 	const activeRun = useRef<AbortController | null>(null);
 	useEffect(() => () => activeRun.current?.abort(), []);
@@ -111,7 +126,8 @@ export const useCodeExecution = ({
 	const handleRunCode = async () => {
 		const selectedAnswer = getSelectedAnswer();
 		const hasPublicTaskExample = Boolean(
-			taskId && selectedAnswer?.output?.trim() &&
+			taskId && (selectedAnswer?.output?.trim() ||
+				(task?.input_file && typeof selectedAnswer?.output === "string")) &&
 			(selectedAnswer?.input != null || task?.has_public_example === true)
 		);
 		const shouldAutoSubmitAfterPublicTest = Boolean(
@@ -164,11 +180,13 @@ export const useCodeExecution = ({
 
 			const checkData = {
 				input_data: selectedAnswer?.input || inputData || "-",
-				output_data:
-					selectedAnswer?.output?.trim() || outputData.trim() || "-",
+				output_data: task?.input_file && selectedAnswer?.output != null
+					? selectedAnswer.output.trim()
+					: selectedAnswer?.output?.trim() || outputData.trim() || "-",
 				program: fullCode,
 				test_number: -1,
 				timeout: selectedAnswer?.timeout || 30,
+				...(task?.input_file && taskId ? { task_id: Number(taskId) } : {}),
 			};
 
 			const canCheckPublicTaskExample = hasPublicTaskExample;
@@ -186,6 +204,7 @@ export const useCodeExecution = ({
 					...(controller ? [controller.signal] as const : [])
 				);
 
+				recordExecution(result);
 				setOutputMismatch(null);
 				setRunInputData(result.input ?? runInputData);
 				if (!taskId && (runLanguage === Language.PY || runLanguage === Language.CPP) && outputData.trim() && result.result) {
@@ -215,6 +234,7 @@ export const useCodeExecution = ({
 			}
 
 			const result = await api.checkCode(checkData, runLanguage);
+			recordExecution(result);
 			setOutputMismatch(null);
 			setRunInputData(checkData.input_data === "-" ? "" : checkData.input_data);
 
@@ -227,7 +247,9 @@ export const useCodeExecution = ({
 					taskId
 						? shouldAutoSubmitAfterPublicTest
 							? "Первый тест пройден. Идёт полная проверка решения"
-							: "Первый тест пройден. Для сдачи задания отправь решение на полную проверку"
+							: task?.input_file
+								? "Пример пройден. Нажмите «Отправить» для полной проверки"
+								: "Первый тест пройден. Для сдачи задания отправь решение на полную проверку"
 						: `Программа успешно выполнена${result.output ? `\nРезультат программы: ${result.output}` : ""}`
 				);
 				setStatus("success");
@@ -247,6 +269,8 @@ export const useCodeExecution = ({
 		} catch (error: any) {
 			if (controller?.signal.aborted) return;
 			setRunInputData("");
+			setProgramOutput(null);
+			setOutputImages([]);
 			setOutputMismatch(null);
 			setOutput(maintenanceMessage(error) || admissionMessage(error) || `Ошибка выполнения: ${error.message}`);
 			setStatus("error");
@@ -348,6 +372,8 @@ export const useCodeExecution = ({
 		isRunning,
 		checkProgress,
 		outputMismatch,
+		programOutput,
+		outputImages,
 		handleRunCode,
 		onSendCheck,
 		currentCode,

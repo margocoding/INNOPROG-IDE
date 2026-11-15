@@ -26,6 +26,7 @@ export interface Task {
   examples?: Example[];
   initial_code?: string;
   editable_starter_code?: string;
+  input_file?: { name: string; content: string; columns: string[]; rows: string[][] };
   editor_language?: string;
   submission_ui?: string;
   tests?: Test[];
@@ -53,6 +54,7 @@ export interface CodeCheckRequest {
   program: string;
   test_number: number;
   timeout: number;
+  task_id?: number;
 }
 
 export interface RunCodeRequest {
@@ -69,6 +71,12 @@ export interface SubmitRequest {
   answer_id: string;
 }
 
+export interface OutputImage {
+  name: string;
+  mime_type: "image/png" | "image/jpeg";
+  base64: string;
+}
+
 export interface CheckResult {
   result: boolean;
   error?: string;
@@ -77,6 +85,7 @@ export interface CheckResult {
   transcript?: string;
   comment?: string;
   expected?: string;
+  artifacts?: OutputImage[];
 }
 
 export type RunCodeResult = CheckResult;

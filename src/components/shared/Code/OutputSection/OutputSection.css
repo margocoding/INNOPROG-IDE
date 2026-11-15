@@ -53,3 +53,68 @@
 }
 
 .ide-footer-primary:disabled { opacity: 1; }
+
+.ide-execution-text pre {
+  margin: 6px 0 0;
+  font-family: ui-monospace, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ide-output-file {
+  font: .85rem ui-monospace, monospace;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ide-execution-image {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px 12px;
+  margin-inline: 0;
+  font-size: .875rem;
+}
+
+.ide-execution-image figcaption {
+  grid-area: 1 / 1;
+  overflow-wrap: anywhere;
+}
+
+.ide-execution-image a {
+  grid-column: 2;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ide-execution-image img {
+  grid-column: 1 / -1;
+  width: min(100%, 680px);
+  height: auto;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.task-output-inner {
+  container-type: inline-size;
+}
+
+.ide-execution-results,
+.ide-execution-images {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+@container (min-width: 400px) {
+  .ide-execution-results.has-images:has(.ide-execution-text) {
+    grid-template-columns: clamp(100px, 24%, 170px) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .desktop-task-output-pane .ide-execution-image img {
+    max-height: min(29vh, 310px);
+    object-fit: contain;
+    object-position: left top;
+  }
+}

@@ -1,5 +1,6 @@
 import React, { useId, useRef } from "react";
 import type { OutputMismatch } from "../../../../hooks/useCodeExecution";
+import type { OutputImage } from "../../../../types/task";
 import "./OutputSection.css";
 
 interface OutputSectionProps {
@@ -7,6 +8,9 @@ interface OutputSectionProps {
 	mismatch?: OutputMismatch | null;
 	running?: boolean;
 	inputData?: string;
+	inputFile?: { name: string; content: string };
+	programOutput?: string | null;
+	images?: OutputImage[];
 	status: "idle" | "success" | "error";
 	activeTab: "editor" | "output";
 	language?: string;
@@ -23,6 +27,9 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 	mismatch,
 	running = false,
 	inputData = "",
+	inputFile,
+	programOutput = null,
+	images = [],
 	status,
 	activeTab,
 	language,
@@ -139,6 +146,18 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 						</div>
 					) : (
 						<div id={contentId} className="task-output-content flex-1 p-4 overflow-auto space-y-4">
+							{inputFile && (
+								<section className="space-y-1" aria-label="Входные данные">
+									<div className="text-xs font-medium uppercase tracking-wide text-ide-text-secondary">
+										Входные данные
+									</div>
+									<a className="ide-output-file" download={inputFile.name}
+										href={`data:text/csv;charset=utf-8,${encodeURIComponent(inputFile.content)}`}
+										title={`Скачать ${inputFile.name}`}>
+										{inputFile.name}
+									</a>
+								</section>
+							)}
 							{mismatch && (
 								<div className="ide-check-result" role="status">
 									<strong className="ide-check-verdict">Неверно 😕 — вывод не совпал</strong>
@@ -179,12 +198,32 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 											: ""
 									}`}
 								>
-									{output || "Нет результата"}
+									{output && output !== programOutput ? output : programOutput === null ? "Нет результата" : ""}
 								</pre>
 								{status === "error" && output && (
 									<p className="text-sm">Проверьте сообщение об ошибке и попробуйте ещё раз</p>
 								)}
 							</section>}
+							{((!mismatch && programOutput !== null) || images.length > 0) && (
+								<div className={`ide-execution-results${images.length ? " has-images" : ""}`}>
+									{!mismatch && programOutput !== null && (programOutput || !images.length) && (
+										<section className="ide-execution-text" aria-label="Вывод программы">
+											<div className="text-xs font-medium uppercase tracking-wide text-ide-text-secondary">Вывод программы</div>
+											<pre>{programOutput || "Пустой вывод"}</pre>
+										</section>
+									)}
+									{images.length > 0 && <div className="ide-execution-images">
+										{images.map((image, index) => {
+											const src = `data:${image.mime_type};base64,${image.base64}`;
+											return <figure className="ide-execution-image" key={`${image.name}-${index}`}>
+												<figcaption>{image.name}</figcaption>
+												<a href={src} download={image.name} aria-label={`Скачать ${image.name}`}>Скачать</a>
+												<img src={src} alt={`Результат программы: ${image.name}`} />
+											</figure>;
+										})}
+									</div>}
+								</div>
+							)}
 						</div>
 					)}
 				</div>

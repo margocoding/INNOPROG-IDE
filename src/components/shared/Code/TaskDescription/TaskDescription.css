@@ -189,23 +189,66 @@
   overflow-wrap: anywhere;
 }
 
-.task-description-illustration {
+.task-description-content > :first-child {
+  margin-top: 0;
+}
+
+.prose .task-description-illustration {
   display: block;
-  width: auto;
-  max-width: min(100%, 560px);
-  max-height: clamp(132px, 31vw, 224px);
+  width: 100%;
+  max-width: 640px;
   height: auto;
-  margin: 2px 0 16px;
+  max-height: 260px;
+  object-fit: contain;
+  object-position: left center;
+  margin: 0 0 12px;
 }
 
 .task-description-shell:not(.task-description-shell--sidebar) .task-description-illustration {
-  max-height: 132px;
+  max-height: min(45vw, 184px);
 }
 
-@media (max-width: 767px) {
-  .task-description-illustration {
-    max-height: clamp(74px, 21vw, 132px);
-  }
+.task-file-preview {
+  margin-block: 16px;
+}
+
+.prose .task-file-preview h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.prose .task-file-preview p {
+  margin: 0 0 8px;
+  font-size: .875rem;
+}
+
+.task-file-preview a {
+  font-family: ui-monospace, monospace;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.task-file-table-scroll {
+  overflow: auto;
+  border: 1px solid var(--ide-border, #596071);
+  border-radius: 8px;
+}
+
+.prose .task-file-table-scroll table {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  white-space: nowrap;
+  font-size: .82rem;
+}
+
+.task-file-table-scroll :is(td, th) {
+  padding: 4px 9px;
+  border-bottom: 1px solid var(--ide-border, #596071);
+}
+
+.task-file-table-scroll tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .task-teacher-tests {

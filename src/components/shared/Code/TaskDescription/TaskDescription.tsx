@@ -120,14 +120,37 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 								: <div className="task-description-content" dangerouslySetInnerHTML={legacyHtml} />}
 							{hasPublicExample && (
 								<>
-									{taskInput && (
+									{task.input_file ? (
+										<section className="task-file-preview" aria-label="Входные данные">
+											<h3>Входные данные</h3>
+											<p>
+												Имя файла{" "}
+												<a download={task.input_file.name}
+													href={`data:text/csv;charset=utf-8,${encodeURIComponent(task.input_file.content)}`}>
+													{task.input_file.name}
+												</a>
+											</p>
+											<div className="task-file-table-scroll">
+												<table>
+													<thead><tr>{task.input_file.columns.map((column, index) => (
+														<th key={index} scope="col">{column}</th>
+													))}</tr></thead>
+													<tbody>{task.input_file.rows.map((row, index) => (
+														<tr key={index}>{row.map((cell, cellIndex) => (
+															<td key={cellIndex}>{cell || <span aria-label="Пустое поле">—</span>}</td>
+														))}</tr>
+													))}</tbody>
+												</table>
+											</div>
+										</section>
+									) : taskInput && (
 										<>
 											<div className="mt-3">Входные данные:</div>
 											<pre>{taskInput}</pre>
 										</>
 									)}
 									{(!lesson || taskAnswer?.output) && <>
-										<div className="mt-3">Выходные данные:</div>
+										<div className="mt-3">{task.input_file ? "Ожидаемый вывод для учебного файла" : "Выходные данные:"}</div>
 										<pre>{taskAnswer?.output}</pre>
 									</>}
 								</>
