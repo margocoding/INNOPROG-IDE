@@ -136,6 +136,28 @@ describe("IDE API", () => {
     );
   });
 
+  it("shares one session renewal when parallel task and saved-code reads get a 401", async () => {
+    let refreshes = 0;
+    global.fetch = jest.fn(async (url, options) => {
+      if (String(url).endsWith("/platform/session/refresh")) {
+        const token = ++refreshes === 1 ? "expired" : "renewed";
+        return { ok: true, json: async () => ({ access_token: token }) };
+      }
+      if ((options?.headers as Record<string, string>).Authorization === "Bearer expired") {
+        return { ok: false, status: 401 };
+      }
+      return { ok: true, json: async () => ({ code: "saved" }) };
+    }) as jest.Mock;
+    mockedAxios.get
+      .mockRejectedValueOnce({ response: { status: 401 } })
+      .mockResolvedValueOnce({ data: { id: 7 } });
+
+    await expect(Promise.all([api.getTask("7", "42"), api.getSubmitCode("a", 42, 7)]))
+      .resolves.toEqual([{ id: 7 }, { code: "saved" }]);
+    expect(refreshes).toBe(2);
+    expect(mockedAxios.get.mock.calls[1][1]?.headers?.Authorization).toBe("Bearer renewed");
+  });
+
   it("loads the explicit localhost task preview without production auth", async () => {
     window.history.replaceState(
       {},

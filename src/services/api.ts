@@ -238,17 +238,24 @@ function isUnauthorizedResponse(value: any): boolean {
 	return Number(value?.status ?? value?.response?.status) === 401;
 }
 
+function invalidateRejectedTaskToken(headers: Record<string, string>): void {
+	if (headers.Authorization === `Bearer ${platformAccessToken}`) {
+		platformAccessToken = "";
+	}
+}
+
 async function withProtectedTaskRetry<T>(
 	request: (headers: Record<string, string>) => Promise<T>,
 ): Promise<T> {
+	const headers = await protectedTaskHeaders();
 	try {
-		const response = await request(await protectedTaskHeaders());
+		const response = await request(headers);
 		if (!isUnauthorizedResponse(response)) return response;
 	} catch (error) {
 		if (!isUnauthorizedResponse(error)) throw error;
 	}
 
-	clearPlatformAccessSession();
+	invalidateRejectedTaskToken(headers);
 	return request(await protectedTaskHeaders());
 }
 
@@ -274,18 +281,18 @@ export const api = {
 		}
 
 		const params = { client_id: clientId, ...(teacherTests ? { teacher_tests: "1" } : {}) };
+		const taskHeaders = await protectedTaskHeaders();
 		try {
-			const headers = await protectedTaskHeaders();
 			const response = await axios.get(`${PLATFORM_API_URL}/task/${taskId}`, {
 				timeout: API_REQUEST_TIMEOUT_MS,
 				params,
-				headers,
+				headers: taskHeaders,
 				withCredentials: true,
 			});
 			return response.data;
 		} catch (error: any) {
 			if (error?.response?.status !== 401) throw error;
-			clearPlatformAccessSession();
+			invalidateRejectedTaskToken(taskHeaders);
 			const headers = await protectedTaskHeaders();
 			if (!headers.Authorization && !headers["X-Telegram-Init-Data"]) throw error;
 			const response = await axios.get(`${PLATFORM_API_URL}/task/${taskId}`, {

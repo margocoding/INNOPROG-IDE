@@ -537,6 +537,18 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     setInitialCodeLoadFailed(false);
   }, [answer_id, roomId, taskId]);
 
+  const savedCodeRequest = useRef<ReturnType<typeof api.getSubmitCode> | null>(null);
+  useEffect(() => {
+    if (roomId || !taskId || !answer_id) return;
+
+    const request = api.getSubmitCode(answer_id, userId, Number(taskId));
+    // The request can fail before task metadata arrives. The code loader
+    // handles that failure once it is ready to consume the result.
+    void request.catch(() => {});
+    savedCodeRequest.current = request;
+    return () => { savedCodeRequest.current = null; };
+  }, [answer_id, roomId, taskId, userId]);
+
   // Загрузка кода с приоритетами
   useEffect(() => {
     let active = true;
@@ -567,11 +579,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       if (taskId && answer_id) {
         try {
           setInitialCodeLoadFailed(false);
-          const data = await api.getSubmitCode(
-            answer_id,
-            userId,
-            Number(taskId)
-          );
+          const data = await (savedCodeRequest.current ??
+            api.getSubmitCode(answer_id, userId, Number(taskId)));
           if (
             !data ||
             (data.status && data.status !== "success") ||

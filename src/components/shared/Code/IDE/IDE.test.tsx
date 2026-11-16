@@ -392,6 +392,7 @@ describe("IDE", () => {
     (api.getSubmitCode as jest.Mock).mockReturnValue(codePromise);
 
     render(<IDE telegramId="123" />);
+    expect(api.getSubmitCode).toHaveBeenCalledWith("a", 123, 7);
     expect(mockPostToParent).not.toHaveBeenCalled();
 
     await act(async () => {
