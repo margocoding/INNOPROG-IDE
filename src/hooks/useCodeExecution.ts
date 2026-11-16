@@ -195,7 +195,9 @@ export const useCodeExecution = ({
 			};
 
 			const canCheckPublicTaskExample = hasPublicTaskExample;
-			const localSqlite = runLanguage === Language.SQL && sqliteWorkspace?.hasDatabase ? sqliteWorkspace : undefined;
+			const sqlWorkspace = runLanguage === Language.SQL ? sqliteWorkspace : undefined;
+			if (sqlWorkspace) await sqlWorkspace.restore();
+			const localSqlite = sqlWorkspace?.hasDatabase ? sqlWorkspace : undefined;
 
 			if (!canCheckPublicTaskExample && (localSqlite || taskId || !outputData.trim() || runLanguage === Language.PY || runLanguage === Language.CPP)) {
 				const runInputData = inputData || "";

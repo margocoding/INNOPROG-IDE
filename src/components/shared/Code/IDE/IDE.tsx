@@ -220,6 +220,15 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     : null), [suppliedAnswerId, taskId]);
   const roomId = searchParams.get("roomId");
   const sqliteWorkspace = useMemo(() => roomId || taskId ? undefined : new SqliteWorkspace(), [roomId, taskId]);
+  useEffect(() => {
+    if (!sqliteWorkspace || language !== Language.SQL) return;
+    let current = true;
+    void sqliteWorkspace.restore().then(source => {
+      if (current && source !== undefined) setCode(previous => previous || source);
+    });
+    return () => { current = false; };
+  }, [language, sqliteWorkspace]);
+
   const joinedFocusSocket = webSocketData?.isJoinedRoom && webSocketData.isConnected && !webSocketData.completed
     ? webSocketData.socket : null;
   const canShowRoomPlace = Boolean(roomId && joinedFocusSocket && webSocketData?.isTeacher);

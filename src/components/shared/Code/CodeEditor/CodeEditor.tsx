@@ -1522,6 +1522,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
     const handleDownloadClick = useCallback(async () => {
       const codeToDownload = getEditableCodeFromEditor();
 
+      if (sqliteExport) await sqliteExport.restore();
       if (!codeToDownload.trim() && !sqliteExport?.hasDatabase) {
         window.alert("Нет кода для скачивания.");
         return;
