@@ -8,6 +8,7 @@ import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useStat
 import { useSearchParams } from "react-router-dom";
 import { useCodeExecution } from "../../../../hooks/useCodeExecution";
 import { api } from "../../../../services/api";
+import { getInitialCode, getInitialTask } from "../../../../services/initialTask";
 import { Answer, Language, Task } from "../../../../types/task";
 import { postToParent, resolveParentOrigin } from "../../../../utils/parentMessaging";
 import {
@@ -499,9 +500,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       if (!taskId) return;
 
       try {
-        const taskData = isCabinetTask
-          ? await api.getTask(taskId, clientId, true)
-          : await api.getTask(taskId, clientId);
+        const taskData = await getInitialTask(taskId, clientId, isCabinetTask);
         if (!active) return;
         setTask(taskData);
         if (taskData.answers && taskData.answers.length > 0) {
@@ -542,7 +541,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   useEffect(() => {
     if (roomId || !taskId || !answer_id) return;
 
-    const request = api.getSubmitCode(answer_id, userId, Number(taskId));
+    const request = getInitialCode(answer_id, userId, Number(taskId));
     // The request can fail before task metadata arrives. The code loader
     // handles that failure once it is ready to consume the result.
     void request.catch(() => {});

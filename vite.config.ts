@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -21,7 +22,32 @@ export default defineConfig(({ mode }) => {
   );
 
   return {
-    plugins: [react()],
+    plugins: [react(), {
+      name: "early-embedded-task",
+      apply: "build",
+      transformIndexHtml: {
+        order: "post",
+        handler(_html, context) {
+          const entry = Object.values(context.bundle ?? {}).find(
+            item => item.type === "chunk" && item.isEntry && item.name === "embedded-task",
+          );
+          if (!entry) throw new Error("The embedded task startup entry was not emitted");
+          return [{
+            tag: "script",
+            injectTo: "head-prepend",
+            children: `(() => {
+              if (self === top) return;
+              const params = new URLSearchParams(location.search);
+              const fragment = new URLSearchParams(location.hash.slice(1));
+              if (params.has("task_id") && !params.has("roomId") && fragment.has("launch_code") &&
+                  fragment.get("target_service") === "ide") {
+                import(${JSON.stringify("/" + entry.fileName)}).catch(() => {});
+              }
+            })();`,
+          }];
+        },
+      },
+    }],
     define: {
       ...define,
       'process.env.NODE_ENV': JSON.stringify(mode),
@@ -58,6 +84,10 @@ export default defineConfig(({ mode }) => {
     build: {
       target: 'es2018',
       rollupOptions: {
+        input: {
+          index: fileURLToPath(new URL("./index.html", import.meta.url)),
+          "embedded-task": fileURLToPath(new URL("./src/startEmbeddedTask.ts", import.meta.url)),
+        },
         output: {
           onlyExplicitManualChunks: true,
           manualChunks(id) {
