@@ -15,6 +15,7 @@ import StartFormModal from "../Room/StartFormModal/StartFormModal";
 import "./Header.css";
 
 interface IProps {
+  lightTheme?: boolean;
   mobileNavigation?: React.ReactNode;
   roomLessonControl?: React.ReactNode;
   onShowRoomPlace?: () => void;
@@ -30,6 +31,7 @@ interface IProps {
 }
 
 const Header: React.FC<IProps> = ({
+  lightTheme = false,
   mobileNavigation,
   roomLessonControl,
   onShowRoomPlace,
@@ -43,6 +45,7 @@ const Header: React.FC<IProps> = ({
   onCompleteSession,
   completedSession,
 }) => {
+  const logo = lightTheme ? "/logo-light.png" : "/logo.svg";
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [editingMember, setEditingMember] = React.useState<RoomMember | null>(
     null
@@ -134,7 +137,7 @@ const Header: React.FC<IProps> = ({
         }
 
         return <header className="ide-header mt-[75px] bg-ide-secondary border-b border-ide-border flex items-center justify-between px-2 gap-2">
-          {mobileNavigation && <><img src="/logo.svg" alt="INNOPROG" className="h-8 my-3"/>{mobileNavigation}</>}
+          {mobileNavigation && <><img src={logo} alt="INNOPROG" className="h-8 my-3"/>{mobileNavigation}</>}
         </header>
     }
 
@@ -149,7 +152,7 @@ const Header: React.FC<IProps> = ({
         <div className={mobileNavigation ? "console-header-brand" : "contents"}>
           <div className="room-header-brand-actions flex shrink-0 items-center gap-2 md:gap-3">
             <div className="shrink-0 py-3 md:py-4">
-              <img src="/logo.svg" alt="INNOPROG" className="h-8 md:h-10" />
+              <img src={logo} alt="INNOPROG" className="h-8 md:h-10" />
             </div>
 
           </div>

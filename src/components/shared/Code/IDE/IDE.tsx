@@ -951,6 +951,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
       {!isEmbeddedApp && (
         <Header
+          lightTheme={lightTheme}
           mobileNavigation={mobileConsoleNavigation}
           roomLessonControl={roomId && webSocketData?.isTeacher && !webSocketData.completed &&
             webSocketData.isJoinedRoom && webSocketData.selectLesson ?
