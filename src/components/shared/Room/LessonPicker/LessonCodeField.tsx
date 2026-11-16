@@ -37,8 +37,27 @@ export function LessonCodeField({ label, language, value, onChange }: {
   }, [label, onChange]);
 
   useEffect(() => {
-    editor.current?.dispatch({ effects: syntax.current.reconfigure(language ? editorLanguage(language) : []) });
-  }, [language]);
+    const view = editor.current;
+    if (!view) return;
+
+    const compartment = syntax.current;
+    const extension = language ? editorLanguage(language) : [];
+    if (!(extension instanceof Promise)) {
+      view.dispatch({ effects: compartment.reconfigure(extension) });
+      return;
+    }
+
+    let active = true;
+    view.dispatch({ effects: compartment.reconfigure([]) });
+    void extension.then(support => {
+      if (active && editor.current === view) {
+        view.dispatch({ effects: compartment.reconfigure(support) });
+      }
+    }).catch(error => {
+      if (active && editor.current === view) console.error('Failed to load editor language', error);
+    });
+    return () => { active = false; };
+  }, [language, label, onChange]);
 
   useEffect(() => {
     const view = editor.current;

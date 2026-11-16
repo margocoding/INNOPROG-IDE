@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
 	Button,
 	Modal,
@@ -13,7 +13,7 @@ import {
 
 interface SubmitModalProps {
 	isOpen: boolean;
-	onOpenChange: () => void;
+	onOpenChange: (open: boolean) => void;
 	onClose: () => void;
 	submitResult: "success" | "error" | "no_data";
 	submitMessage?: string;
@@ -50,14 +50,25 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 	showNextAction = false,
 	onNext,
 }) => {
+	const applyingRef = useRef(false);
+	const [applying, setApplying] = useState(false);
+	const applyingData = submitResult === "no_data" && (applying || isRunning);
+
 	const handleConfirm = useCallback(async () => {
-		if (isRunning) {
+		if (isRunning || applyingRef.current) return;
+		if (submitResult !== "no_data") {
+			onClose();
 			return;
 		}
 
-		onClose();
-		if (submitResult === "no_data") {
+		applyingRef.current = true;
+		setApplying(true);
+		try {
 			await onApply();
+		} finally {
+			applyingRef.current = false;
+			setApplying(false);
+			onClose();
 		}
 	}, [isRunning, onApply, onClose, submitResult]);
 
@@ -105,7 +116,13 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 	}, [handleConfirm, isOpen, submitResult]);
 
 	return (
-		<Modal onOpenChange={onOpenChange} isOpen={isOpen}>
+		<Modal
+			onOpenChange={open => { if (!applyingRef.current) onOpenChange(open); }}
+			isOpen={isOpen}
+			isDismissable={!applyingData}
+			isKeyboardDismissDisabled={applyingData}
+			hideCloseButton={applyingData}
+		>
 			<ModalContent>
 				<ModalHeader>
 					{submitResult === "no_data" ? "Введите данные" : submitResult === "error" ? "Решение не принято 😕" : null}
@@ -196,13 +213,14 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 					<ModalFooter className="flex justify-center w-full">
 						<Button
 							size="lg"
-							disabled={isRunning}
+							disabled={applyingData}
+							aria-busy={applyingData}
 							onPress={handleConfirm}
 							className="w-full"
 							color="secondary"
 						>
 							<div className="flex gap-2 items-center">
-								{isRunning && <Spinner />} Применить
+								{applyingData && <Spinner size="sm" />} Применить
 							</div>
 						</Button>
 					</ModalFooter>

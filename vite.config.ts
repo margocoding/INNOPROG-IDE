@@ -65,6 +65,9 @@ export default defineConfig(({ mode }) => {
             if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler|use-sync-external-store)[\\/]/.test(id)) {
               return 'react-vendor';
             }
+            if (/[/\\]node_modules[/\\](@codemirror[/\\](lang-(?!python[/\\])|legacy-modes[/\\])|@lezer[/\\](?!common[/\\]|highlight[/\\]|lr[/\\]|python[/\\]))/.test(id)) {
+              return undefined;
+            }
             if (/[\\/]node_modules[\\/](@codemirror|codemirror|@lezer)[\\/]/.test(id)) {
               return 'editor-vendor';
             }

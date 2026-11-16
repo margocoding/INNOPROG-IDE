@@ -706,6 +706,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
       if (!editorContainer.current) return;
 
       const languageSupport = editorLanguage(language);
+      const languageCompartment = new Compartment();
 
       const isLanguageChange = lastLanguageRef.current !== language;
       lastLanguageRef.current = language;
@@ -959,7 +960,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
             return transaction;
           }),
           yCollab(ydoc.getText("codemirror"), awareness),
-          languageSupport,
+          languageCompartment.of(languageSupport instanceof Promise ? [] : languageSupport),
           themeCompartment.of(lightThemeRef.current ? lightEditorTheme : oneDark),
           closeBrackets(),
           indentGuidesField,
@@ -1239,6 +1240,14 @@ const CodeEditor: React.FC<IProps> = React.memo(
       });
 
       editor.current = view;
+      let disposed = false;
+      if (languageSupport instanceof Promise) {
+        void languageSupport.then(extension => {
+          if (!disposed) view.dispatch({ effects: languageCompartment.reconfigure(extension) });
+        }).catch(error => {
+          if (!disposed) console.error("Failed to load editor language", error);
+        });
+      }
       const handleGlobalKeydown = (event: KeyboardEvent) => {
         if (!isIOS) return;
         if (!editor.current || !editor.current.hasFocus) return;
@@ -1287,6 +1296,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
       window.addEventListener("keydown", handleGlobalKeydown);
 
       return () => {
+        disposed = true;
         window.removeEventListener("keydown", handleGlobalKeydown);
         view.destroy();
       };

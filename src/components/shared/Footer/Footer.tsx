@@ -5,6 +5,7 @@ import { isDesktop } from "../../../utils/platform";
 
 interface FooterProps {
   hideRetry?: boolean;
+  hideBusyIndicator?: boolean;
   runModeSelector?: React.ReactNode;
   status: "idle" | "success" | "error";
   taskId: string | null;
@@ -25,6 +26,7 @@ interface FooterProps {
 
 const Footer: React.FC<FooterProps> = ({
   hideRetry = false,
+  hideBusyIndicator = false,
   runModeSelector,
   status,
   taskId,
@@ -104,7 +106,7 @@ const Footer: React.FC<FooterProps> = ({
             desktopTaskMode ? "md:w-auto" : "lg:w-auto"
           }`}
         >
-            {busy ? <span className="ide-output-spinner ide-footer-run-spinner shrink-0" aria-hidden="true" /> : <svg
+            {busy && !hideBusyIndicator ? <span className="ide-output-spinner ide-footer-run-spinner shrink-0" aria-hidden="true" /> : <svg
               aria-hidden="true"
               className="ide-footer-run-icon w-4 h-4 shrink-0"
               fill="none"

@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import * as Y from "yjs";
+import { language as activeLanguage } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { yUndoManagerKeymap } from "y-codemirror.next";
 import CodeEditor from "./CodeEditor";
@@ -44,6 +45,16 @@ describe("CodeEditor", () => {
     expect(screen.getByTestId("code-editor-shell")).toHaveClass(
       "overflow-clip",
     );
+  });
+
+  it("adds Java syntax to the existing editor when its parser is ready", async () => {
+    const { container } = render(<CodeEditor {...props} language="java" value="class Main {}" />);
+    const element = container.querySelector(".cm-editor")!;
+    const view = EditorView.findFromDOM(element)!;
+
+    await waitFor(() => expect(view.state.facet(activeLanguage)?.name).toBe("java"));
+    expect(container.querySelector(".cm-editor")).toBe(element);
+    expect(view.state.doc.toString()).toBe("class Main {}");
   });
 
   it("answers a parent code request only for the current task and allowed source", async () => {

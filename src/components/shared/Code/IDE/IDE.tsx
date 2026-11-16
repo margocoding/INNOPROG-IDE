@@ -1,11 +1,10 @@
-import LessonPicker from '../../Room/LessonPicker/LessonPicker';
 import { LessonSelection, RoomLessonState } from '../../../../types/roomLesson';
 import { CodeIcon, TerminalIcon, InputIcon } from '../ConsoleSection/ConsoleIcons';
 import ConsoleSection from '../ConsoleSection/ConsoleSection';
 import { useConsoleExecution, CONSOLE_LANGUAGES } from '../../../../hooks/useConsoleExecution';
 import { extractPasteRoomCode } from "../../../../utils/pasteTaskWrappers";
 import { useDisclosure } from "@heroui/react";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useCodeExecution } from "../../../../hooks/useCodeExecution";
 import { api } from "../../../../services/api";
@@ -30,6 +29,8 @@ import { CursorData, RoomMember } from "../../../../hooks/useWebSocket";
 import "./IDE.css";
 import { useRoomFocus } from "./useRoomFocus";
 import "./RoomFocus.css";
+
+const LessonPicker = lazy(() => import('../../Room/LessonPicker/LessonPicker'));
 
 interface RoomPermissions {
   studentCursorEnabled: boolean;
@@ -955,7 +956,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           mobileNavigation={mobileConsoleNavigation}
           roomLessonControl={roomId && webSocketData?.isTeacher && !webSocketData.completed &&
             webSocketData.isJoinedRoom && webSocketData.selectLesson ?
-            <LessonPicker room={roomId} active={lesson} select={webSocketData.selectLesson} /> : undefined}
+            <Suspense fallback={null}>
+              <LessonPicker room={roomId} active={lesson} select={webSocketData.selectLesson} />
+            </Suspense> : undefined}
           completedSession={webSocketData?.completed}
           onCompleteSession={webSocketData?.completeSession}
           members={webSocketData?.roomMembers}
@@ -1100,6 +1103,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
           status={status}
           taskId={taskId}
           isRunning={isRunning || consoleExecution.isRunning}
+          hideBusyIndicator={isOpen && submitResult === "no_data"}
           blockedReason={lesson?.revision && webSocketData?.codeSyncState !== "synchronized"
             ? "Синхронизируем редактор…"
             : taskId && initialCodeLoadFailed

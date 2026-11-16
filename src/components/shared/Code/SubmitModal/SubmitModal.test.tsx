@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import SubmitModal from "./SubmitModal";
 
 jest.mock("@heroui/react", () => ({
@@ -54,13 +54,35 @@ describe("SubmitModal", () => {
     expect(state.setIsOutputData).toHaveBeenCalledWith(false);
     fireEvent.click(screen.getByText("Применить"));
     expect(state.onApply).toHaveBeenCalled();
+    await waitFor(() => expect(state.onClose).toHaveBeenCalled());
   });
 
-  it("submits with keyboard shortcut and ignores typing Enter", () => {
+  it("shows the Apply spinner until execution finishes and blocks repeat submission", async () => {
+    let finish = () => {};
+    const onApply = jest.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+    const state = props({ onApply });
+    render(<SubmitModal {...state} />);
+    const apply = screen.getByRole("button", { name: "Применить" });
+
+    fireEvent.click(apply);
+    expect(apply).toHaveAttribute("aria-busy", "true");
+    expect(apply).toBeDisabled();
+    expect(screen.getByText("loading")).toBeInTheDocument();
+    expect(state.onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+    expect(onApply).toHaveBeenCalledTimes(1);
+
+    await act(async () => finish());
+    expect(state.onClose).toHaveBeenCalledTimes(1);
+    expect(apply).toHaveAttribute("aria-busy", "false");
+  });
+
+  it("submits with keyboard shortcut and ignores typing Enter", async () => {
     const state = props();
     render(<SubmitModal {...state} />);
     fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
     expect(state.onApply).toHaveBeenCalled();
+    await waitFor(() => expect(state.onClose).toHaveBeenCalled());
     state.onApply.mockClear();
     const input = screen.getByLabelText("Входные данные");
     input.focus();
