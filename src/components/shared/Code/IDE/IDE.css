@@ -199,9 +199,11 @@
 }
 
 .ide-task-light main { background-color: #f4f1f8; }
-.ide-task-light .bg-ide-secondary { background-color: #f7f5fb; }
+.ide-task-light .bg-ide-secondary,
+.ide-task-light .ide-sql-table th { background-color: #f7f5fb; }
 .ide-task-light .bg-ide-editor { background-color: #fff; }
-.ide-task-light .border-ide-border { border-color: #e4dfec; }
+.ide-task-light .border-ide-border,
+.ide-task-light .ide-sql-table :is(th, td) { border-color: #e4dfec; }
 .ide-task-light .text-ide-text-primary { color: #252136; }
 .ide-task-light .text-ide-text-secondary { color: #625a76; }
 .ide-task-light .code-theme-button,
