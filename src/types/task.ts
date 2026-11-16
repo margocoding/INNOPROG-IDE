@@ -92,6 +92,7 @@ export interface CheckResult {
 export interface SqlResult {
   columns: string[];
   rows: (string | null)[][];
+  numeric_columns?: number[][];
 }
 
 export interface RunCodeResult extends CheckResult {

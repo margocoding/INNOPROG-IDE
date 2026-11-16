@@ -6,7 +6,7 @@ const PAGE_SIZE = 100;
 export default function SqlResultTable({ result, number }: { result: SqlResult; number: number }) {
 	const [position, setPosition] = useState({ result, page: 0 });
 	const page = position.result === result ? position.page : 0;
-	const { columns, rows } = result;
+	const { columns, rows, numeric_columns: numericColumns } = result;
 	const start = page * PAGE_SIZE;
 
 	return (
@@ -20,7 +20,12 @@ export default function SqlResultTable({ result, number }: { result: SqlResult; 
 						{rows.slice(start, start + PAGE_SIZE).map((row, rowIndex) => (
 							<tr key={start + rowIndex}>
 								{row.map((cell, index) => (
-									<td key={index}>{cell === null ? <span className="ide-sql-null">NULL</span> : cell}</td>
+									<td
+										key={index}
+										className={numericColumns?.[start + rowIndex]?.includes(index) ? "ide-sql-number" : undefined}
+									>
+										{cell === null ? <span className="ide-sql-null">NULL</span> : cell}
+									</td>
 								))}
 							</tr>
 						))}

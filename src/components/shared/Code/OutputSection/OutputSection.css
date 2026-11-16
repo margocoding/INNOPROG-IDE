@@ -145,6 +145,10 @@
   white-space: nowrap;
 }
 
+.ide-sql-table td.ide-sql-number {
+  text-align: right;
+}
+
 .ide-sql-null {
   opacity: 0.8;
   font-style: italic;

@@ -40,7 +40,11 @@ describe("OutputSection", () => {
         activeTab="output"
         language="sql"
         sqlResults={[
-          { columns: ["price*quantity", "total", "title"], rows: [["2840.5", "2840.5", "a,b;c"], ["0", "0", null]] },
+          {
+            columns: ["price*quantity", "total", "title"],
+            rows: [["2840.5", "2840.5", "a,b;c"], ["0", "0007", null]],
+            numeric_columns: [[0, 1], [0]],
+          },
           { columns: ["Количество"], rows: [] },
         ]}
       />,
@@ -50,6 +54,8 @@ describe("OutputSection", () => {
       ["price*quantity", "total", "title"],
     );
     expect(within(first).getByRole("cell", { name: "a,b;c" })).toBeInTheDocument();
+    expect(within(first).getByRole("cell", { name: "0", exact: true })).toHaveClass("ide-sql-number");
+    expect(within(first).getByRole("cell", { name: "0007" })).not.toHaveClass("ide-sql-number");
     expect(within(first).getByRole("cell", { name: "NULL" })).toBeInTheDocument();
     expect(within(second).getByRole("columnheader", { name: "Количество" })).toBeInTheDocument();
     expect(screen.getByText("Нет строк")).toBeInTheDocument();
