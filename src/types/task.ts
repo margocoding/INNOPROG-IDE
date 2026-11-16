@@ -63,6 +63,7 @@ export interface RunCodeRequest {
   timeout?: number;
   task_id?: number;
   include_sql_results?: boolean;
+  export_sqlite?: boolean;
 }
 
 export interface SubmitRequest {
@@ -97,6 +98,7 @@ export interface SqlResult {
 
 export interface RunCodeResult extends CheckResult {
   sql_results?: SqlResult[];
+  sqlite_archive?: string;
 }
 
 export interface TaskAnswerCheckRequest {

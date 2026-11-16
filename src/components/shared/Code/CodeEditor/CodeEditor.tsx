@@ -41,6 +41,7 @@ import * as Y from "yjs";
 import useYDocFromUpdates, {
   REMOTE_WEBSOCKET_ORIGIN,
 } from "../../../../hooks/useYDocFromUpdates";
+import { api } from "../../../../services/api";
 import { Language } from "../../../../types/task";
 import { postToParent, resolveParentOrigin } from "../../../../utils/parentMessaging";
 import {
@@ -275,6 +276,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
     const editorContainer = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const fileExtension = fileExtensionByLanguage[language] || language;
+    const [exportingSqlite, setExportingSqlite] = useState(false);
     const prevValue = useRef(value);
     const lastLanguageRef = useRef<string>(language);
 
@@ -1486,34 +1488,6 @@ const CodeEditor: React.FC<IProps> = React.memo(
       return value;
     }, [codeAfter, codeBefore, value]);
 
-    const handleDownloadClick = useCallback(() => {
-      const codeToDownload = getEditableCodeFromEditor();
-
-      if (!codeToDownload.trim()) {
-        window.alert("Нет кода для скачивания.");
-        return;
-      }
-
-      const blob = new Blob([codeToDownload], {
-        type: "text/plain;charset=utf-8",
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      link.href = url;
-      link.download =
-        fileName ||
-        (language === Language.DOCKERFILE
-          ? "Dockerfile"
-          : language === Language.YAML
-          ? "config.yaml"
-          : `script.${fileExtension}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    }, [fileExtension, fileName, getEditableCodeFromEditor, language]);
-
     const displayedFileName =
       fileName ||
       (language === Language.DOCKERFILE
@@ -1521,6 +1495,49 @@ const CodeEditor: React.FC<IProps> = React.memo(
         : language === Language.YAML
         ? "config.yaml"
         : `script.${fileExtension}`);
+    const isSqlite = language === Language.SQL;
+    const downloadLabel = isSqlite ? "Скачать SQL и базу" : "Скачать код";
+
+    const handleDownloadClick = useCallback(async () => {
+      const codeToDownload = getEditableCodeFromEditor();
+
+      if (!codeToDownload.trim()) {
+        window.alert("Нет кода для скачивания.");
+        return;
+      }
+
+      let blob: Blob;
+      let downloadName = displayedFileName;
+      if (isSqlite) {
+        setExportingSqlite(true);
+        try {
+          const result = await api.runCode({ program: codeToDownload, export_sqlite: true, timeout: 30 }, Language.SQL);
+          if (!result.result || !result.sqlite_archive) {
+            window.alert(result.output || "Не удалось создать архив SQL и базы. Проверьте скрипт.");
+            return;
+          }
+          const bytes = Uint8Array.from(atob(result.sqlite_archive), character => character.charCodeAt(0));
+          blob = new Blob([bytes], { type: "application/zip" });
+          downloadName = displayedFileName.replace(/\.sql$/i, "") + ".zip";
+        } catch {
+          window.alert("Не удалось скачать SQL и базу. Попробуйте ещё раз.");
+          return;
+        } finally {
+          setExportingSqlite(false);
+        }
+      } else {
+        blob = new Blob([codeToDownload], { type: "text/plain;charset=utf-8" });
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = downloadName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }, [displayedFileName, getEditableCodeFromEditor, isSqlite]);
 
     return (
       <div
@@ -1568,8 +1585,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 type="button"
                 className="code-file-action-button"
                 onClick={handleDownloadClick}
-                title="Скачать код"
-                aria-label="Скачать код"
+                title={exportingSqlite ? "Готовим архив…" : downloadLabel}
+                aria-label={downloadLabel}
+                aria-busy={exportingSqlite}
+                disabled={exportingSqlite}
               >
                 <svg
                   width="16"
