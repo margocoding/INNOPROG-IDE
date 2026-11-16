@@ -1,5 +1,6 @@
 import { TaskCheckProgress } from "../services/taskCheckProgress";
 import { useEffect, useRef, useState } from "react";
+import type { SqliteWorkspace } from "../services/sqliteWorkspace";
 import { api } from "../services/api";
 import { Answer, CheckResult, Language, OutputImage, SqlResult, Task, TaskAnswerCheckRequest } from "../types/task";
 import { postToParent } from "../utils/parentMessaging";
@@ -30,6 +31,7 @@ export interface OutputMismatch {
 interface UseCodeExecutionProps {
 	currentAnswer: Answer | null;
 	roomWorkspace?: boolean;
+	sqliteWorkspace?: SqliteWorkspace;
 	task: Task | null;
 	code: string;
 	inputData: string;
@@ -53,6 +55,7 @@ interface UseCodeExecutionProps {
 export const useCodeExecution = ({
 	currentAnswer,
 	roomWorkspace,
+	sqliteWorkspace,
 	task,
 	code,
 	inputData,
@@ -192,20 +195,23 @@ export const useCodeExecution = ({
 			};
 
 			const canCheckPublicTaskExample = hasPublicTaskExample;
+			const localSqlite = runLanguage === Language.SQL && sqliteWorkspace?.hasDatabase ? sqliteWorkspace : undefined;
 
-			if (!canCheckPublicTaskExample && (taskId || !outputData.trim() || runLanguage === Language.PY || runLanguage === Language.CPP)) {
+			if (!canCheckPublicTaskExample && (localSqlite || taskId || !outputData.trim() || runLanguage === Language.PY || runLanguage === Language.CPP)) {
 				const runInputData = inputData || "";
-				const result = await api.runCode(
-					{
-						input_data: runInputData,
-						program: fullCode,
-						timeout: selectedAnswer?.timeout || 30,
-						task_id: taskId ? Number(taskId) : undefined,
-						...(runLanguage === Language.SQL ? { include_sql_results: true } : {}),
-					},
-					runLanguage,
-					...(controller ? [controller.signal] as const : [])
-				);
+				const result = localSqlite
+					? await localSqlite.run(fullCode, runInputData, selectedAnswer?.timeout || 30)
+					: await api.runCode(
+						{
+							input_data: runInputData,
+							program: fullCode,
+							timeout: selectedAnswer?.timeout || 30,
+							task_id: taskId ? Number(taskId) : undefined,
+							...(runLanguage === Language.SQL ? { include_sql_results: true } : {}),
+						},
+						runLanguage,
+						...(controller ? [controller.signal] as const : [])
+					);
 
 				const tables = result.result ? result.sql_results ?? [] : [];
 				setSqlResults(tables);

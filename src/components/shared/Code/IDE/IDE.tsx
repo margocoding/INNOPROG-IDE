@@ -6,6 +6,7 @@ import { extractPasteRoomCode } from "../../../../utils/pasteTaskWrappers";
 import { useDisclosure } from "@heroui/react";
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { SqliteWorkspace } from "../../../../services/sqliteWorkspace";
 import { useCodeExecution } from "../../../../hooks/useCodeExecution";
 import { api } from "../../../../services/api";
 import { getInitialCode, getInitialTask } from "../../../../services/initialTask";
@@ -218,6 +219,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     ? (globalThis.crypto?.randomUUID?.() || `ide-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     : null), [suppliedAnswerId, taskId]);
   const roomId = searchParams.get("roomId");
+  const sqliteWorkspace = useMemo(() => roomId || taskId ? undefined : new SqliteWorkspace(), [roomId, taskId]);
   const joinedFocusSocket = webSocketData?.isJoinedRoom && webSocketData.isConnected && !webSocketData.completed
     ? webSocketData.socket : null;
   const canShowRoomPlace = Boolean(roomId && joinedFocusSocket && webSocketData?.isTeacher);
@@ -289,6 +291,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   const { isRunning, checkProgress, outputMismatch, programOutput, outputImages, sqlResults, handleRunCode, onSendCheck, setCurrentCode } =
     useCodeExecution({
       currentAnswer,
+      sqliteWorkspace,
       task,
       code,
       inputData: isInputData ? inputData : "",
@@ -1029,6 +1032,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               currentAnswer={currentAnswer}
               task={task}
               setCurrentCode={setCurrentCode}
+              sqliteWorkspace={sqliteWorkspace}
               activeTab={activeTab}
               webSocketData={memoizedWebSocketData}
               handleLanguageChange={handleLanguageChange}

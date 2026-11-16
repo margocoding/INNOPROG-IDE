@@ -42,6 +42,7 @@ import useYDocFromUpdates, {
   REMOTE_WEBSOCKET_ORIGIN,
 } from "../../../../hooks/useYDocFromUpdates";
 import { api } from "../../../../services/api";
+import type { SqliteWorkspace } from "../../../../services/sqliteWorkspace";
 import { Language } from "../../../../types/task";
 import { postToParent, resolveParentOrigin } from "../../../../utils/parentMessaging";
 import {
@@ -71,6 +72,7 @@ interface IProps {
   codeBefore?: string;
   codeAfter?: string;
   readOnly?: boolean;
+  sqliteWorkspace?: SqliteWorkspace;
   setCurrentCode: (val: string) => void;
   sendSelection?: (selectionData: {
     line?: number;
@@ -267,6 +269,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
     fileName,
     isTeacher,
     setCurrentCode,
+    sqliteWorkspace,
     isWebSocket,
     myTelegramId,
   }) => {
@@ -279,6 +282,12 @@ const CodeEditor: React.FC<IProps> = React.memo(
     const [exportingSqlite, setExportingSqlite] = useState(false);
     const prevValue = useRef(value);
     const lastLanguageRef = useRef<string>(language);
+
+    useEffect(() => sqliteWorkspace?.registerSelection(() => {
+      const state = editor.current?.state;
+      if (!state) return "";
+      return state.sliceDoc(state.selection.main.from, state.selection.main.to);
+    }), [sqliteWorkspace]);
 
     useEffect(() => {
       const parentOrigin = resolveParentOrigin();
@@ -1363,10 +1372,10 @@ const CodeEditor: React.FC<IProps> = React.memo(
     }, [value, codeBefore, codeAfter]);
 
     const insertImportedCode = useCallback(
-      (rawImportedCode: string) => {
+      (rawImportedCode: string, replace = false) => {
         const importedCode = normalizeImportedCode(rawImportedCode);
 
-        if (!importedCode.trim()) {
+        if (!replace && !importedCode.trim()) {
           return;
         }
 
@@ -1381,7 +1390,9 @@ const CodeEditor: React.FC<IProps> = React.memo(
         const currentEditableCode = hasExpectedBounds
           ? currentDoc.slice(editableFrom, editableTo)
           : value;
-        const mergedCode = mergeImportedCode(currentEditableCode, importedCode);
+        const mergedCode = replace
+          ? { code: importedCode, insertedFrom: 0 }
+          : mergeImportedCode(currentEditableCode, importedCode);
         const nextFullCode = `${codeBefore}${mergedCode.code}${codeAfter}`;
         const cursorPosition = codeBefore.length + mergedCode.insertedFrom;
 
@@ -1441,6 +1452,17 @@ const CodeEditor: React.FC<IProps> = React.memo(
           return;
         }
 
+        if (sqliteWorkspace && !languageLocked && /\.zip$/i.test(file.name)) {
+          try {
+            const source = await sqliteWorkspace.importArchive(file);
+            if (language !== Language.SQL) handleLanguageChange(Language.SQL);
+            insertImportedCode(source, true);
+          } catch (error) {
+            window.alert(error instanceof Error ? error.message : "Не удалось открыть архив SQLite.");
+          }
+          return;
+        }
+
         if (file.size > MAX_IMPORT_FILE_SIZE_BYTES) {
           window.alert("Файл слишком большой. Загрузите файл до 2 МБ.");
           return;
@@ -1470,7 +1492,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
           window.alert("Не удалось прочитать файл с кодом.");
         }
       },
-      [handleLanguageChange, insertImportedCode, isTeacher, isWebSocket, language, languageLocked]
+      [handleLanguageChange, insertImportedCode, isTeacher, isWebSocket, language, languageLocked, sqliteWorkspace]
     );
 
     const getEditableCodeFromEditor = useCallback(() => {
@@ -1495,29 +1517,33 @@ const CodeEditor: React.FC<IProps> = React.memo(
         : language === Language.YAML
         ? "config.yaml"
         : `script.${fileExtension}`);
-    const isSqlite = language === Language.SQL;
-    const downloadLabel = isSqlite ? "Скачать SQL и базу" : "Скачать код";
+    const sqliteExport = language === Language.SQL ? sqliteWorkspace : undefined;
 
     const handleDownloadClick = useCallback(async () => {
       const codeToDownload = getEditableCodeFromEditor();
 
-      if (!codeToDownload.trim()) {
+      if (!codeToDownload.trim() && !sqliteExport?.hasDatabase) {
         window.alert("Нет кода для скачивания.");
         return;
       }
 
       let blob: Blob;
       let downloadName = displayedFileName;
-      if (isSqlite) {
+      if (sqliteExport) {
         setExportingSqlite(true);
         try {
-          const result = await api.runCode({ program: codeToDownload, export_sqlite: true, timeout: 30 }, Language.SQL);
-          if (!result.result || !result.sqlite_archive) {
-            window.alert(result.output || "Не удалось создать архив SQL и базы. Проверьте скрипт.");
-            return;
+          const localArchive = await sqliteExport.makeArchive(codeToDownload);
+          if (localArchive) {
+            blob = localArchive;
+          } else {
+            const result = await api.runCode({ program: codeToDownload, export_sqlite: true, timeout: 30 }, Language.SQL);
+            if (!result.result || !result.sqlite_archive) {
+              window.alert(result.output || "Не удалось создать архив SQL и базы. Проверьте скрипт.");
+              return;
+            }
+            const bytes = Uint8Array.from(atob(result.sqlite_archive), character => character.charCodeAt(0));
+            blob = new Blob([bytes], { type: "application/zip" });
           }
-          const bytes = Uint8Array.from(atob(result.sqlite_archive), character => character.charCodeAt(0));
-          blob = new Blob([bytes], { type: "application/zip" });
           downloadName = displayedFileName.replace(/\.sql$/i, "") + ".zip";
         } catch {
           window.alert("Не удалось скачать SQL и базу. Попробуйте ещё раз.");
@@ -1537,7 +1563,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-    }, [displayedFileName, getEditableCodeFromEditor, isSqlite]);
+    }, [displayedFileName, getEditableCodeFromEditor, sqliteExport]);
 
     return (
       <div
@@ -1552,7 +1578,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
             <input
               ref={fileInputRef}
               type="file"
-              accept={CODE_FILE_ACCEPT}
+              accept={sqliteWorkspace && !languageLocked ? `${CODE_FILE_ACCEPT},.zip` : CODE_FILE_ACCEPT}
               className="hidden"
               onChange={handleCodeFileChange}
             />
@@ -1585,8 +1611,8 @@ const CodeEditor: React.FC<IProps> = React.memo(
                 type="button"
                 className="code-file-action-button"
                 onClick={handleDownloadClick}
-                title={exportingSqlite ? "Готовим архив…" : downloadLabel}
-                aria-label={downloadLabel}
+                title="Скачать код"
+                aria-label="Скачать код"
                 aria-busy={exportingSqlite}
                 disabled={exportingSqlite}
               >

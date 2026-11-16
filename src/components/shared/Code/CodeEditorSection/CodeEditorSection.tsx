@@ -1,4 +1,5 @@
 import React, { Dispatch, SetStateAction } from "react";
+import type { SqliteWorkspace } from "../../../../services/sqliteWorkspace";
 import { Answer, Language, Task } from "../../../../types/task";
 import { pasteTaskWrappers } from "../../../../utils/pasteTaskWrappers";
 import { getTaskType } from "../../../../utils/taskType";
@@ -12,6 +13,7 @@ interface CodeEditorSectionProps {
   currentAnswer: Answer | null;
   task: Task | null;
   activeTab: string;
+  sqliteWorkspace?: SqliteWorkspace;
   setCurrentCode: Dispatch<SetStateAction<string>>;
   lightTheme?: boolean;
   onToggleTheme?: () => void;
@@ -73,6 +75,7 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
     languageLocked = false,
     fileName,
     setCurrentCode,
+    sqliteWorkspace,
     lightTheme,
     onToggleTheme,
     width = 50,
@@ -116,6 +119,7 @@ const CodeEditorSection: React.FC<CodeEditorSectionProps> = React.memo(
           codeBefore={visualCodeBefore}
           codeAfter={visualCodeAfter}
           setCurrentCode={setCurrentCode}
+          sqliteWorkspace={sqliteWorkspace}
           handleLanguageChange={handleLanguageChange}
           languageLocked={languageLocked}
           fileName={fileName}
