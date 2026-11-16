@@ -6,7 +6,7 @@ import { LessonModule, LessonSelection, RoomLessonState, RoomLessonTask } from '
 import { Language } from '../../../../types/task';
 import { currentRoomToken } from '../../../../utils/roomSession';
 import { LessonCodeField } from './LessonCodeField';
-import { LessonMarkdown } from '../../Code/TaskDescription/LessonMarkdown';
+import { LazyLessonMarkdown } from '../../Code/TaskDescription/LazyLessonMarkdown';
 import './LessonPicker.css';
 
 type Choice = { id: string; label: string; detail?: string; searchText?: string };
@@ -523,7 +523,7 @@ export default function LessonPicker({ room, active, select }: {
                 }} />
                 {previewDescription
                   ? <div className="lesson-description-preview prose prose-invert max-w-none" aria-label="Предпросмотр условия">
-                    {description.trim() ? <LessonMarkdown source={description} /> : 'Добавьте текст условия'}
+                    {description.trim() ? <LazyLessonMarkdown source={description} /> : 'Добавьте текст условия'}
                   </div>
                   : <textarea className="lesson-description-input" aria-label="Условие задачи" placeholder="Опишите задачу" value={description} onChange={event => setDescription(event.target.value)} readOnly={importingDescription} />}
               </div>

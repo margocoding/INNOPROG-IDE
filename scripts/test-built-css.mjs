@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+const html = fs.readFileSync("dist/index.html", "utf8");
+assert.doesNotMatch(html, /LessonMarkdown[^"']*\.(?:js|css)/,
+  "the initial editor must defer the room Markdown bundle");
+
 const assetsDirectory = path.resolve("dist/assets");
 const css = fs.readdirSync(assetsDirectory)
   .filter((name) => name.endsWith(".css"))

@@ -5,7 +5,7 @@ import { Task } from "../../../../types/task";
 import { getTaskType } from "../../../../utils/taskType";
 import { isLegacyLessonTitle, processTaskDescription } from "./TaskDescription.utils";
 import "./TaskDescription.css";
-import { LessonMarkdown } from "./LessonMarkdown";
+import { LazyLessonMarkdown } from "./LazyLessonMarkdown";
 import { type TaskScrollSync, useTaskScrollSync } from "./useTaskScrollSync";
 
 interface TaskDescriptionProps {
@@ -116,7 +116,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 							)}
 							{lesson && !lesson.platformId
 								? lesson.descriptionFormat === "markdown"
-									? <LessonMarkdown source={lesson.description} language={lesson.language} />
+									? <LazyLessonMarkdown source={lesson.description} language={lesson.language} />
 								: <div className="room-focus-text whitespace-pre-wrap break-words">{lesson.description}</div>
 								: <div className="task-description-content" dangerouslySetInnerHTML={legacyHtml} />}
 							{hasPublicExample && (
