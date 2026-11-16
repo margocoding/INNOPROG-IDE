@@ -118,3 +118,52 @@
     object-position: left top;
   }
 }
+
+.ide-sql-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.ide-sql-table {
+  border-collapse: collapse;
+  font: 0.875rem/1.45 ui-monospace, monospace;
+}
+
+.ide-sql-table th,
+.ide-sql-table td {
+  @apply border border-ide-border;
+  padding: 0.4rem 0.65rem;
+  text-align: left;
+  vertical-align: top;
+  max-width: 28rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ide-sql-table th {
+  @apply bg-ide-secondary;
+  white-space: nowrap;
+}
+
+.ide-sql-null {
+  opacity: 0.8;
+  font-style: italic;
+}
+
+.ide-sql-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  font-size: 0.875rem;
+}
+
+.ide-sql-pagination button {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ide-sql-pagination button:disabled {
+  opacity: 0.5;
+  text-decoration: none;
+}

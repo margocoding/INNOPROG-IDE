@@ -62,6 +62,7 @@ export interface RunCodeRequest {
   program: string;
   timeout?: number;
   task_id?: number;
+  include_sql_results?: boolean;
 }
 
 export interface SubmitRequest {
@@ -88,7 +89,14 @@ export interface CheckResult {
   artifacts?: OutputImage[];
 }
 
-export type RunCodeResult = CheckResult;
+export interface SqlResult {
+  columns: string[];
+  rows: (string | null)[][];
+}
+
+export interface RunCodeResult extends CheckResult {
+  sql_results?: SqlResult[];
+}
 
 export interface TaskAnswerCheckRequest {
   client_id: string;

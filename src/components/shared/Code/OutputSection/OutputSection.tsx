@@ -1,6 +1,7 @@
 import React, { useId, useRef } from "react";
 import type { OutputMismatch } from "../../../../hooks/useCodeExecution";
-import type { OutputImage } from "../../../../types/task";
+import type { OutputImage, SqlResult } from "../../../../types/task";
+import SqlResultTable from "./SqlResultTable";
 import "./OutputSection.css";
 
 interface OutputSectionProps {
@@ -11,6 +12,7 @@ interface OutputSectionProps {
 	inputFile?: { name: string; content: string };
 	programOutput?: string | null;
 	images?: OutputImage[];
+	sqlResults?: SqlResult[];
 	status: "idle" | "success" | "error";
 	activeTab: "editor" | "output";
 	language?: string;
@@ -30,6 +32,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 	inputFile,
 	programOutput = null,
 	images = [],
+	sqlResults = [],
 	status,
 	activeTab,
 	language,
@@ -43,6 +46,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 	const outputRef = useRef<HTMLPreElement>(null);
 	const contentId = useId();
 	const isHtmlMode = language === "html";
+	const showSqlResults = language === "sql" && sqlResults.length > 0 && status !== "error" && !mismatch;
 	const hasInputData = inputData.length > 0;
 	const canCollapse = Boolean(onToggleCollapsed) && !isHtmlMode;
 
@@ -179,7 +183,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 									</pre>
 								</section>
 							)}
-							{!mismatch && <section className="space-y-2">
+							{!mismatch && (!showSqlResults || output) && <section className="space-y-2">
 								{status === "error" && output && (
 									<strong className="ide-check-verdict block">Не удалось выполнить проверку 😕</strong>
 								)}
@@ -204,6 +208,9 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 									<p className="text-sm">Проверьте сообщение об ошибке и попробуйте ещё раз</p>
 								)}
 							</section>}
+							{showSqlResults && sqlResults.map((result, index) => (
+								<SqlResultTable key={index} result={result} number={index + 1} />
+							))}
 							{((!mismatch && programOutput !== null) || images.length > 0) && (
 								<div className={`ide-execution-results${images.length ? " has-images" : ""}`}>
 									{!mismatch && programOutput !== null && (programOutput || !images.length) && (

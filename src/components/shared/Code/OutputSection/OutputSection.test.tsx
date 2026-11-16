@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import OutputSection from "./OutputSection";
 
 describe("OutputSection", () => {
@@ -30,6 +30,41 @@ describe("OutputSection", () => {
       />,
     );
     expect(screen.getByTitle("HTML Preview")).toHaveAttribute("srcDoc", "<h1>Hello</h1>");
+  });
+
+  it("shows SQLite expressions and aliases, preserves cells, and keeps empty result headers", () => {
+    render(
+      <OutputSection
+        output=""
+        status="idle"
+        activeTab="output"
+        language="sql"
+        sqlResults={[
+          { columns: ["price*quantity", "total", "title"], rows: [["2840.5", "2840.5", "a,b;c"], ["0", "0", null]] },
+          { columns: ["Количество"], rows: [] },
+        ]}
+      />,
+    );
+    const [first, second] = screen.getAllByRole("table");
+    expect(within(first).getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual(
+      ["price*quantity", "total", "title"],
+    );
+    expect(within(first).getByRole("cell", { name: "a,b;c" })).toBeInTheDocument();
+    expect(within(first).getByRole("cell", { name: "NULL" })).toBeInTheDocument();
+    expect(within(second).getByRole("columnheader", { name: "Количество" })).toBeInTheDocument();
+    expect(screen.getByText("Нет строк")).toBeInTheDocument();
+    expect(screen.queryByText("Нет результата")).not.toBeInTheDocument();
+  });
+
+  it("pages through long SQLite results and starts new results on the first page", () => {
+    const props = { output: "", status: "idle", activeTab: "output", language: "sql" } as const;
+    const result = { columns: ["n"], rows: Array.from({ length: 101 }, (_, i) => [String(i + 1)]) };
+    const { rerender } = render(<OutputSection {...props} sqlResults={[result]} />);
+    expect(screen.queryByRole("cell", { name: "101" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Дальше" }));
+    expect(screen.getByRole("cell", { name: "101" })).toBeInTheDocument();
+    rerender(<OutputSection {...props} sqlResults={[{ ...result }]} />);
+    expect(screen.getByRole("cell", { name: "1" })).toBeInTheDocument();
   });
 
   it("hides output while the desktop task editor is active", () => {

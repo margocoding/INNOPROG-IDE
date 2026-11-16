@@ -284,7 +284,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     return () => document.documentElement.classList.remove("ide-loading-light");
   }, [lightTheme]);
 
-  const { isRunning, checkProgress, outputMismatch, programOutput, outputImages, handleRunCode, onSendCheck, setCurrentCode } =
+  const { isRunning, checkProgress, outputMismatch, programOutput, outputImages, sqlResults, handleRunCode, onSendCheck, setCurrentCode } =
     useCodeExecution({
       currentAnswer,
       task,
@@ -1071,6 +1071,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               inputFile={task?.input_file}
               programOutput={programOutput}
               images={outputImages}
+              sqlResults={sqlResults}
               status={status}
               activeTab={activeTab}
               language={language}

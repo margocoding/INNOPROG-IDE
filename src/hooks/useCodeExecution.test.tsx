@@ -211,8 +211,9 @@ describe("useCodeExecution", () => {
   it("runs a SQL task as SQLite with its task fixture", async () => {
     mockedApi.runCode.mockResolvedValue({
       result: true,
-      output: "Книга,1000",
+      output: "",
       input: "",
+      sql_results: [{ columns: ["item", "unit_price * units"], rows: [["Книга", "1000"]] }],
     } as any);
     const { result } = setup({
       isInIframe: true,
@@ -227,10 +228,14 @@ describe("useCodeExecution", () => {
     expect(mockedApi.runCode).toHaveBeenCalledWith(
       expect.objectContaining({
         task_id: 70105,
+        include_sql_results: true,
         program: expect.stringContaining("SELECT item"),
       }),
       Language.SQL,
     );
+    expect(result.current.sqlResults).toEqual([
+      { columns: ["item", "unit_price * units"], rows: [["Книга", "1000"]] },
+    ]);
     expect(mockedApi.checkTaskAnswer).not.toHaveBeenCalled();
   });
 

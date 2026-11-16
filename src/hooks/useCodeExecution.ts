@@ -1,7 +1,7 @@
 import { TaskCheckProgress } from "../services/taskCheckProgress";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
-import { Answer, CheckResult, Language, OutputImage, Task, TaskAnswerCheckRequest } from "../types/task";
+import { Answer, CheckResult, Language, OutputImage, SqlResult, Task, TaskAnswerCheckRequest } from "../types/task";
 import { postToParent } from "../utils/parentMessaging";
 
 const admissionMessage = (error: any): string | null => {
@@ -74,12 +74,14 @@ export const useCodeExecution = ({
 }: UseCodeExecutionProps) => {
 	const [outputMismatch, setOutputMismatch] = useState<OutputMismatch | null>(null);
 	const [programOutput, setProgramOutput] = useState<string | null>(null);
+	const [sqlResults, setSqlResults] = useState<SqlResult[]>([]);
 	const [outputImages, setOutputImages] = useState<OutputImage[]>([]);
 	useEffect(() => {
 		setOutputMismatch(null);
 		setProgramOutput(null);
 		setOutputImages([]);
 	}, [taskId]);
+	useEffect(() => setSqlResults([]), [taskId, language]);
 
 	function recordExecution(result: CheckResult) {
 		const images = (result.artifacts ?? []).filter(
@@ -199,11 +201,14 @@ export const useCodeExecution = ({
 						program: fullCode,
 						timeout: selectedAnswer?.timeout || 30,
 						task_id: taskId ? Number(taskId) : undefined,
+						...(runLanguage === Language.SQL ? { include_sql_results: true } : {}),
 					},
 					runLanguage,
 					...(controller ? [controller.signal] as const : [])
 				);
 
+				const tables = result.result ? result.sql_results ?? [] : [];
+				setSqlResults(tables);
 				recordExecution(result);
 				setOutputMismatch(null);
 				setRunInputData(result.input ?? runInputData);
@@ -223,7 +228,7 @@ export const useCodeExecution = ({
 						? shouldAutoSubmitAfterPublicTest
 							? "Первый тест пройден. Идёт полная проверка решения"
 							: "Первый тест пройден. Для сдачи задания отправь решение на полную проверку"
-						: result.output || result.comment || ""
+						: tables.length ? "" : result.output || result.comment || ""
 				);
 				setStatus(result.result ? (taskId ? "success" : "idle") : "error");
 				if (result.result && shouldAutoSubmitAfterPublicTest) {
@@ -234,6 +239,7 @@ export const useCodeExecution = ({
 			}
 
 			const result = await api.checkCode(checkData, runLanguage);
+			setSqlResults([]);
 			recordExecution(result);
 			setOutputMismatch(null);
 			setRunInputData(checkData.input_data === "-" ? "" : checkData.input_data);
@@ -271,6 +277,7 @@ export const useCodeExecution = ({
 			setRunInputData("");
 			setProgramOutput(null);
 			setOutputImages([]);
+			setSqlResults([]);
 			setOutputMismatch(null);
 			setOutput(maintenanceMessage(error) || admissionMessage(error) || `Ошибка выполнения: ${error.message}`);
 			setStatus("error");
@@ -374,6 +381,7 @@ export const useCodeExecution = ({
 		outputMismatch,
 		programOutput,
 		outputImages,
+		sqlResults,
 		handleRunCode,
 		onSendCheck,
 		currentCode,
