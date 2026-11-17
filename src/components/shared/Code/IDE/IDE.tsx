@@ -297,7 +297,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     return () => document.documentElement.classList.remove("ide-loading-light");
   }, [lightTheme]);
 
-  const { isRunning, checkProgress, outputMismatch, programOutput, outputImages, sqlResults, handleRunCode, onSendCheck, setCurrentCode } =
+  const { isRunning, executionAction, checkProgress, outputMismatch, programOutput, outputImages, sqlResults, handleRunCode, onSendCheck, setCurrentCode } =
     useCodeExecution({
       currentAnswer,
       sqliteWorkspace,
@@ -1111,6 +1111,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               if (desktopTaskMode && window.innerWidth >= 768) setActiveTab('output');
             }}><TerminalIcon/><span>Консоль</span></button>
           </div> : undefined}
+          executionAction={executionAction}
           checkProgress={checkProgress}
           status={status}
           taskId={taskId}

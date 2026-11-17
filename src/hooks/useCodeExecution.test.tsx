@@ -535,10 +535,12 @@ it('keeps real progress visible while awaiting verification and does not complet
   let pending: Promise<void>;
   await act(async () => { pending = result.current.onSendCheck(); });
   expect(result.current.isRunning).toBe(true);
+  expect(result.current.executionAction).toBe("submit");
   expect(result.current.checkProgress).toEqual({ completed: 8, total: 26 });
   expect(mockPostToParent).not.toHaveBeenCalled();
   await act(async () => { complete({ result: true, message: 'Верно' }); await pending; });
   expect(result.current.isRunning).toBe(false);
+  expect(result.current.executionAction).toBeNull();
   expect(result.current.checkProgress).toBeNull();
 });
 

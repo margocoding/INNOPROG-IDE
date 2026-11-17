@@ -24,6 +24,8 @@ const maintenanceMessage = (error: any): string | null =>
 		? "Сервис выполнения кода обновляется. Код остаётся в редакторе. Повторите запуск через минуту."
 		: null;
 
+export type ExecutionAction = "run" | "submit";
+
 export interface OutputMismatch {
 	emoji?: string;
 	actual: string;
@@ -100,7 +102,7 @@ export const useCodeExecution = ({
 	const activeRun = useRef<AbortController | null>(null);
 	useEffect(() => () => activeRun.current?.abort(), []);
 	const [checkProgress, setCheckProgress] = useState<TaskCheckProgress | null>(null);
-	const [isRunning, setIsRunning] = useState<boolean>(false);
+	const [executionAction, setExecutionAction] = useState<ExecutionAction | null>(null);
 	const [currentCode, setCurrentCode] = useState<string>('');
 
 	const getSelectedAnswer = () => currentAnswer || task?.answers?.[0] || null;
@@ -159,7 +161,7 @@ export const useCodeExecution = ({
 		}
 		if (executionInFlight.current) return;
 		executionInFlight.current = true;
-		setIsRunning(true);
+		setExecutionAction("run");
 		// Keep the previous result visible until the new execution returns.
 
 		const controller = roomWorkspace ? new AbortController() : null;
@@ -298,7 +300,7 @@ export const useCodeExecution = ({
 		} finally {
 			activeRun.current = null;
 			executionInFlight.current = false;
-			setIsRunning(false);
+			setExecutionAction(null);
 			if (!controller?.signal.aborted) onRunFinished?.();
 			if (taskId || roomWorkspace || window.innerWidth < 768) {
 				setActiveTab("output");
@@ -307,7 +309,7 @@ export const useCodeExecution = ({
 	};
 
 	const onSendCheck = async () => {
-		setIsRunning(true);
+		setExecutionAction("submit");
 		setCheckProgress(null);
 		let shouldOpenModal = false;
 		let keepEditorOpen = false;
@@ -376,7 +378,7 @@ export const useCodeExecution = ({
 			if (shouldOpenModal) {
 				onOpen();
 			}
-			setIsRunning(false);
+			setExecutionAction(null);
 			setCheckProgress(null);
 
 			if (!isInIframe && !keepEditorOpen) {
@@ -390,7 +392,8 @@ export const useCodeExecution = ({
 	};
 
 	return {
-		isRunning,
+		isRunning: executionAction !== null,
+		executionAction,
 		checkProgress,
 		outputMismatch,
 		programOutput,

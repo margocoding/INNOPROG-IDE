@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Button } from "@heroui/react";
 import "./Footer.css";
+import type { ExecutionAction } from "../../../hooks/useCodeExecution";
 import { isDesktop } from "../../../utils/platform";
 
 interface FooterProps {
@@ -10,6 +11,7 @@ interface FooterProps {
   status: "idle" | "success" | "error";
   taskId: string | null;
   isRunning: boolean;
+  executionAction?: ExecutionAction | null;
   checkProgress?: { completed: number; total: number } | null;
   blockedReason?: string;
   activeTab: "editor" | "output";
@@ -31,6 +33,7 @@ const Footer: React.FC<FooterProps> = ({
   status,
   taskId,
   isRunning,
+  executionAction,
   checkProgress,
   blockedReason,
   activeTab,
@@ -45,18 +48,20 @@ const Footer: React.FC<FooterProps> = ({
   onPrimaryAction,
 }) => {
   const actionPendingRef = useRef(false);
-  const [actionPending, setActionPending] = useState(false);
-  const busy = isRunning || actionPending;
+  const [pendingAction, setPendingAction] = useState<ExecutionAction | null>(null);
+  const busy = isRunning || pendingAction !== null;
   const isHtmlMode = language === "html";
   const isSubmitOnlyMode = isHtmlMode || submitOnly;
   const hasTask = Boolean(taskId);
   const isSubmitAction = isSubmitOnlyMode || (status === "success" && hasTask);
+  const action = isSubmitAction ? "submit" : "run";
+  const busyAction = executionAction ?? pendingAction ?? action;
 
   const handleButtonClick = async () => {
     if (isRunning || blockedReason || actionPendingRef.current) return;
 
     actionPendingRef.current = true;
-    setActionPending(true);
+    setPendingAction(action);
     try {
       if (onPrimaryAction) {
         await onPrimaryAction();
@@ -75,7 +80,7 @@ const Footer: React.FC<FooterProps> = ({
       }
     } finally {
       actionPendingRef.current = false;
-      setActionPending(false);
+      setPendingAction(null);
     }
   };
 
@@ -126,7 +131,9 @@ const Footer: React.FC<FooterProps> = ({
                 d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>}
-          {blockedReason || (isSubmitOnlyMode
+          {blockedReason || (busy
+            ? busyAction === "submit" ? "Отправляется…" : "Выполняется…"
+            : isSubmitOnlyMode
             ? "Отправить решение"
             : status === "success" && taskId
             ? desktopTaskMode

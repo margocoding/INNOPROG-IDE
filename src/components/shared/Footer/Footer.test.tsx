@@ -26,7 +26,7 @@ describe("Footer", () => {
     render(<Footer {...values} taskId="10030" blockedReason="Решение не загружено" />);
     const button = screen.getByRole("button", { name: "Решение не загружено" });
     expect(button).toBeDisabled();
-    expect(screen.queryByText("Выполняется...")).not.toBeInTheDocument();
+    expect(screen.queryByText("Выполняется…")).not.toBeInTheDocument();
     fireEvent.click(button);
     expect(values.onRunCode).not.toHaveBeenCalled();
   });
@@ -49,10 +49,32 @@ describe("Footer", () => {
     const button = screen.getByRole("button", { name: "Выполнить" });
     fireEvent.click(button);
     expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleName("Выполняется…");
     expect(button.querySelector(".ide-footer-run-spinner")).toBeInTheDocument();
     await act(async () => finish());
     expect(button.querySelector(".ide-footer-run-spinner")).not.toBeInTheDocument();
     expect(button).toBeEnabled();
+    expect(button).toHaveAccessibleName("Выполнить");
+  });
+
+  it("shows sending until submission settles", async () => {
+    let finish!: () => void;
+    const onSubmitCheck = () => new Promise<void>((resolve) => { finish = resolve; });
+    render(<Footer {...props()} status="success" taskId="1" onSubmitCheck={onSubmitCheck} />);
+    const button = screen.getByRole("button", { name: "Отправить на проверку" });
+    fireEvent.click(button);
+    expect(button).toHaveAccessibleName("Отправляется…");
+    expect(button).toBeDisabled();
+    await act(async () => finish());
+    expect(button).toHaveAccessibleName("Отправить на проверку");
+  });
+
+  it("shows sending when an automatic submission starts during a run", () => {
+    const values = { ...props(), taskId: "1", isRunning: true };
+    const { rerender } = render(<Footer {...values} executionAction="run" />);
+    expect(screen.getByRole("button", { name: "Выполняется…" })).toBeDisabled();
+    rerender(<Footer {...values} executionAction="submit" />);
+    expect(screen.getByRole("button", { name: "Отправляется…" })).toBeDisabled();
   });
 
   it("handles HTML task and hides standalone HTML controls", () => {
