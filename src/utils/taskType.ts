@@ -1,5 +1,7 @@
 import { Task, TaskType } from "../types/task";
 
+export const formatTaskTitle = (title?: string | null) => (title ?? "").trim().replace(/\.+$/, "").trimEnd();
+
 export const getTaskType = (task: Task | null | undefined): TaskType => {
   const rawTaskType = (task?.task_type || task?.type) as string | undefined;
 

@@ -1,4 +1,4 @@
-import React, { useId, useRef } from "react";
+import React, { useId } from "react";
 import type { OutputMismatch } from "../../../../hooks/useCodeExecution";
 import type { OutputImage, SqlResult } from "../../../../types/task";
 import SqlResultTable from "./SqlResultTable";
@@ -43,11 +43,14 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 	collapsed = false,
 	onToggleCollapsed,
 }) => {
-	const outputRef = useRef<HTMLPreElement>(null);
 	const contentId = useId();
 	const isHtmlMode = language === "html";
 	const showSqlResults = language === "sql" && sqlResults.length > 0 && status !== "error" && !mismatch;
 	const hasInputData = inputData.length > 0;
+	const showSuccessMessage = status === "success" && Boolean(output) && (programOutput !== null || showSqlResults);
+	const showPlainOutput = !mismatch && !showSuccessMessage
+		&& (!showSqlResults || Boolean(output))
+		&& (programOutput === null || (Boolean(output) && output !== programOutput));
 	const canCollapse = Boolean(onToggleCollapsed) && !isHtmlMode;
 
 	const getStatusIcon = () => {
@@ -183,17 +186,16 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 									</pre>
 								</section>
 							)}
-							{!mismatch && (!showSqlResults || output) && <section className="space-y-2">
+							{showPlainOutput && <section className="space-y-2">
 								{status === "error" && output && (
 									<strong className="ide-check-verdict block">Не удалось выполнить проверку 😕</strong>
 								)}
-								{hasInputData && status !== "error" && (
+								{hasInputData && status !== "error" && programOutput === null && (
 									<div className="text-xs font-medium uppercase tracking-wide text-ide-text-secondary">
 										Вывод программы
 									</div>
 								)}
 								<pre
-									ref={outputRef}
 									className={`font-mono text-sm md:text-base whitespace-pre-wrap break-words ${
 										status === "error"
 											? "error-output"
@@ -202,7 +204,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 											: ""
 									}`}
 								>
-									{output && output !== programOutput ? output : programOutput === null ? "Нет результата" : ""}
+									{output || "Нет результата"}
 								</pre>
 								{status === "error" && output && (
 									<p className="text-sm">Проверьте сообщение об ошибке и попробуйте ещё раз</p>
@@ -231,6 +233,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 									</div>}
 								</div>
 							)}
+							{!mismatch && showSuccessMessage && <p className="text-sm text-green-500" role="status">{output}</p>}
 						</div>
 					)}
 				</div>

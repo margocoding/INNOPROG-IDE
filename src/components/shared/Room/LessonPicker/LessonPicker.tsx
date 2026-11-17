@@ -4,6 +4,7 @@ import { useOverlayPosition } from '@react-aria/overlays';
 import { Autocomplete, AutocompleteItem, Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Tab, Tabs } from '@heroui/react';
 import { LessonModule, LessonSelection, RoomLessonState, RoomLessonTask } from '../../../../types/roomLesson';
 import { Language } from '../../../../types/task';
+import { formatTaskTitle } from '../../../../utils/taskType';
 import { currentRoomToken } from '../../../../utils/roomSession';
 import { LessonCodeField } from './LessonCodeField';
 import { LazyLessonMarkdown } from '../../Code/TaskDescription/LazyLessonMarkdown';
@@ -326,7 +327,7 @@ export default function LessonPicker({ room, active, select }: {
   const fillForm = (task?: PersonalTask) => {
     setEditing(task);
     setFormModuleId(task ? String(task.moduleId) : '');
-    setTitle(task?.title ?? '');
+    setTitle(formatTaskTitle(task?.title));
     setDescription(task?.description ?? '');
     setLanguage(task?.language ?? '');
     setInput(task?.input ?? '');
@@ -347,7 +348,7 @@ export default function LessonPicker({ room, active, select }: {
     try {
       const path = editing ? 'personal/' + encodeURIComponent(editing.id) : 'personal';
       const task = await roomRequest<PersonalTask>(room, path, undefined, {
-        title, description, descriptionFormat: 'markdown', moduleId: Number(formModuleId), language, input, output, initialCode, after,
+        title: formatTaskTitle(title), description, descriptionFormat: 'markdown', moduleId: Number(formModuleId), language, input, output, initialCode, after,
       }, editing ? 'PUT' : 'POST');
       personalMutationVersion.current++;
       setPersonal(items => editing ? items.map(item => item.id === task.id ? task : item) : [task, ...items]);
@@ -418,12 +419,12 @@ export default function LessonPicker({ room, active, select }: {
     if (action === 'delete') setDeleting(task);
   };
   const taskChoices = tab === 'platform' ? catalog.map(task => ({
-    id: String(task.id), label: task.title,
+    id: String(task.id), label: formatTaskTitle(task.title),
     detail: [task.videoTitle || task.topic, task.taskNumber ? `Задача ${task.taskNumber}` : '', languageLabel(task.language)]
       .filter(Boolean).join(', '),
     searchText: [task.topic, task.searchText].filter(Boolean).join('\n'),
   })) : personalTasks.map(task => ({
-    id: task.id, label: task.title,
+    id: task.id, label: formatTaskTitle(task.title),
     detail: [task.topic, languageLabel(task.language)].filter(Boolean).join(', '),
     searchText: task.description,
   }));
@@ -459,8 +460,8 @@ export default function LessonPicker({ room, active, select }: {
         <ModalHeader>
           <span>{deleting ? "Удаление задачи" : expandedDescription ? "Условие задачи" : creating ? editing ? "Редактирование задачи" : "Новая задача" : "Задача для занятия"}</span>
           {!creating && !deleting && active?.task && <div className="lesson-current">
-            <div><span>Сейчас в комнате</span><strong>{active.task.title}</strong></div>
-            {activePersonal && <TaskActions title={activePersonal.title}
+            <div><span>Сейчас в комнате</span><strong>{formatTaskTitle(active.task.title)}</strong></div>
+            {activePersonal && <TaskActions title={formatTaskTitle(activePersonal.title)}
               onAction={action => openTaskAction(activePersonal, action)} />}
           </div>}
         </ModalHeader>
@@ -476,7 +477,7 @@ export default function LessonPicker({ room, active, select }: {
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>
             }><span>Добавить задачу</span></Button>}
           </div>}
-          {deleting ? <p>Удалить «{deleting.title}» из личных задач?
+          {deleting ? <p>Удалить «{formatTaskTitle(deleting.title)}» из личных задач?
             {active?.key === 'personal:' + deleting.id && ' В комнате откроется свободный редактор.'}
           </p> : creating ? <div className="lesson-create-grid">
             <div className="lesson-create-column">
@@ -571,7 +572,7 @@ export default function LessonPicker({ room, active, select }: {
             <Button color="danger" isLoading={saving} onPress={remove}>Удалить</Button>
           </> : creating ? <>
             <Button variant="light" isDisabled={saving || importingDescription} onPress={closeForm}>Назад</Button>
-            <Button color="secondary" isLoading={saving} isDisabled={importingDescription || !title.trim() || !description.trim() || !formModuleId || !language} onPress={save}>Сохранить</Button>
+            <Button color="secondary" isLoading={saving} isDisabled={importingDescription || !formatTaskTitle(title) || !description.trim() || !formModuleId || !language} onPress={save}>Сохранить</Button>
             <button type="button" className="lesson-resize-handle"
               aria-label="Изменить размер окна стрелками" title="Потяните, чтобы изменить размер"
               onPointerDown={event => {

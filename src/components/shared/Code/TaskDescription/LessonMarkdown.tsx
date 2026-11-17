@@ -2,7 +2,7 @@ import { Marked, Renderer, type MarkedExtension, type Tokens } from 'marked';
 import markedFootnote from 'marked-footnote';
 import markedKatex from 'marked-katex-extension';
 import 'katex/dist/katex.min.css';
-import { MouseEvent, useId, useMemo, useState } from 'react';
+import { MouseEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
 import './LessonMarkdown.css';
 import { highlightDescriptionCode } from './DescriptionSyntax';
 import { callout, escapeAttribute, escapeText, imageMarkup, lessonDialect, mathOptions, safeLessonHtml } from './LessonMarkdownExtensions';
@@ -41,6 +41,7 @@ function lessonHtml(source: string, prefix: string, defaultLanguage: string) {
     return `<div class="lesson-markdown-code"><div class="lesson-markdown-code-toolbar">
       <span>${escapeText(name)}${filename ? `, ${escapeText(filename)}` : ''}</span><button type="button" data-copy-code>
         <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M13 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/></svg>
+        <svg class="lesson-copy-check" viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 10 4 4 8-8"/></svg>
         Копировать
       </button></div><pre class="description-syntax"><code${attributes}>${code}</code></pre></div>`;
   };
@@ -161,6 +162,14 @@ export function LessonMarkdown({ source, language = '' }: { source: string; lang
     catch { return null; }
   }, [source, prefix, language]);
   const [message, setMessage] = useState('');
+  const copyTimers = useRef(new Map<Element, number>());
+  useEffect(() => {
+    const timers = copyTimers.current;
+    return () => {
+      timers.forEach(timer => window.clearTimeout(timer));
+      timers.clear();
+    };
+  }, [html]);
   const copyCode = async (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -178,10 +187,19 @@ export function LessonMarkdown({ source, language = '' }: { source: string; lang
     }
     const button = target.closest('button[data-copy-code]');
     const code = button?.closest('.lesson-markdown-code')?.querySelector('pre code');
-    if (!code) return;
+    if (!button || !code) return;
     try {
       await navigator.clipboard.writeText(code.textContent ?? '');
-      setMessage('Код скопирован');
+      if (!button.isConnected) return;
+      setMessage('');
+      button.setAttribute('data-copied', 'true');
+      button.setAttribute('aria-label', 'Код скопирован');
+      window.clearTimeout(copyTimers.current.get(button));
+      copyTimers.current.set(button, window.setTimeout(() => {
+        button.removeAttribute('data-copied');
+        button.removeAttribute('aria-label');
+        copyTimers.current.delete(button);
+      }, 1800));
     } catch {
       setMessage('Не удалось скопировать код');
     }

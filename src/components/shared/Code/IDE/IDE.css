@@ -35,6 +35,19 @@
     flex-wrap: wrap;
   }
 
+  .ide-task-workspace .desktop-task-editor-pane {
+    padding: 0;
+  }
+
+  .ide-task-workspace .desktop-task-editor-pane > .code-editor-surface {
+    border-radius: 0;
+  }
+
+  .ide-task-workspace > main > :not(.desktop-task-output-layout, .desktop-task-console-layout) > .desktop-task-editor-pane {
+    height: 100% !important;
+    flex-basis: 100%;
+  }
+
   .desktop-task-editor-pane {
     height: calc(var(--desktop-pane-size) - 4px) !important;
     flex: 0 0 calc(var(--desktop-pane-size) - 4px);

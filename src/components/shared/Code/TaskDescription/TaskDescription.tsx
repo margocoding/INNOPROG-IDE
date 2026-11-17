@@ -2,7 +2,7 @@ import type { RoomLessonTask } from '../../../../types/roomLesson';
 import React, { useMemo, useRef, useState } from "react";
 import { isDesktop } from "../../../../utils/platform";
 import { Task } from "../../../../types/task";
-import { getTaskType } from "../../../../utils/taskType";
+import { formatTaskTitle, getTaskType } from "../../../../utils/taskType";
 import { isLegacyLessonTitle, processTaskDescription } from "./TaskDescription.utils";
 import "./TaskDescription.css";
 import { LazyLessonMarkdown } from "./LazyLessonMarkdown";
@@ -65,7 +65,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	const lessonTitle = lesson?.platformId && isLegacyLessonTitle(lesson.title, lesson.description)
 		? lesson.topic?.trim()
 		: lesson?.title;
-	const headline = lesson && !lesson.platformId ? lessonTitle : task.title || lessonTitle;
+	const headline = formatTaskTitle(lesson && !lesson.platformId ? lessonTitle : task.title || lessonTitle);
 	const isPasteTask = getTaskType(task) === "paste";
 	const taskAnswer = task.answers?.[0];
 	const teacherTests = showTeacherTests ? task.teacher_tests : undefined;

@@ -203,6 +203,18 @@ for (i = 0; i &lt; 10; i++) {
 });
 
 describe("TaskDescription component", () => {
+	it("drops the terminal period from the task title and keeps condition punctuation", () => {
+		render(<TaskDescription task={{
+			id: 810012,
+			title: "Бронирование студии.",
+			description: "Выведите итоговую стоимость.",
+			answers: [],
+		}} />);
+
+		expect(screen.getByRole("heading", { name: "Бронирование студии" })).toBeInTheDocument();
+		expect(screen.getByText("Выведите итоговую стоимость.")).toBeInTheDocument();
+	});
+
 	it("renders the single public sample input/output and safely resizes", () => {
 		const { container } = render(
 			<TaskDescription

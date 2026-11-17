@@ -63,7 +63,8 @@ it('copies only the chosen code block without changing the code', async () => {
     expect(document.querySelector('.lesson-markdown-highlight-line')).toHaveAttribute('data-line-number', '2');
     fireEvent.click(screen.getAllByRole('button', { name: 'Копировать' })[1]);
     expect(writeText).toHaveBeenCalledWith('  if (a < b && x > y) {\n    return;\n  }');
-    expect(await screen.findByText('Код скопирован')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Код скопирован' })).toHaveAttribute('data-copied', 'true');
+    expect(screen.queryByText('Код скопирован')).not.toBeInTheDocument();
   } finally {
     if (clipboard) Object.defineProperty(navigator, 'clipboard', clipboard);
     else Reflect.deleteProperty(navigator, 'clipboard');

@@ -1568,7 +1568,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
 
     return (
       <div
-        className="relative h-full rounded-lg overflow-clip bg-ide-editor"
+        className="code-editor-surface relative h-full rounded-lg overflow-clip bg-ide-editor"
         data-testid="code-editor-shell"
       >
         <div className="code-editor-toolbar px-3 py-2 border-b border-ide-border bg-ide-secondary flex flex-wrap justify-between items-center gap-x-2 gap-y-1">

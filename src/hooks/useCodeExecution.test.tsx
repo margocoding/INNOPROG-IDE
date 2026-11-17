@@ -153,6 +153,7 @@ describe("useCodeExecution", () => {
     );
     expect(mockedApi.runCode).not.toHaveBeenCalled();
     expect(callbacks.setStatus).toHaveBeenCalledWith("success");
+    expect(result.current.programOutput).toBe("out");
     expect(callbacks.setOutput).toHaveBeenLastCalledWith(
       "Первый тест пройден. Для сдачи задания отправь решение на полную проверку",
     );

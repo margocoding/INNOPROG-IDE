@@ -32,6 +32,9 @@
 }
 .lesson-markdown-code-toolbar button:hover { color: #fff; background: #303a4b; }
 .lesson-markdown-code-toolbar button:focus-visible { outline: 2px solid #a58aff; }
+.lesson-markdown-code-toolbar button:not([data-copied]) .lesson-copy-check,
+.lesson-markdown-code-toolbar button[data-copied] svg:not(.lesson-copy-check) { display: none; }
+.lesson-markdown-code-toolbar button[data-copied] .lesson-copy-check { color: #86efac; }
 .lesson-markdown .lesson-markdown-code pre {
   margin: 0;
   border-radius: 0;

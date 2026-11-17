@@ -86,13 +86,13 @@ export const useCodeExecution = ({
 	}, [taskId]);
 	useEffect(() => setSqlResults([]), [taskId, language]);
 
-	function recordExecution(result: CheckResult) {
+	function recordExecution(result: CheckResult, showTaskOutput = false) {
 		const images = (result.artifacts ?? []).filter(
 			(image) => image.mime_type === "image/png" || image.mime_type === "image/jpeg",
 		);
 		setOutputImages(images);
-		const showProgramOutput = Boolean(task?.input_file || images.length);
-		setProgramOutput(showProgramOutput && result.output !== "error" ? result.output ?? "" : null);
+		const showProgramOutput = showTaskOutput || Boolean(task?.input_file || images.length);
+		setProgramOutput(showProgramOutput && (result.result || result.output !== "error") ? result.output ?? "" : null);
 	}
 	const executionInFlight = useRef(false);
 	const activeRun = useRef<AbortController | null>(null);
@@ -217,7 +217,7 @@ export const useCodeExecution = ({
 
 				const tables = result.result ? result.sql_results ?? [] : [];
 				setSqlResults(tables);
-				recordExecution(result);
+				recordExecution(result, Boolean(taskId && result.result && !tables.length));
 				setOutputMismatch(null);
 				setRunInputData(result.input ?? runInputData);
 				if (!taskId && (runLanguage === Language.PY || runLanguage === Language.CPP) && outputData.trim() && result.result) {
@@ -248,7 +248,7 @@ export const useCodeExecution = ({
 
 			const result = await api.checkCode(checkData, runLanguage);
 			setSqlResults([]);
-			recordExecution(result);
+			recordExecution(result, Boolean(taskId && result.result));
 			setOutputMismatch(null);
 			setRunInputData(checkData.input_data === "-" ? "" : checkData.input_data);
 

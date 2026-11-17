@@ -15,6 +15,27 @@ describe("OutputSection", () => {
     expect(screen.getByText("done")).toHaveClass("text-green-500");
   });
 
+  it("shows the public test output before its success message", () => {
+    const verdict = "Первый тест пройден";
+    render(
+      <OutputSection
+        output={verdict}
+        inputData="2"
+        programOutput="600"
+        status="success"
+        activeTab="output"
+      />,
+    );
+
+    const stdout = screen.getByRole("region", { name: "Вывод программы" });
+    expect(screen.getAllByText("Вывод программы")).toHaveLength(1);
+    expect(within(stdout).getByText("600")).toBeInTheDocument();
+    expect(within(stdout).queryByText(verdict)).not.toBeInTheDocument();
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent(verdict);
+    expect(stdout.compareDocumentPosition(status)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it("shows errors, empty output and an HTML sandbox", () => {
     const { rerender } = render(
       <OutputSection output="" status="error" activeTab="editor" />,
