@@ -182,6 +182,7 @@ describe("IDE", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
     Object.defineProperty(window, "self", {
       configurable: true,
       value: window,

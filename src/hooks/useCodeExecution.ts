@@ -47,6 +47,7 @@ interface UseCodeExecutionProps {
 	setOutput: (output: string) => void;
 	setRunInputData: (inputData: string) => void;
 	onRunFinished?: () => void;
+	onCodeAccepted?: (submittedCode: string) => void;
 	setStatus: (status: "idle" | "success" | "error") => void;
 	setActiveTab: (tab: "editor" | "output") => void;
 	setSubmitResult: (result: "success" | "error" | "no_data") => void;
@@ -71,6 +72,7 @@ export const useCodeExecution = ({
 	setOutput,
 	setRunInputData,
 	onRunFinished,
+	onCodeAccepted,
 	setStatus,
 	setActiveTab,
 	setSubmitResult,
@@ -329,6 +331,7 @@ export const useCodeExecution = ({
 				shouldOpenModal = true;
 
 				if (result.result) {
+					onCodeAccepted?.(code);
 					setSubmitResult("success");
 					postToParent({
 						source: "innoprog-ide",
@@ -359,6 +362,7 @@ export const useCodeExecution = ({
 				answer_id: resolvedAnswerId,
 				task_id: resolvedTaskId,
 			});
+			onCodeAccepted?.(code);
 			setSubmitMessage("");
 			setSubmitResult("success");
 			shouldOpenModal = true;

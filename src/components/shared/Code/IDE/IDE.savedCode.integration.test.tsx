@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { EditorView } from "@codemirror/view";
 import { api } from "../../../../services/api";
 import IDE from "./IDE";
@@ -21,6 +21,7 @@ function documentCode(container: HTMLElement) {
 }
 beforeEach(() => {
   jest.clearAllMocks(); localStorage.clear();
+  sessionStorage.clear();
   (global as any).ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
   window.history.replaceState({}, "", "/?client_id=123&task_id=10006&answer_id=diagnostic&lang=py&platforma=app");
 });
@@ -50,4 +51,38 @@ it("restores the selected task code after standalone task navigation", async () 
   rerender(<IDE telegramId="" />);
   await waitFor(() => expect(documentCode(container)).toContain("print(10007)"));
   expect(documentCode(container)).not.toContain("print(10006)");
+});
+
+it("restores edits without a run across task visits and keeps each account's draft separate", async () => {
+  (api.getTask as jest.Mock).mockImplementation(async (id) => ({
+    id: Number(id), title: "Task", answers: [{ code_before: "", code_after: "" }], task_type: "code",
+  }));
+  (api.getSubmitCode as jest.Mock).mockResolvedValue({
+    status: "success", has_saved_code: true, code: "print('server')",
+  });
+
+  async function openTask(userId: number, taskId: number, answerId: string, expected: string) {
+    window.history.replaceState({}, "", `/?client_id=${userId}&task_id=${taskId}&answer_id=${answerId}&lang=py`);
+    const visit = render(<IDE telegramId={String(userId)} />);
+    await waitFor(() => expect(documentCode(visit.container)).toBe(expected));
+    return visit;
+  }
+
+  const first = await openTask(123, 10006, "first", "print('server')");
+  const view = EditorView.findFromDOM(first.container.querySelector(".cm-editor")!)!;
+  act(() => view.dispatch({
+    changes: { from: 0, to: view.state.doc.length, insert: "print('draft')" },
+    userEvent: "input",
+  }));
+  first.unmount();
+  (await openTask(123, 10007, "another", "print('server')")).unmount();
+  (await openTask(456, 10006, "other-user", "print('server')")).unmount();
+  const returned = await openTask(123, 10006, "return", "print('draft')");
+  const returnedView = EditorView.findFromDOM(returned.container.querySelector(".cm-editor")!)!;
+  act(() => returnedView.dispatch({
+    changes: { from: 0, to: returnedView.state.doc.length },
+    userEvent: "delete",
+  }));
+  returned.unmount();
+  await openTask(123, 10006, "return-blank", "");
 });

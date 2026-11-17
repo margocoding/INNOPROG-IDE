@@ -28,6 +28,7 @@ const setup = (overrides: Record<string, unknown> = {}) => {
     setSubmitResult: jest.fn(),
     onOpen: jest.fn(),
     setSubmitMessage: jest.fn(),
+    onCodeAccepted: jest.fn(),
   };
   const props: any = {
     currentAnswer: null,
@@ -479,6 +480,7 @@ describe("useCodeExecution", () => {
       client_id: "77", answer_id: "a", program: "print(1)",
     }, expect.any(Function));
     expect(callbacks.setSubmitMessage).toHaveBeenCalledWith("Done");
+    expect(callbacks.onCodeAccepted).toHaveBeenCalledWith("print(1)");
     expect(mockPostToParent).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "task-completed",
@@ -498,6 +500,7 @@ describe("useCodeExecution", () => {
       "Сервис не смог проверить решение",
     );
     expect(callbacks.setSubmitResult).toHaveBeenCalledWith("error");
+    expect(callbacks.onCodeAccepted).not.toHaveBeenCalled();
     expect(callbacks.setOutput).toHaveBeenLastCalledWith("");
     expect(callbacks.onOpen).toHaveBeenCalled();
   });

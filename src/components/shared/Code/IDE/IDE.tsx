@@ -10,6 +10,7 @@ import { SqliteWorkspace } from "../../../../services/sqliteWorkspace";
 import { useCodeExecution } from "../../../../hooks/useCodeExecution";
 import { api } from "../../../../services/api";
 import { getInitialCode, getInitialTask } from "../../../../services/initialTask";
+import { clearSubmittedTaskCodeDraft, readTaskCodeDraft, taskCodeDraftKey, writeTaskCodeDraft } from "../../../../services/taskCodeDraft";
 import { Answer, Language, Task } from "../../../../types/task";
 import { postToParent, resolveParentOrigin } from "../../../../utils/parentMessaging";
 import {
@@ -276,6 +277,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       localStorage.getItem("telegramId") ||
       "";
   const userId = Number.parseInt(clientId, 10) || 0;
+  const draftKey = roomId ? null : taskCodeDraftKey(userId, taskId);
+  const loadedDraftKey = useRef<string | null>(null);
   const platform = searchParams.get("platform");
   const platforma = searchParams.get("platforma");
   const isEmbeddedApp = useMemo(() => {
@@ -313,6 +316,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       setOutput,
       setRunInputData,
       onRunFinished: () => setOutputCollapsed(false),
+      onCodeAccepted: submittedCode => clearSubmittedTaskCodeDraft(draftKey, submittedCode),
       setStatus,
       setActiveTab,
       setSubmitResult,
@@ -498,6 +502,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   useEffect(() => {
     roomStateAppliedRef.current = false;
+    loadedDraftKey.current = null;
     setCodeSource("none");
     setRoomCodeLoaded(!roomId);
   }, [roomId, taskId, clientId, answer_id]);
@@ -609,7 +614,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               ? task.initial_code
               : "";
             const starterCode = task?.editable_starter_code ?? (initialCode ? "" : data.code);
-            setCode(hasSavedCode ? data.code : starterCode);
+            loadedDraftKey.current = draftKey;
+            setCode(readTaskCodeDraft(draftKey) ?? (hasSavedCode ? data.code : starterCode));
             setCodeSource("api");
           }
         } catch (error) {
@@ -645,6 +651,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     roomId,
     roomCodeLoaded,
     codeSource,
+    draftKey,
     userId,
     taskDataReady,
     task?.initial_code,
@@ -872,8 +879,11 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       }
 
       setCode(nextCode);
+      if (loadedDraftKey.current === draftKey) {
+        writeTaskCodeDraft(draftKey, nextCode);
+      }
     },
-    [isAutoBashTemplateActive, isAutoHtmlTemplateActive, isBashMode, isHtmlMode, taskId]
+    [draftKey, isAutoBashTemplateActive, isAutoHtmlTemplateActive, isBashMode, isHtmlMode, taskId]
   );
 
   const htmlPreviewContent = useMemo(() => {
