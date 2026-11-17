@@ -43,6 +43,14 @@
     border-radius: 0;
   }
 
+  .ide-task-workspace .desktop-task-output-pane > .task-output-inner {
+    padding-inline: 0;
+  }
+
+  .ide-task-workspace .desktop-task-output-pane .task-output-surface {
+    border-radius: 0;
+  }
+
   .ide-task-workspace > main > :not(.desktop-task-output-layout, .desktop-task-console-layout) > .desktop-task-editor-pane {
     height: 100% !important;
     flex-basis: 100%;
@@ -241,7 +249,9 @@
 }
 
 .ide-task-light .task-description-row-resizer { background: #f7f5fb; }
-.ide-task-light .task-description-shell--sidebar + .resizer { background: #e4dfec; }
+.ide-task-light .task-description-shell--sidebar + .resizer { background-color: #e4dfec; }
+.ide-task-light .task-description-shell--sidebar + .resizer:hover { background-color: #d8cfe5; }
+.ide-task-light .task-description-shell--sidebar + .resizer.resizer-active { background-color: #d7c8ee; }
 .ide-task-light .task-description-content :not(pre) > code,
 .ide-task-light .task-description-content pre.task-description-code-block {
   background: #fff;
