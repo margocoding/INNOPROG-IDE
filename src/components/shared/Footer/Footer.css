@@ -31,3 +31,30 @@
 .ide-footer .ide-footer-submit:enabled:hover {
   background-color: #b095ff;
 }
+
+.ide-task-light .ide-footer-primary-frame {
+  border-color: #d5ccdf;
+  background: #f7f5fb;
+}
+
+.ide-task-light .ide-footer-primary:not(.ide-footer-submit) {
+  background: #16754a;
+}
+
+.ide-task-light .ide-footer-primary:not(.ide-footer-submit):enabled:hover {
+  background: #105e3b;
+}
+
+.ide-task-light .ide-footer-primary:disabled {
+  background: #e9e3f2;
+  color: #625a76;
+}
+
+.ide-task-light .ide-footer-retry {
+  background: #a52542;
+}
+
+.ide-task-light :is(.ide-footer-primary, .ide-footer-retry):focus-visible {
+  outline: 2px solid #5939a1;
+  outline-offset: 2px;
+}

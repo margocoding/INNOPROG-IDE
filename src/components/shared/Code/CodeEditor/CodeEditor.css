@@ -80,3 +80,19 @@ textarea::selection {
   z-index: 0;
   background-color: rgba(255, 255, 255, 0.06);
 }
+
+.ide-task-light :is(.code-editor-section .cm-scroller, textarea, pre) {
+  scrollbar-color: #968aa7 transparent;
+}
+
+.ide-task-light :is(textarea, pre)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ide-task-light :is(textarea, pre)::-webkit-scrollbar-thumb {
+  background: #968aa7;
+}
+
+.ide-task-light .cm-indent-guide {
+  background-color: #e4dfec;
+}

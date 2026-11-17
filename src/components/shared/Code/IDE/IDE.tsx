@@ -291,13 +291,19 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
   }, [platform, platforma]);
 
+  // Keep rejected solutions visible without trapping focus in the IDE iframe.
+  const showEmbeddedRejection = isEmbeddedApp && isOpen && submitResult === "error";
   const parentOrigin = resolveParentOrigin();
   const isCabinetTask = isEmbeddedApp && !roomId && Boolean(parentOrigin) &&
     (document.referrer === parentOrigin || document.referrer.startsWith(`${parentOrigin}/`));
 
   useEffect(() => {
     document.documentElement.classList.toggle("ide-loading-light", lightTheme);
-    return () => document.documentElement.classList.remove("ide-loading-light");
+    document.body.classList.toggle("light", lightTheme);
+    return () => {
+      document.documentElement.classList.remove("ide-loading-light");
+      document.body.classList.remove("light");
+    };
   }, [lightTheme]);
 
   const { isRunning, executionAction, checkProgress, outputMismatch, programOutput, outputImages, sqlResults, handleRunCode, onSendCheck, setCurrentCode } =
@@ -353,7 +359,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     if (
       primaryActionPendingRef.current ||
       isRunning || consoleExecution.isRunning ||
-      isOpen ||
+      (isOpen && !showEmbeddedRejection) ||
       (lesson?.revision && webSocketData?.codeSyncState !== "synchronized") ||
       (taskId &&
         (!taskDataReady || !initialCodeReady || initialCodeLoadFailed))
@@ -362,6 +368,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
 
     primaryActionPendingRef.current = true;
+    if (showEmbeddedRejection) onClose();
     try {
       if (consoleMode) {
         setActiveTab("output");
@@ -391,8 +398,10 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     isHtmlMode,
     isOpen,
     isRunning,
+    onClose,
     onModalRunCode,
     onSendCheck,
+    showEmbeddedRejection,
     status,
     taskDataReady,
     taskId,
@@ -952,7 +961,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       )}
 
       <SubmitModal
-        isOpen={isOpen}
+        isOpen={isOpen && !showEmbeddedRejection}
         onOpenChange={onOpenChange}
         onClose={onClose}
         submitResult={submitResult}
@@ -1111,6 +1120,16 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
             />}
           </div>
         </main>
+
+        {showEmbeddedRejection && (
+          <section className="ide-embedded-rejection bg-ide-secondary border-ide-border" aria-label="Решение не принято">
+            <div role="alert">
+              <strong>Решение не принято</strong>
+              <p>{(submitMessage || "Не все проверки прошли").trim().replace(/[.\s]+$/, "")}</p>
+            </div>
+            <button type="button" onClick={onClose}>Попробуйте ещё раз</button>
+          </section>
+        )}
 
         <Footer
           hideRetry={consoleMode}

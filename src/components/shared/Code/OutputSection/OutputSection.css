@@ -171,3 +171,11 @@
   opacity: 0.5;
   text-decoration: none;
 }
+
+.ide-task-light .task-output-surface .error-output {
+  color: #9f2539;
+}
+
+.ide-task-light .task-output-surface .text-green-500 {
+  color: #176443;
+}

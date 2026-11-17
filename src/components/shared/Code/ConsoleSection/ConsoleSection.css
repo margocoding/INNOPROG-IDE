@@ -53,3 +53,96 @@
   .console-section--stacked .console-content { padding-block: 10px; }
   .console-section--stacked .console-placeholder { min-height: 0; }
 }
+
+.ide-task-light {
+  --console-border: #d5ccdf;
+  --console-muted: #625a76;
+  --console-accent: #5939a1;
+  --console-control: #f7f5fb;
+  --console-selected: #eee8fa;
+  --console-text: #252136;
+  --console-success: #176443;
+  --console-error: #9f2539;
+}
+
+.ide-task-light .console-panel {
+  background: #fff;
+  border-color: var(--console-border);
+  color: var(--console-text);
+}
+
+.ide-task-light .console-toolbar {
+  background: var(--console-control);
+  border-color: var(--console-border);
+}
+
+.ide-task-light :is(.console-title, .console-transcript, .console-input-row input) {
+  color: var(--console-text);
+}
+
+.ide-task-light :is(.console-state, .console-time, .console-placeholder, .console-icon-button, .console-bottom),
+.ide-task-light .console-input-row input::placeholder {
+  color: var(--console-muted);
+}
+
+.ide-task-light :is(.console-symbol, .console-placeholder > span, .console-input-row button) {
+  color: var(--console-accent);
+}
+
+.ide-task-light .console-state--active {
+  color: var(--console-success);
+}
+
+.ide-task-light .console-state--active::before {
+  background: var(--console-success);
+}
+
+.ide-task-light :is(.console-bottom, .console-input-row input, .console-input-row button) {
+  border-color: var(--console-border);
+}
+
+.ide-task-light .console-input-row input:focus {
+  border-color: var(--console-accent);
+}
+
+.ide-task-light .console-actions button {
+  border-color: var(--console-border);
+  color: #413554;
+}
+
+.ide-task-light .console-actions .console-stop {
+  border-color: #e3bcc5;
+  color: var(--console-error);
+}
+
+.ide-task-light .console-result {
+  border-color: var(--console-border);
+  color: var(--console-success);
+}
+
+.ide-task-light :is(.console-result--error, .console-output-error) {
+  color: var(--console-error);
+}
+
+.ide-task-light :is(.console-run-mode, .console-mobile-tabs) {
+  background: var(--console-control);
+  border-color: var(--console-border);
+}
+
+.ide-task-light :is(.console-run-mode, .console-mobile-tabs) button {
+  color: var(--console-muted);
+}
+
+.ide-task-light :is(.console-run-mode, .console-mobile-tabs) button[aria-pressed="true"] {
+  background: var(--console-selected);
+  color: var(--console-accent);
+}
+
+.ide-task-light :is(.console-panel, .console-run-mode, .console-mobile-tabs) button:enabled:hover {
+  background: var(--console-selected);
+}
+
+.ide-task-light :is(.console-panel, .console-run-mode, .console-mobile-tabs) button:focus-visible {
+  outline: 2px solid var(--console-accent);
+  outline-offset: 2px;
+}

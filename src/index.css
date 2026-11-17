@@ -21,3 +21,16 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+html.ide-loading-light {
+  color-scheme: light;
+}
+
+html.ide-loading-light .Toastify {
+  --toastify-color-dark: #fff;
+  --toastify-text-color-dark: #252136;
+}
+
+html.ide-loading-light .Toastify__close-button--dark {
+  color: #413554;
+}
