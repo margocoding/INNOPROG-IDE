@@ -11,6 +11,8 @@ import {
 	Textarea,
 } from "@heroui/react";
 
+import VerdictEmoji from "../VerdictEmoji";
+
 interface SubmitModalProps {
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -125,7 +127,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 		>
 			<ModalContent>
 				<ModalHeader>
-					{submitResult === "no_data" ? "Введите данные" : submitResult === "error" ? "Решение не принято 😕" : null}
+					{submitResult === "no_data" ? "Введите данные" : submitResult === "error" ? <>Решение не принято{isOpen && <VerdictEmoji />}</> : null}
 				</ModalHeader>
 				<ModalBody>
 					<div className="text-center text-3xl">
@@ -147,7 +149,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 									</svg>
 								</div>
 								<div className="text-base font-medium leading-6">
-									<strong className="block">Верно 🎉</strong>
+									<strong className="block">Верно{isOpen && <VerdictEmoji correct />}</strong>
 								</div>
 							</div>
 						) : submitResult === "error" ? (

@@ -1,7 +1,7 @@
 @media (min-width: 768px) {
   .ide-task-workspace.flex {
     display: grid;
-    grid-template-columns: var(--ide-task-width) 12px minmax(0, 1fr);
+    grid-template-columns: var(--ide-task-width) 0 minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
     grid-template-areas:
       "task resizer editor"
@@ -16,6 +16,9 @@
 
   .ide-task-workspace > .resizer {
     grid-area: resizer;
+    justify-self: center;
+    width: 8px;
+    min-width: 0;
   }
 
   .ide-task-workspace > main {
@@ -238,9 +241,23 @@
   color: #413554;
 }
 
-.ide-task-light .code-file-action-button:hover {
+.ide-task-light .task-output-heading:is(:hover, :focus-visible) {
   background-color: #eee8fa;
   color: #41286e;
+}
+
+.ide-task-light .resizer-handle { background-color: #968aa7; }
+.ide-task-light .resizer:is(:hover, .resizer-active) { background-color: #9c78ff33; }
+.ide-task-light .resizer:is(:hover, .resizer-active) .resizer-handle { background-color: #7952cf; }
+
+.ide-task-light :is(.code-file-action-button, .code-theme-button, .code-language-select [data-slot="trigger"]):not(:disabled):is(:hover, :focus-visible, [aria-expanded="true"]) {
+  background-color: #eee8fa;
+  border-color: #a991d0;
+  color: #41286e;
+}
+
+.ide-task-light :is(.task-output-heading, .code-file-action-button, .code-theme-button, .code-language-select [data-slot="trigger"]):focus-visible {
+  outline: 2px solid #7952cf;
 }
 
 .ide-task-light .task-description-panel .prose {
@@ -252,9 +269,6 @@
 }
 
 .ide-task-light .task-description-row-resizer { background: #f7f5fb; }
-.ide-task-light .task-description-shell--sidebar + .resizer { background-color: #e4dfec; }
-.ide-task-light .task-description-shell--sidebar + .resizer:hover { background-color: #d8cfe5; }
-.ide-task-light .task-description-shell--sidebar + .resizer.resizer-active { background-color: #d7c8ee; }
 .ide-task-light .task-description-content :not(pre) > code,
 .ide-task-light .task-description-content pre.task-description-code-block {
   background: #fff;
@@ -279,4 +293,23 @@
 .ide-task-light .task-description-panel .prose pre {
   background-color: #ece8f4;
   color: #252136;
+}
+
+
+.code-language-menu-light[data-slot="content"] {
+  color-scheme: light;
+  background: #fff;
+  border: 1px solid #e4dfec;
+  color: #413554;
+}
+
+.code-language-menu-light [role="option"] { color: #413554; }
+.code-language-menu-light [role="option"][aria-selected="true"] {
+  background: #eee8fa;
+  color: #41286e;
+  font-weight: 600;
+}
+.code-language-menu-light [role="option"]:not([aria-disabled="true"]):is(:hover, [data-hover="true"], [data-focus="true"]) {
+  background: #e4daf6;
+  color: #41286e;
 }

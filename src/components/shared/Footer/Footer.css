@@ -22,3 +22,12 @@
     .ide-footer-run-icon { display: none; }
   }
 }
+
+.ide-footer .ide-footer-submit {
+  background-color: #9c78ff;
+  color: #211735;
+}
+
+.ide-footer .ide-footer-submit:enabled:hover {
+  background-color: #b095ff;
+}

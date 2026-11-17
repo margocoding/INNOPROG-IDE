@@ -1676,7 +1676,7 @@ const CodeEditor: React.FC<IProps> = React.memo(
               onChange={(e) => handleLanguageChange(e.target.value as Language)}
               size={"sm"}
               className="code-language-select min-w-[100px] w-auto bg-[#333] rounded-xl"
-              classNames={lightTheme ? { popoverContent: "light", value: "!text-[#413554]", selectorIcon: "!text-[#413554]" } : undefined}
+              classNames={lightTheme ? { popoverContent: "light code-language-menu-light", value: "!text-[#413554]", selectorIcon: "!text-[#413554]" } : undefined}
               variant={"bordered"}
               placeholder={"Язык программирования"}
             >

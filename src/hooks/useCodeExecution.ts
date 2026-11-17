@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { SqliteWorkspace } from "../services/sqliteWorkspace";
 import { api } from "../services/api";
 import { Answer, CheckResult, Language, OutputImage, SqlResult, Task, TaskAnswerCheckRequest } from "../types/task";
+import { pickVerdictEmoji } from "../utils/verdictEmoji";
 import { postToParent } from "../utils/parentMessaging";
 
 const admissionMessage = (error: any): string | null => {
@@ -24,6 +25,7 @@ const maintenanceMessage = (error: any): string | null =>
 		: null;
 
 export interface OutputMismatch {
+	emoji?: string;
 	actual: string;
 	expected: string;
 }
@@ -227,7 +229,7 @@ export const useCodeExecution = ({
 					setOutput(matches
 						? `Программа успешно выполнена${actual ? `\nРезультат программы: ${actual}` : ""}`
 						: "");
-					if (!matches) setOutputMismatch({ actual, expected });
+					if (!matches) setOutputMismatch({ actual, expected, emoji: pickVerdictEmoji(false) });
 					setStatus(matches ? "success" : "error");
 					return;
 				}
@@ -273,7 +275,11 @@ export const useCodeExecution = ({
 				}
 			} else {
 				if (typeof result.output === "string" && result.output !== "error") {
-					setOutputMismatch({ actual: result.output, expected: selectedAnswer?.output || outputData });
+					setOutputMismatch({
+						actual: result.output,
+						expected: selectedAnswer?.output || outputData,
+						emoji: pickVerdictEmoji(false),
+					});
 					setOutput("");
 				} else {
 					setOutput(result.comment || result.error || "Не удалось выполнить программу");

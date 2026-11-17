@@ -91,7 +91,7 @@ describe("SubmitModal", () => {
   });
 
   it.each([
-    ["success", "Верно 🎉"],
+    ["success", "Верно"],
     ["error", "Не все проверки прошли"],
   ])("renders %s result", (result, text) => {
     render(<SubmitModal {...props({ submitResult: result as any })} />);
@@ -103,7 +103,7 @@ describe("SubmitModal", () => {
       submitResult: "success",
       submitMessage: "Верно. Проверьте вывод.",
     })} />);
-    expect(screen.getByText("Верно 🎉")).toBeInTheDocument();
+    expect(screen.getByText("Верно")).toBeInTheDocument();
     expect(screen.queryByText(/Проверьте вывод/)).not.toBeInTheDocument();
     expect(screen.queryByText("Верно. Проверьте вывод")).not.toBeInTheDocument();
   });

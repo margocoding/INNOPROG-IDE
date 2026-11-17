@@ -21,18 +21,6 @@
   .task-description-shell--sidebar .task-description-row-resizer {
     display: none;
   }
-
-  .task-description-shell--sidebar + .resizer {
-    background-color: #1e1f26;
-  }
-
-  .task-description-shell--sidebar + .resizer:hover {
-    background-color: #35353c;
-  }
-
-  .task-description-shell--sidebar + .resizer.resizer-active {
-    background-color: #273f5c;
-  }
 }
 
 .task-description-content p {

@@ -1,6 +1,7 @@
 import React, { useId } from "react";
 import type { OutputMismatch } from "../../../../hooks/useCodeExecution";
 import type { OutputImage, SqlResult } from "../../../../types/task";
+import VerdictEmoji from "../VerdictEmoji";
 import SqlResultTable from "./SqlResultTable";
 import "./OutputSection.css";
 
@@ -167,7 +168,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 							)}
 							{mismatch && (
 								<div className="ide-check-result" role="status">
-									<strong className="ide-check-verdict">Неверно 😕 — вывод не совпал</strong>
+									<strong className="ide-check-verdict">Неверно<VerdictEmoji value={mismatch.emoji} /> — вывод не совпал</strong>
 									{hasInputData && <div>Входные данные<pre>{inputData}</pre></div>}
 									<div className="ide-check-comparison">
 										<div>Получено<pre aria-label="Вывод вашей программы">{mismatch.actual.trim() ? mismatch.actual : "Программа ничего не вывела"}</pre></div>
@@ -188,7 +189,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 							)}
 							{showPlainOutput && <section className="space-y-2">
 								{status === "error" && output && (
-									<strong className="ide-check-verdict block">Не удалось выполнить проверку 😕</strong>
+									<strong className="ide-check-verdict block">Не удалось выполнить проверку</strong>
 								)}
 								{hasInputData && status !== "error" && programOutput === null && (
 									<div className="text-xs font-medium uppercase tracking-wide text-ide-text-secondary">

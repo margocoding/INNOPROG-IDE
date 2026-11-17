@@ -50,7 +50,7 @@ const Footer: React.FC<FooterProps> = ({
   const isHtmlMode = language === "html";
   const isSubmitOnlyMode = isHtmlMode || submitOnly;
   const hasTask = Boolean(taskId);
-  const primaryColor = isSubmitOnlyMode || (status === "success" && taskId) ? "secondary" : "success";
+  const isSubmitAction = isSubmitOnlyMode || (status === "success" && hasTask);
 
   const handleButtonClick = async () => {
     if (isRunning || blockedReason || actionPendingRef.current) return;
@@ -101,8 +101,8 @@ const Footer: React.FC<FooterProps> = ({
           onPress={handleButtonClick}
           disabled={busy || Boolean(blockedReason)}
           aria-busy={busy}
-          color={primaryColor}
-          className={`ide-footer-primary w-full text-white ${
+          color={isSubmitAction ? "secondary" : "success"}
+          className={`ide-footer-primary w-full ${isSubmitAction ? "ide-footer-submit" : "text-white"} ${
             desktopTaskMode ? "md:w-auto" : "lg:w-auto"
           }`}
         >
