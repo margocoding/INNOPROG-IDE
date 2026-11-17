@@ -44,7 +44,7 @@
   }
 
   .ide-task-workspace .desktop-task-output-pane > .task-output-inner {
-    padding-inline: 0;
+    padding: 0;
   }
 
   .ide-task-workspace .desktop-task-output-pane .task-output-surface {
@@ -81,9 +81,12 @@
   .desktop-task-output-layout {
     --task-output-transition: 180ms cubic-bezier(0.2, 0, 0.2, 1);
     --task-output-heading-height: 2.3125rem;
+    --task-output-divider-height: 8px;
   }
 
   .desktop-task-output-layout > .desktop-task-editor-pane {
+    height: var(--desktop-pane-size) !important;
+    flex-basis: var(--desktop-pane-size);
     min-height: 0;
   }
 
@@ -92,25 +95,25 @@
   }
 
   .desktop-task-output-collapsed > .desktop-task-editor-pane {
-    --editor-height: calc(100% - var(--task-output-heading-height) - 1rem);
+    --editor-height: calc(100% - var(--task-output-heading-height));
     height: var(--editor-height) !important;
     flex-basis: var(--editor-height);
   }
 
   .desktop-task-output-layout > .resizer-horizontal {
+    /* Keep the drag target centered on the seam without reserving a gutter. */
+    height: var(--task-output-divider-height);
+    margin-block: calc(var(--task-output-divider-height) / -2);
     min-height: 0;
     overflow: hidden;
-    transition: height var(--task-output-transition), opacity var(--task-output-transition);
+    transition: height var(--task-output-transition), margin-block var(--task-output-transition), opacity var(--task-output-transition);
   }
 
   .desktop-task-output-collapsed > .resizer-horizontal {
     height: 0;
+    margin-block: 0;
     opacity: 0;
     pointer-events: none;
-  }
-
-  .desktop-task-output-layout .task-output-inner {
-    transition: padding-top var(--task-output-transition);
   }
 
   .desktop-task-output-layout .task-output-heading {
