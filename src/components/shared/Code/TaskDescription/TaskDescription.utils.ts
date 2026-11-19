@@ -480,6 +480,20 @@ export const processTaskDescription = (description: string, language = "text"): 
 		}
 
 		if (token.type === "tag") {
+			if (
+				token.shouldRender &&
+				!token.isClosing &&
+				(token.tagName === "strong" || token.tagName === "b") &&
+				token.matchingTagIndex === index + 2 &&
+				tokens[index + 1].type === "text" &&
+				/^(Входные данные|Выходные данные|Что вывести)[.:]?$/i.test(tokens[index + 1].content.trim())
+			) {
+				renderedParts.push(renderTextWithInlineCode(tokens[index + 1].content));
+				hasCapitalizedFirstTextCharacter = true;
+				index += 2;
+				continue;
+			}
+
 			const renderedTag = renderTag(token);
 
 			if (!token.shouldRender && renderedTag.trim()) {
