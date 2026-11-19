@@ -121,9 +121,10 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 								: <div className="task-description-content" dangerouslySetInnerHTML={legacyHtml} />}
 							{hasPublicExample && (
 								<>
+									<h3 className="task-example-title">Пример</h3>
 									{task.input_file ? (
 										<section className="task-file-preview" aria-label="Входные данные">
-											<h3>Входные данные</h3>
+											<h4>Входные данные</h4>
 											<p>
 												Имя файла{" "}
 												<a download={task.input_file.name}

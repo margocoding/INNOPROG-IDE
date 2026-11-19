@@ -226,7 +226,9 @@ describe("TaskDescription component", () => {
 			/>
 		);
 		expect(screen.getByText("Решите задачу")).toBeInTheDocument();
-		expect(screen.getByText("Входные данные:")).toHaveClass("mt-3");
+		expect(screen.getByRole("heading", { name: "Пример", level: 3 }).nextElementSibling)
+		.toBe(screen.getByText("Входные данные:"));
+	expect(screen.getByText("Входные данные:")).toHaveClass("mt-3");
 		const handle = container.querySelector('[role="separator"]') as HTMLElement;
 		jest.spyOn(handle, "getBoundingClientRect").mockReturnValue({
 			top: 180,

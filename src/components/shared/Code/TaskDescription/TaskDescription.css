@@ -216,7 +216,13 @@
   margin-block: 16px;
 }
 
-.prose .task-file-preview h3 {
+.prose .task-example-title {
+  margin: 16px 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.prose .task-file-preview h4 {
   margin: 0 0 4px;
   font-size: 1rem;
 }
