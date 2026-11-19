@@ -98,7 +98,7 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 					position: "relative",
 					height: `calc(${panelHeight}px + var(--task-description-touch-gap))`,
 				}}
-				className="task-description-panel flex-none bg-ide-secondary p-4 border-b border-ide-border"
+				className="task-description-panel flex-none bg-ide-secondary px-4 border-b border-ide-border"
 			>
 				<div
 					ref={scrollRef}

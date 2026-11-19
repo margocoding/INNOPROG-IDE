@@ -151,6 +151,10 @@
   color: #f78c6c;
 }
 
+.task-description-body {
+  margin-block-start: 16px;
+}
+
 /* Reserve the touch handle below the scrollable description. */
 .task-description-shell {
   --task-description-grip-height: 32px;
