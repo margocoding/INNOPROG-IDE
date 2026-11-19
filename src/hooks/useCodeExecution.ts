@@ -24,6 +24,12 @@ const maintenanceMessage = (error: any): string | null =>
 		? "Сервис выполнения кода обновляется. Код остаётся в редакторе. Повторите запуск через минуту."
 		: null;
 
+const SERVICE_UNAVAILABLE = "Сервис проверки временно недоступен. Код остался в редакторе. Попробуйте ещё раз чуть позже. Если ошибка повторится, напишите в поддержку.";
+
+const serviceMessage = (error: any): string | null =>
+	maintenanceMessage(error) || admissionMessage(error) ||
+	([502, 503, 504].includes(error?.response?.status) ? SERVICE_UNAVAILABLE : null);
+
 export type ExecutionAction = "run" | "submit";
 
 export interface OutputMismatch {
@@ -297,7 +303,7 @@ export const useCodeExecution = ({
 			setOutputImages([]);
 			setSqlResults([]);
 			setOutputMismatch(null);
-			setOutput(maintenanceMessage(error) || admissionMessage(error) || `Ошибка выполнения: ${error.message}`);
+			setOutput(serviceMessage(error) || `Ошибка выполнения: ${error.message}`);
 			setStatus("error");
 		} finally {
 			activeRun.current = null;
@@ -327,7 +333,7 @@ export const useCodeExecution = ({
 					setCheckProgress
 				);
 
-				setSubmitMessage(result.message);
+				setSubmitMessage(result.status >= 500 ? SERVICE_UNAVAILABLE : result.message);
 				shouldOpenModal = true;
 
 				if (result.result) {
@@ -367,9 +373,10 @@ export const useCodeExecution = ({
 			setSubmitResult("success");
 			shouldOpenModal = true;
 		} catch (error) {
-			keepEditorOpen = maintenanceMessage(error) !== null;
+			const feedback = serviceMessage(error);
+			keepEditorOpen = feedback !== null;
 			setSubmitMessage(
-				maintenanceMessage(error) || (isInIframe
+				feedback || (isInIframe
 					? "Сервис не смог проверить решение"
 					: "")
 			);

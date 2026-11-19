@@ -96,6 +96,17 @@ describe("useCodeExecution", () => {
     expect(callbacks.setOutput).toHaveBeenLastCalledWith("Слишком много запусков. Повторите через 17 с. Код сохранён в редакторе.");
   });
 
+  it("shows readable guidance when the runner is unavailable", async () => {
+    const error = Object.assign(new Error("Request failed with status code 503"), { response: { status: 503 } });
+    mockedApi.runCode.mockRejectedValue(error);
+    const { result, callbacks } = setup();
+    await act(() => result.current.handleRunCode());
+    const [message] = callbacks.setOutput.mock.lastCall!;
+    expect(message).toContain("Код остался в редакторе");
+    expect(message).toContain("напишите в поддержку");
+    expect(message).not.toContain("503");
+  });
+
   it("runs standalone code and displays output", async () => {
     mockedApi.runCode.mockResolvedValue({ result: true, output: "1", input: "stdin" } as any);
     const { result, callbacks } = setup({ inputData: "stdin" });
