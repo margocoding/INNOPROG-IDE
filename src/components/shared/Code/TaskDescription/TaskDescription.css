@@ -301,3 +301,20 @@
   margin: -5px 0 10px;
   font-size: 0.8rem;
 }
+
+.task-markdown-placeholder {
+  display: grid;
+  gap: 12px;
+  margin-block: 18px 24px;
+}
+
+.task-markdown-placeholder span {
+  width: min(94%, 520px);
+  height: 12px;
+  border-radius: 6px;
+  background: currentColor;
+  opacity: 0.1;
+}
+
+.task-markdown-placeholder span:nth-child(2) { width: min(78%, 420px); }
+.task-markdown-placeholder span:last-child { width: min(55%, 300px); }

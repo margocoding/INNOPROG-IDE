@@ -457,3 +457,25 @@ it("shows extra tests as a disclosure only in the cabinet task view", () => {
 	rerender(<TaskDescription task={{ ...task, teacher_tests: [] }} showTeacherTests />);
 	expect(screen.queryByText("Посмотреть другие тесты")).not.toBeInTheDocument();
 });
+
+it("keeps the task title visible while the Markdown renderer loads", async () => {
+	render(
+		<TaskDescription
+			task={{ description: "" } as any}
+			lesson={{
+				title: "Обработка данных",
+				description: "## Входные данные",
+				descriptionFormat: "markdown",
+				moduleId: 1,
+				language: "python",
+				initialCode: "",
+				input: "",
+			}}
+		/>,
+	);
+
+	expect(screen.getByRole("heading", { name: "Обработка данных" })).toBeVisible();
+	expect(screen.getByRole("status", { name: "Загрузка условия задания" })).toBeVisible();
+	expect(await screen.findByRole("heading", { name: "Входные данные" })).toBeVisible();
+	expect(screen.queryByRole("status", { name: "Загрузка условия задания" })).not.toBeInTheDocument();
+});

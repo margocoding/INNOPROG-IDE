@@ -5,5 +5,15 @@ const LessonMarkdown = lazy(() =>
 );
 
 export function LazyLessonMarkdown(props: ComponentProps<typeof LessonMarkdown>) {
-  return <Suspense fallback={null}><LessonMarkdown {...props} /></Suspense>;
+  return (
+    <Suspense fallback={
+      <div className="task-markdown-placeholder" role="status" aria-label="Загрузка условия задания">
+        <span aria-hidden="true" />
+        <span aria-hidden="true" />
+        <span aria-hidden="true" />
+      </div>
+    }>
+      <LessonMarkdown {...props} />
+    </Suspense>
+  );
 }
