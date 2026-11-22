@@ -111,7 +111,9 @@ describe("Footer", () => {
   it("returns from mobile output to editor", () => {
     const state = { ...props(), activeTab: "output" as const };
     render(<Footer {...state} />);
-    fireEvent.click(screen.getByText("Попробовать снова"));
+    const back = screen.getByRole("button", { name: "К редактору" });
+    expect(back).toHaveAttribute("color", "default");
+    fireEvent.click(back);
     expect(state.setActiveTab).toHaveBeenCalledWith("editor");
     expect(state.setStatus).toHaveBeenCalledWith("idle");
   });

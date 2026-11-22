@@ -161,14 +161,14 @@ const Footer: React.FC<FooterProps> = ({
                 setActiveTab("editor");
                 setStatus("idle");
               }}
-              color="danger"
-              className="ide-footer-retry w-full text-white"
+              color={hasTask ? "danger" : "default"}
+              className={hasTask ? "ide-footer-retry w-full text-white" : "w-full"}
             >
               <svg aria-hidden="true" className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 11a8 8 0 1 1 2 6M4 5v6h6" />
+                <path d={hasTask ? "M4 11a8 8 0 1 1 2 6M4 5v6h6" : "m10 5-7 7 7 7m-7-7h17"} />
               </svg>
-              Попробовать снова
+              {hasTask ? "Попробовать снова" : "К редактору"}
             </Button>
           </div>
         )}
