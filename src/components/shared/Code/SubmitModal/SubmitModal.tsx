@@ -222,7 +222,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 							color="secondary"
 						>
 							<div className="flex gap-2 items-center">
-								{applyingData && <Spinner size="sm" />} Применить
+								{applyingData && <Spinner size="sm" />} Запустить
 							</div>
 						</Button>
 					</ModalFooter>

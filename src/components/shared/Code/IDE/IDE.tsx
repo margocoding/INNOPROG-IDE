@@ -334,6 +334,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   const consoleExecution = useConsoleExecution();
   const [runMode, setRunMode] = useState<'batch' | 'console'>('batch');
+  const standaloneEditor = !taskId && !roomId;
   const consoleAvailable = !taskId && CONSOLE_LANGUAGES.has(language);
   const consoleMode = consoleAvailable && runMode === 'console';
   const desktopOutputLayout = desktopTaskMode && activeTab === "output" &&
@@ -385,7 +386,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         return;
       }
 
-      await onModalRunCode();
+      if (standaloneEditor) await handleRunCode();
+      else await onModalRunCode();
     } finally {
       primaryActionPendingRef.current = false;
     }
@@ -400,6 +402,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     isRunning,
     onClose,
     onModalRunCode,
+    handleRunCode,
+    standaloneEditor,
     onSendCheck,
     showEmbeddedRejection,
     status,
@@ -1133,12 +1137,15 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
         <Footer
           hideRetry={consoleMode}
-          runModeSelector={consoleAvailable ? <div className="console-run-mode" role="group" aria-label="Режим запуска">
-            <button type="button" aria-pressed={!consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => setRunMode('batch')}><InputIcon/><span>С входными данными</span></button>
-            <button type="button" aria-pressed={consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => {
+          runModeSelector={consoleAvailable || (standaloneEditor && !isHtmlMode && !isConfigurationMode) ? <div className="console-run-mode" role="group" aria-label="Режим запуска">
+            <button type="button" aria-pressed={consoleAvailable ? !consoleMode : undefined} aria-haspopup={standaloneEditor ? "dialog" : undefined} disabled={isRunning || consoleExecution.isRunning} onClick={() => {
+              setRunMode('batch');
+              if (standaloneEditor) void onModalRunCode();
+            }}><InputIcon/><span>{standaloneEditor ? "Параметры" : "С входными данными"}</span></button>
+            {consoleAvailable && <button type="button" aria-pressed={consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => {
               setRunMode('console');
               if (desktopTaskMode && window.innerWidth >= 768) setActiveTab('output');
-            }}><TerminalIcon/><span>Консоль</span></button>
+            }}><TerminalIcon/><span>Консоль</span></button>}
           </div> : undefined}
           executionAction={executionAction}
           checkProgress={checkProgress}

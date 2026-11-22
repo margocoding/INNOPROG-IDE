@@ -52,7 +52,7 @@ describe("SubmitModal", () => {
     expect(state.setInputData).toHaveBeenCalledWith("new input");
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
     expect(state.setIsOutputData).toHaveBeenCalledWith(false);
-    fireEvent.click(screen.getByText("Применить"));
+    fireEvent.click(screen.getByText("Запустить"));
     expect(state.onApply).toHaveBeenCalled();
     await waitFor(() => expect(state.onClose).toHaveBeenCalled());
   });
@@ -62,7 +62,7 @@ describe("SubmitModal", () => {
     const onApply = jest.fn(() => new Promise<void>(resolve => { finish = resolve; }));
     const state = props({ onApply });
     render(<SubmitModal {...state} />);
-    const apply = screen.getByRole("button", { name: "Применить" });
+    const apply = screen.getByRole("button", { name: "Запустить" });
 
     fireEvent.click(apply);
     expect(apply).toHaveAttribute("aria-busy", "true");
@@ -111,7 +111,7 @@ describe("SubmitModal", () => {
   it("does not apply while running", () => {
     const state = props({ isRunning: true });
     render(<SubmitModal {...state} />);
-    fireEvent.click(screen.getByText("Применить"));
+    fireEvent.click(screen.getByText("Запустить"));
     expect(state.onApply).not.toHaveBeenCalled();
   });
 
