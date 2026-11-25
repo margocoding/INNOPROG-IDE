@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
 
-export type ConsoleState = 'idle' | 'connecting' | 'starting' | 'compiling' | 'running' | 'stopping' | 'finished' | 'failed' | 'busy' | 'error';
+export type ConsoleState = 'idle' | 'connecting' | 'starting' | 'compiling' | 'running' | 'stopping' | 'finished' | 'failed' | 'busy' | 'error' | 'detached';
 export const CONSOLE_LANGUAGES = new Set(['py', 'cpp', 'java', 'js', 'bash', 'dart']);
 
 export type ConsoleOutputChunk = { text: string; stream: 'stdout' | 'stderr' };

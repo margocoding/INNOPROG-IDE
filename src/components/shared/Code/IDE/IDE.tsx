@@ -1,6 +1,8 @@
 import { LessonSelection, RoomLessonState } from '../../../../types/roomLesson';
 import { CodeIcon, TerminalIcon, InputIcon } from '../ConsoleSection/ConsoleIcons';
 import ConsoleSection from '../ConsoleSection/ConsoleSection';
+import { sharedOutputChunks, useSharedRoomConsole, type RunMode, type SharedConsoleSnapshot } from '../../../../hooks/useSharedRoomConsole';
+import SharedConsoleIntro from '../../Room/Settings/SharedConsoleIntro';
 import { useConsoleExecution, CONSOLE_LANGUAGES } from '../../../../hooks/useConsoleExecution';
 import { extractPasteRoomCode } from "../../../../utils/pasteTaskWrappers";
 import { useDisclosure } from "@heroui/react";
@@ -43,6 +45,7 @@ interface RoomPermissions {
 
 interface WebSocketData {
   socket: Socket | null;
+  keepRoomConnected?: (keep: boolean) => void;
   lesson?: RoomLessonState;
   selectLesson?: (selection: LessonSelection, expectedRevision?: number) => Promise<void>;
   isConnected: boolean;
@@ -306,14 +309,46 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     };
   }, [lightTheme]);
 
-  const { isRunning, executionAction, checkProgress, outputMismatch, programOutput, outputImages, sqlResults, handleRunCode, onSendCheck, setCurrentCode } =
+  const shareSelections = webSocketData?.roomPermissions.studentSelectionEnabled !== false;
+  const consoleExecution = useConsoleExecution();
+  const shared = useSharedRoomConsole(
+    webSocketData?.socket, webSocketData?.isJoinedRoom, roomId, telegramId, lesson?.revision ?? 0,
+    command => {
+      if (command.type === 'stop') consoleExecution.stop();
+      else if (command.type === 'clear') consoleExecution.clear();
+      else consoleExecution.send(command.type, command.data);
+    },
+    consoleExecution.stop,
+    webSocketData?.keepRoomConnected,
+    shareSelections,
+  );
+  const lastDetachedBatch = useRef<typeof shared.detachedBatch>();
+  useEffect(() => {
+    const form = shared.detachedBatch;
+    if (!form || form === lastDetachedBatch.current) return;
+    lastDetachedBatch.current = form;
+    if (isOpen) return;
+    setInputData(form.input);
+    setOutputData(form.output);
+    setIsInputData(form.inputEnabled);
+    setIsOutputData(form.outputEnabled);
+    setSubmitResult("no_data");
+    onOpen();
+  }, [shared.detachedBatch, isOpen, onOpen]);
+  const batchForm = shared.batchForm?.open && !isOpen ? shared.batchForm : undefined;
+  const closeRunDialog = () => {
+    if (batchForm) shared.closeBatchForm();
+    else onClose();
+  };
+
+  const { isRunning, executionAction, checkProgress, outputMismatch, programOutput, outputImages, sqlResults, handleRunCode: runCode, onSendCheck, setCurrentCode } =
     useCodeExecution({
       currentAnswer,
       sqliteWorkspace,
       task,
       code,
-      inputData: isInputData ? inputData : "",
-      outputData: isOutputData ? outputData : "",
+      inputData: batchForm ? (batchForm.inputEnabled ? batchForm.input : "") : isInputData ? inputData : "",
+      outputData: batchForm ? (batchForm.outputEnabled ? batchForm.output : "") : isOutputData ? outputData : "",
       roomWorkspace: Boolean(lesson?.revision),
       taskId,
       answer_id,
@@ -332,13 +367,42 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
       setSubmitMessage,
     });
 
-  const consoleExecution = useConsoleExecution();
-  const [runMode, setRunMode] = useState<'batch' | 'console'>('batch');
+  const [selectedRunMode, setSelectedRunMode] = useState<RunMode>();
+  useEffect(() => {
+    if (shared.enabled !== undefined) setSelectedRunMode(current => current ?? (shared.enabled ? 'console' : 'batch'));
+  }, [shared.enabled]);
+  const [dismissedRun, setDismissedRun] = useState<string>();
+  const [batchPhase, setBatchPhase] = useState<'running' | 'finished'>();
   const standaloneEditor = !taskId && !roomId;
   const consoleAvailable = !taskId && CONSOLE_LANGUAGES.has(language);
-  const consoleMode = consoleAvailable && runMode === 'console';
-  const desktopOutputLayout = desktopTaskMode && activeTab === "output" &&
-    !consoleMode && !isHtmlMode;
+  const [detachedDraft, setDetachedDraft] = useState<typeof shared.detachedRun>();
+  useEffect(() => {
+    const detached = shared.detachedRun;
+    if (!detached) return;
+    setSelectedRunMode(shared.run?.mode);
+    setDismissedRun(detached.id);
+    setDetachedDraft(detached);
+  }, [shared.detachedRun]);
+  const sharedRun = shared.run?.id === dismissedRun || shared.run?.id === shared.detachedRun?.id ? null : shared.run;
+  const sharedConsoleRun = sharedRun?.mode === 'console' ? sharedRun : null;
+  const sharedBatchRun = sharedRun?.mode === 'batch' ? sharedRun : null;
+  const sharedBatchObserver = Boolean(sharedBatchRun && sharedBatchRun.id !== shared.startedRunId);
+  const runMode = sharedRun?.mode ?? selectedRunMode ?? (shared.enabled ? 'console' : 'batch');
+  const consoleMode = Boolean(sharedConsoleRun) || (consoleAvailable && runMode === 'console');
+  const displayConsole = sharedConsoleRun ? {
+    ...consoleExecution,
+    state: sharedConsoleRun.snapshot.state,
+    outputChunks: sharedConsoleRun.snapshot.chunks,
+    transcript: sharedConsoleRun.snapshot.chunks.map(chunk => chunk.text).join(''),
+    message: sharedConsoleRun.snapshot.message,
+    exitCode: sharedConsoleRun.snapshot.exitCode,
+    remaining: Math.max(0, Math.ceil((sharedConsoleRun.snapshot.deadline - Date.now()) / 1000)),
+    isRunning: shared.isRunning,
+    send: shared.send,
+    stop: () => shared.send('stop'),
+    clear: () => shared.clearOutput(),
+  } : consoleExecution;
+  const desktopOutputLayout = desktopTaskMode && activeTab === "output" && !consoleMode && !isHtmlMode;
   const desktopOutputCollapsed = desktopOutputLayout && outputCollapsed;
   const consoleContext = `${roomId || ''}:${taskId || ''}`;
   const previousConsoleContext = useRef(consoleContext);
@@ -347,20 +411,74 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     previousConsoleContext.current = consoleContext;
   }, [consoleContext, consoleExecution.stop]);
 
+  const seenRun = useRef<string>();
+  useEffect(() => {
+    if (shared.run && seenRun.current !== shared.run.id) {
+      seenRun.current = shared.run.id;
+      if (shared.isRunning) setActiveTab('output');
+    }
+  }, [shared.run, shared.isRunning]);
+
+  const { start: startSharedRun, publish: publishSharedRun } = shared;
+  const handleRunCode = async () => {
+    if (!shared.enabled || (status === 'success' && taskId)) {
+      setSelectedRunMode('batch');
+      setDismissedRun(shared.run?.id);
+      await runCode();
+      return;
+    }
+    if (!await startSharedRun('batch')) return;
+    setBatchPhase('running');
+    try {
+      await runCode();
+    } finally {
+      setBatchPhase('finished');
+    }
+  };
+
+  const { state: consoleState, outputChunks, message: consoleMessage, exitCode, remaining } = consoleExecution;
+  const sharedMode = shared.run?.mode;
+  useEffect(() => {
+    if (sharedMode === 'console' && consoleState !== 'idle') {
+      publishSharedRun({
+        state: consoleState, chunks: sharedOutputChunks(outputChunks), message: consoleMessage, exitCode,
+        deadline: remaining > 0 ? Date.now() + remaining * 1000 : 0,
+      });
+    }
+  }, [sharedMode, consoleState, outputChunks, consoleMessage, exitCode, remaining, publishSharedRun]);
+
+  useEffect(() => {
+    if (sharedMode !== 'batch' || !batchPhase) return;
+    const batch: SharedConsoleSnapshot['batch'] = {
+      output: (programOutput ?? output).slice(-64_000), input: runInputData.slice(0, 16_000), status,
+      mismatch: outputMismatch ? { actual: outputMismatch.actual.slice(-32_000), expected: outputMismatch.expected.slice(-32_000) } : null,
+    };
+    publishSharedRun({ state: batchPhase, chunks: [], message: '', exitCode: null, deadline: 0, batch });
+  }, [sharedMode, batchPhase, output, programOutput, runInputData, status, outputMismatch, publishSharedRun]);
+
+  const selectRunMode = (mode: RunMode) => {
+    setSelectedRunMode(mode);
+    setDismissedRun(shared.run?.id);
+    if (mode === 'console' && desktopTaskMode && window.innerWidth >= 768) setActiveTab('output');
+  };
+
   const onModalRunCode = useCallback(async () => {
     if (!task?.answers?.length || !taskId) {
-      setSubmitResult("no_data");
-      onOpen();
+      if (shared.enabled) shared.openBatchForm();
+      else {
+        setSubmitResult("no_data");
+        onOpen();
+      }
     } else {
       await handleRunCode();
     }
-  }, [handleRunCode, onOpen, task?.answers?.length, taskId]);
+  }, [handleRunCode, onOpen, shared.enabled, shared.openBatchForm, task?.answers?.length, taskId]);
 
   const runPrimaryAction = useCallback(async () => {
     if (
       primaryActionPendingRef.current ||
-      isRunning || consoleExecution.isRunning ||
-      (isOpen && !showEmbeddedRejection) ||
+      isRunning || consoleExecution.isRunning || shared.isRunning ||
+      (isOpen && !showEmbeddedRejection) || batchForm || shared.showIntro ||
       (lesson?.revision && webSocketData?.codeSyncState !== "synchronized") ||
       (taskId &&
         (!taskDataReady || !initialCodeReady || initialCodeLoadFailed))
@@ -372,7 +490,14 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     if (showEmbeddedRejection) onClose();
     try {
       if (consoleMode) {
+        if (shared.enabled) {
+          if (!await startSharedRun('console')) return;
+        } else {
+          setSelectedRunMode('console');
+          setDismissedRun(shared.run?.id);
+        }
         setActiveTab("output");
+        setDetachedDraft(undefined);
         await consoleExecution.start(code, language);
         return;
       }
@@ -393,19 +518,22 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
   }, [
     consoleMode, consoleExecution.start, consoleExecution.isRunning, code, language,
+    shared.enabled, shared.isRunning, shared.run?.id, startSharedRun,
     lesson?.revision, webSocketData?.codeSyncState,
     initialCodeReady,
     initialCodeLoadFailed,
     isConfigurationMode,
     isHtmlMode,
     isOpen,
+    batchForm,
     isRunning,
-    onClose,
     onModalRunCode,
     handleRunCode,
     standaloneEditor,
-    onSendCheck,
+    onClose,
     showEmbeddedRejection,
+    shared.showIntro,
+    onSendCheck,
     status,
     taskDataReady,
     taskId,
@@ -803,7 +931,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
     return {
       sendSelection: webSocketData.sendSelection,
-      selections: webSocketData.selections,
+      selections: shareSelections ? webSocketData.selections : new Map(),
       onSendUpdate: webSocketData.onSendUpdate,
       updatesFromProps: webSocketData.updatesFromProps,
       myTelegramId: telegramId,
@@ -825,6 +953,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     telegramId,
     webSocketData?.sendSelection,
     webSocketData?.selections,
+    shareSelections,
     webSocketData?.onSendUpdate,
     webSocketData?.updatesFromProps,
     webSocketData?.joinedCode,
@@ -937,7 +1066,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
 
   const mobileConsoleNavigation = consoleMode ? <nav className="console-mobile-tabs" aria-label="Панель редактора">
     <button type="button" aria-label="Код" title="Код" aria-pressed={activeTab === 'editor'} onClick={() => setActiveTab('editor')}><CodeIcon/><span>Код</span></button>
-    <button type="button" aria-label={consoleExecution.isRunning ? "Консоль, программа выполняется" : "Консоль"} title="Консоль" aria-pressed={activeTab === 'output'} onClick={() => setActiveTab('output')}><TerminalIcon/><span>{consoleExecution.isRunning ? 'Выполняется…' : 'Консоль'}</span></button>
+    <button type="button" aria-label={displayConsole.isRunning ? "Консоль, программа выполняется" : "Консоль"} title="Консоль" aria-pressed={activeTab === 'output'} onClick={() => setActiveTab('output')}><TerminalIcon/><span>{displayConsole.isRunning ? 'Выполняется…' : 'Консоль'}</span></button>
   </nav> : undefined;
 
   const isRoomLoading = Boolean(
@@ -964,21 +1093,36 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         />
       )}
 
+      <SharedConsoleIntro open={shared.showIntro && !isRoomLoading && !isOpen && !batchForm}
+        onDismiss={shared.dismissIntro} />
+
       <SubmitModal
-        isOpen={isOpen && !showEmbeddedRejection}
-        onOpenChange={onOpenChange}
-        onClose={onClose}
-        submitResult={submitResult}
+        isOpen={(isOpen && !showEmbeddedRejection) || Boolean(batchForm)}
+        onOpenChange={batchForm ? open => { if (!open) closeRunDialog(); } : onOpenChange}
+        onClose={closeRunDialog}
+        submitResult={batchForm ? "no_data" : submitResult}
         submitMessage={submitMessage}
         isRunning={isRunning}
-        inputData={inputData}
+        inputData={batchForm?.input ?? inputData}
         setInputData={setInputData}
-        outputData={outputData}
+        outputData={batchForm?.output ?? outputData}
         setOutputData={setOutputData}
-        isInputData={isInputData}
-        setIsInputData={setIsInputData}
-        isOutputData={isOutputData}
-        setIsOutputData={setIsOutputData}
+        isInputData={batchForm?.inputEnabled ?? isInputData}
+        setIsInputData={batchForm ? value => { shared.setBatchOption("inputEnabled", value); } : setIsInputData}
+        isOutputData={batchForm?.outputEnabled ?? isOutputData}
+        setIsOutputData={batchForm ? value => { shared.setBatchOption("outputEnabled", value); } : setIsOutputData}
+        batchCollaboration={batchForm ? {
+          showMarkers: shareSelections,
+          edit: shared.editBatch,
+          moveCursor: shared.moveBatchCursor,
+          cursors: shared.batchCursorPositions.flatMap(cursor => {
+            const member = webSocketData?.roomMembers.find(item => item.telegramId === cursor.telegramId && item.online);
+            return member ? [{
+              id: cursor.telegramId, field: cursor.field, index: cursor.index,
+              color: member.userColor || '#9c78ff', local: cursor.telegramId === telegramId,
+            }] : [];
+          }),
+        } : undefined}
         onApply={handleRunCode}
         showNextAction={isEmbeddedApp && Boolean(taskId)}
         onNext={handleEmbeddedTaskNext}
@@ -988,6 +1132,9 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         <Header
           lightTheme={lightTheme}
           mobileNavigation={mobileConsoleNavigation}
+          sharedConsole={shared.enabled === undefined ? undefined : {
+            enabled: shared.enabled, saving: shared.saving, onChange: shared.toggle,
+          }}
           roomLessonControl={roomId && webSocketData?.isTeacher && !webSocketData.completed &&
             webSocketData.isJoinedRoom && webSocketData.selectLesson ?
             <Suspense fallback={null}>
@@ -1051,8 +1198,12 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
                   : desktopOutputLayout
                     ? `desktop-task-output-layout ${desktopOutputCollapsed ? "desktop-task-output-collapsed" : ""}`
                     : ""
-                : "md:flex-row"
+                : consoleMode ? "ide-console-split md:flex-row" : "md:flex-row"
             }`}
+            style={!desktopTaskMode && consoleMode ? {
+              "--ide-console-editor-share": `${editorWidth}fr`,
+              "--ide-console-output-share": `${100 - editorWidth}fr`,
+            } as React.CSSProperties : undefined}
           >
             <CodeEditorSection
               key={roomId || "standalone"}
@@ -1068,7 +1219,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               activeTab={activeTab}
               webSocketData={memoizedWebSocketData}
               handleLanguageChange={handleLanguageChange}
-              languageLocked={Boolean(configurationLanguage) || consoleExecution.isRunning}
+              languageLocked={Boolean(configurationLanguage) || consoleExecution.isRunning || shared.isRunning}
               fileName={configurationFileName}
               width={editorWidth}
               desktopStackedPane={desktopTaskMode}
@@ -1102,16 +1253,35 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
               />
             ) : null}
 
-            {consoleMode ? <ConsoleSection execution={consoleExecution} activeTab={activeTab} width={100 - editorWidth} desktopStackedPane={desktopTaskMode} /> : <OutputSection
-              output={output}
-              mismatch={outputMismatch}
-              running={isRunning && activeTab === "output"}
-              inputData={task?.input_file ? "" : runInputData}
+            {consoleMode ? <ConsoleSection
+              execution={displayConsole}
+              activeTab={activeTab}
+              width={100 - editorWidth}
+              desktopStackedPane={desktopTaskMode}
+              detachedDraft={detachedDraft}
+              frozenLine={sharedConsoleRun?.frozenLine}
+              sharedTitle={Boolean(sharedConsoleRun || (consoleState === 'idle' && shared.enabled))}
+              sharedInput={sharedConsoleRun ? {
+                line: shared.line, eof: sharedConsoleRun.eof, edit: shared.edit, moveCursor: shared.moveCursor,
+                showMarkers: shareSelections,
+                cursors: (webSocketData?.roomMembers ?? []).flatMap(member => {
+                  const position = shared.cursors[member.telegramId];
+                  return member.online && position !== undefined ? [{
+                    id: member.telegramId, isLocal: member.telegramId === telegramId,
+                    color: member.userColor || '#9c78ff', position,
+                  }] : [];
+                }),
+              } : undefined}
+            /> : <OutputSection
+              output={sharedBatchRun ? sharedBatchRun.snapshot.batch?.output ?? "" : output}
+              mismatch={sharedBatchRun ? sharedBatchRun.snapshot.batch?.mismatch : outputMismatch}
+              running={(isRunning || Boolean(sharedBatchRun && shared.isRunning)) && activeTab === "output"}
+              inputData={sharedBatchRun ? sharedBatchRun.snapshot.batch?.input ?? "" : task?.input_file ? "" : runInputData}
               inputFile={task?.input_file}
-              programOutput={programOutput}
-              images={outputImages}
-              sqlResults={sqlResults}
-              status={status}
+              programOutput={sharedBatchObserver ? undefined : programOutput}
+              images={sharedBatchObserver ? undefined : outputImages}
+              sqlResults={sharedBatchObserver ? undefined : sqlResults}
+              status={sharedBatchRun?.snapshot.batch?.status ?? status}
               activeTab={activeTab}
               language={language}
               htmlPreview={htmlPreviewContent}
@@ -1138,20 +1308,19 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
         <Footer
           hideRetry={consoleMode}
           runModeSelector={consoleAvailable || (standaloneEditor && !isHtmlMode && !isConfigurationMode) ? <div className="console-run-mode" role="group" aria-label="Режим запуска">
-            <button type="button" aria-pressed={consoleAvailable ? !consoleMode : undefined} aria-haspopup={standaloneEditor ? "dialog" : undefined} disabled={isRunning || consoleExecution.isRunning} onClick={() => {
-              setRunMode('batch');
+            <button type="button" aria-pressed={consoleAvailable ? !consoleMode : undefined} aria-haspopup={standaloneEditor ? "dialog" : undefined} disabled={isRunning || consoleExecution.isRunning || shared.isRunning} onClick={() => {
+              selectRunMode('batch');
               if (standaloneEditor) void onModalRunCode();
             }}><InputIcon/><span>{standaloneEditor ? "Параметры" : "С входными данными"}</span></button>
-            {consoleAvailable && <button type="button" aria-pressed={consoleMode} disabled={isRunning || consoleExecution.isRunning} onClick={() => {
-              setRunMode('console');
-              if (desktopTaskMode && window.innerWidth >= 768) setActiveTab('output');
+            {consoleAvailable && <button type="button" aria-pressed={consoleMode} disabled={isRunning || consoleExecution.isRunning || shared.isRunning} onClick={() => {
+              selectRunMode('console');
             }}><TerminalIcon/><span>Консоль</span></button>}
           </div> : undefined}
           executionAction={executionAction}
           checkProgress={checkProgress}
           status={status}
           taskId={taskId}
-          isRunning={isRunning || consoleExecution.isRunning}
+          isRunning={isRunning || consoleExecution.isRunning || shared.isRunning}
           hideBusyIndicator={isOpen && submitResult === "no_data"}
           blockedReason={lesson?.revision && webSocketData?.codeSyncState !== "synchronized"
             ? "Синхронизируем редактор…"

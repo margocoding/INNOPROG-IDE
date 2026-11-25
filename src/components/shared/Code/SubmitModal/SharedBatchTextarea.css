@@ -1,0 +1,30 @@
+.shared-batch-textarea {
+  position: relative;
+  isolation: isolate;
+}
+
+.shared-batch-caret-viewport {
+  position: absolute;
+  z-index: 20;
+  box-sizing: border-box;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.shared-batch-caret-mirror {
+  color: transparent;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  min-height: 100%;
+}
+
+.shared-batch-caret {
+  position: absolute;
+  height: 1.15em;
+  border-inline-start: 2px solid;
+}
+
+.shared-batch-native-caret-hidden {
+  caret-color: transparent;
+}

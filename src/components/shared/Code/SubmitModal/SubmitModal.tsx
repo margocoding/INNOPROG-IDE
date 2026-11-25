@@ -13,6 +13,9 @@ import {
 
 import VerdictEmoji from "../VerdictEmoji";
 
+import SharedBatchTextarea, { type BatchCaret } from "./SharedBatchTextarea";
+import type { BatchField } from "../../../../hooks/useSharedRoomConsole";
+
 interface SubmitModalProps {
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -28,6 +31,12 @@ interface SubmitModalProps {
 	setIsInputData: (value: boolean) => void;
 	isOutputData: boolean;
 	setIsOutputData: (value: boolean) => void;
+	batchCollaboration?: {
+    showMarkers: boolean;
+    edit: (field: BatchField, value: string, index: number) => void;
+    moveCursor: (field: BatchField, index: number | null) => void;
+    cursors: (BatchCaret & { field: BatchField })[];
+  };
 	onApply: () => Promise<void>;
 	showNextAction?: boolean;
 	onNext?: () => void;
@@ -48,6 +57,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 	setIsInputData,
 	isOutputData,
 	setIsOutputData,
+	batchCollaboration,
 	onApply,
 	showNextAction = false,
 	onNext,
@@ -55,6 +65,15 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 	const applyingRef = useRef(false);
 	const [applying, setApplying] = useState(false);
 	const applyingData = submitResult === "no_data" && (applying || isRunning);
+
+  const renderBatchField = (field: BatchField, label: string, value: string, onChange: (value: string) => void) =>
+    batchCollaboration
+      ? <SharedBatchTextarea key={field} label={label} value={value}
+          onEdit={(data, index) => batchCollaboration.edit(field, data, index)}
+          onCursor={index => batchCollaboration.moveCursor(field, index)}
+          showMarkers={batchCollaboration.showMarkers}
+          cursors={batchCollaboration.cursors.filter(cursor => cursor.field === field)} />
+      : <Textarea value={value} label={label} onChange={event => onChange(event.target.value)} />;
 
 	const handleConfirm = useCallback(async () => {
 		if (isRunning || applyingRef.current) return;
@@ -179,34 +198,24 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
 									<Switch
 										size="sm"
 										color="secondary"
+										aria-label="Входные данные"
 										isSelected={isInputData}
 										onValueChange={setIsInputData}
 									/>{" "}
 									Входные данные
 								</div>
-								{isInputData && (
-									<Textarea
-										value={inputData}
-										label="Входные данные"
-										onChange={(e) => setInputData(e.target.value)}
-									/>
-								)}
+								{isInputData && renderBatchField("input", "Входные данные", inputData, setInputData)}
 								<div className="text-[15px] flex items-center gap-2">
 									<Switch
 										size="sm"
 										color="secondary"
+										aria-label="Выходные данные"
 										isSelected={isOutputData}
 										onValueChange={setIsOutputData}
 									/>
 									Выходные данные
 								</div>
-								{isOutputData && (
-									<Textarea
-										value={outputData}
-										label="Выходные данные"
-										onChange={(e) => setOutputData(e.target.value)}
-									/>
-								)}{" "}
+								{isOutputData && renderBatchField("output", "Выходные данные", outputData, setOutputData)}{" "}
 							</div>
 							)}
 					</div>

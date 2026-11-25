@@ -1,4 +1,11 @@
 @media (min-width: 768px) {
+  .ide-console-split.flex {
+    display: grid;
+    grid-template-columns: minmax(0, var(--ide-console-editor-share)) auto minmax(0, var(--ide-console-output-share));
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+
   .ide-task-workspace.flex {
     display: grid;
     grid-template-columns: var(--ide-task-width) 0 minmax(0, 1fr);

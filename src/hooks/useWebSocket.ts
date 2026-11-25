@@ -98,7 +98,7 @@ const supportedRoomLanguages = new Set<Language>([
 
 const localRoomPreview = process.env.IDE_LOCAL_ROOM_PREVIEW === "1";
 // Keep both demonstration roles connected when switching between local tabs.
-const roomTabHidden = () => !localRoomPreview && document.hidden;
+
 
 const isSupportedRoomLanguage = (language: unknown): language is Language =>
     typeof language === "string" && supportedRoomLanguages.has(language as Language);
@@ -294,6 +294,11 @@ export const useWebSocket = ({
     } | null>(null);
     const syncSuccessTimeoutRef = useRef<number | null>(null);
     const connectionFailureTimeoutRef = useRef<number | null>(null);
+    const keepRoomConnectedRef = useRef(false);
+    const keepRoomConnected = useCallback((keep: boolean) => {
+        keepRoomConnectedRef.current = keep;
+    }, []);
+    const roomTabHidden = useCallback(() => !localRoomPreview && !keepRoomConnectedRef.current && document.hidden, []);
     const hiddenSuspendTimeoutRef = useRef<number | null>(null);
     const canUploadCodeRef = useRef(false);
     const isTeacherRef = useRef(false);
@@ -1982,7 +1987,7 @@ export const useWebSocket = ({
             selectedText?: string;
             clearSelection?: boolean;
         }) => {
-            if (socketRef.current?.connected && roomIdRef.current && ((!completed && roomPermissions.studentSelectionEnabled) || isTeacher)) {
+            if (socketRef.current?.connected && roomIdRef.current && roomPermissions.studentSelectionEnabled && (!completed || isTeacher)) {
                 const telegramId = getCurrentTelegramId();
                 if (!telegramId) return;
 
@@ -2105,6 +2110,7 @@ export const useWebSocket = ({
 
     return {
         socket: socketRef.current,
+        keepRoomConnected,
         isConnected,
         isJoinedRoom,
         roomMembers,

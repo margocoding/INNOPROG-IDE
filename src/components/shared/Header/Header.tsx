@@ -9,7 +9,7 @@ import React from "react";
 import { toast } from "react-toastify";
 import { isDesktop } from "../../../utils/platform";
 import { RoomPermissions } from "../../../types/room";
-import Settings from "../Room/Settings/Settings";
+import Settings, { type SharedConsoleSetting } from "../Room/Settings/Settings";
 import { RoomMember } from "../../../hooks/useWebSocket";
 import StartFormModal from "../Room/StartFormModal/StartFormModal";
 import "./Header.css";
@@ -18,6 +18,7 @@ interface IProps {
   lightTheme?: boolean;
   mobileNavigation?: React.ReactNode;
   roomLessonControl?: React.ReactNode;
+  sharedConsole?: SharedConsoleSetting;
   onShowRoomPlace?: () => void;
   members?: RoomMember[];
   onEditMember?: (username?: string, telegramId?: string) => void;
@@ -34,6 +35,7 @@ const Header: React.FC<IProps> = ({
   lightTheme = false,
   mobileNavigation,
   roomLessonControl,
+  sharedConsole,
   onShowRoomPlace,
   members,
   onEditMember,
@@ -164,6 +166,7 @@ const Header: React.FC<IProps> = ({
             {roomLessonControl}
             {roomId && roomPermissions && (
             <Settings
+              sharedConsole={sharedConsole}
               isTeacher={isTeacher}
               onCompleteSession={onCompleteSession!}
               onPermissionsChange={onPermissionsChange!}
