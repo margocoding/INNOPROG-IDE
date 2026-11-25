@@ -17,13 +17,18 @@ export default function SharedConsoleIntro({ open, onDismiss }: Props) {
         closeButton: "text-ide-text-secondary hover:text-ide-text-primary",
       }}>
       <ModalContent>
-        <ModalHeader className="flex items-center gap-3 pb-2 text-lg">
+        <ModalHeader className="flex items-center gap-3 pb-2 pr-12">
           <SettingsIcon name="console" />
-          Общая консоль
+          <div className="flex flex-col gap-1">
+            <span aria-hidden="true" className="text-xs font-medium text-ide-text-secondary">
+              Новое в IDE
+            </span>
+            <span className="text-lg">Общая консоль</span>
+          </div>
         </ModalHeader>
         <ModalBody className="gap-2 text-sm leading-6 text-ide-text-secondary">
-          <p>Участники комнаты видят один запуск программы, её ввод и вывод.</p>
-          <p>Общая консоль включена по умолчанию. Выключить её можно в настройках комнаты.</p>
+          <p>Участники комнаты видят общий запуск, ввод и вывод программы</p>
+          <p>Консоль включена по умолчанию, её можно выключить в настройках комнаты</p>
         </ModalBody>
         <ModalFooter>
           <Button autoFocus onPress={onDismiss} className="bg-[#9c78ff] font-semibold text-white">
