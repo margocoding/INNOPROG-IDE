@@ -116,7 +116,7 @@ const OutputSection: React.FC<OutputSectionProps> = ({
 					: { flex: `0 0 ${width}%`, minWidth: 0 }
 			}
 		>
-			<div className={`task-output-inner h-full p-4 ${canCollapse && collapsed ? "md:pt-0" : ""}`}>
+			<div className={`task-output-inner h-full p-4 md:pl-0 ${canCollapse && collapsed ? "md:pt-0" : ""}`}>
 				<div className="task-output-surface flex flex-col h-full bg-ide-editor rounded-lg overflow-hidden">
 					<div className={`bg-ide-secondary px-3 py-2 border-b border-ide-border flex items-center justify-between ${canCollapse ? "md:hidden" : ""}`}>
 						<span className="text-ide-text-secondary text-sm">

@@ -225,6 +225,27 @@ describe("IDE", () => {
     expect(screen.getByText("changed")).toBeInTheDocument();
   });
 
+  it.each([{ ctrlKey: true }, { metaKey: true }])(
+    "runs from the focused editor before its own Enter handler with %j",
+    async (modifier) => {
+      render(<IDE telegramId="123" />);
+      const editor = screen.getByTestId("editor");
+      const editorEnterHandler = jest.fn((event: KeyboardEvent) => {
+        const wasPrevented = event.defaultPrevented;
+        if (!wasPrevented) event.preventDefault();
+        return wasPrevented;
+      });
+      editor.addEventListener("keydown", editorEnterHandler);
+
+      fireEvent.keyDown(editor, { key: "Enter", ...modifier });
+      await waitFor(() => expect(mockHandleRunCode).toHaveBeenCalledTimes(1));
+      expect(editorEnterHandler).toHaveReturnedWith(true);
+
+      fireEvent.keyDown(editor, { key: "Enter", repeat: true, ...modifier });
+      expect(mockHandleRunCode).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it("does not render synchronization notifications", () => {
     window.history.replaceState({}, "", "/?telegramId=123&roomId=room-1");
     render(<IDE telegramId="123" webSocketData={socketData({
