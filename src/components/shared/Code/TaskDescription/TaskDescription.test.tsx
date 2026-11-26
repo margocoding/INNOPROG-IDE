@@ -111,6 +111,38 @@ describe("processTaskDescription", () => {
 		expect(container.textContent).not.toContain("`");
 	});
 
+	it("preserves the HTML wrapper, explicit languages, and literal fenced text", () => {
+		const container = document.createElement("div");
+		const literalHtml = '<script>alert("example")</script> &lt; &amp;';
+		container.innerHTML = processTaskDescription([
+			"<div><p>Перед запуском</p>",
+			"```bash",
+			"docker compose config --quiet",
+			"````",
+			"<p>проверьте `код` завершения</p>",
+			"~~~html",
+			literalHtml,
+			"~~~",
+			"</div>",
+		].join("\r\n"), "python");
+
+		const wrapper = container.firstElementChild;
+		expect(wrapper?.tagName).toBe("DIV");
+		expect(wrapper?.querySelector("pre code.language-bash")?.textContent).toBe("docker compose config --quiet");
+		expect(wrapper?.querySelector("pre code.language-html")?.textContent).toBe(literalHtml);
+		expect(wrapper?.querySelector("p .task-description-inline-code")).toHaveTextContent("код");
+		expect(wrapper?.querySelector("script")).toBeNull();
+	});
+
+	it("preserves literal fence markers in an existing HTML code block", () => {
+		const container = document.createElement("div");
+		const text = "```python\nprint('example')\n```";
+		container.innerHTML = processTaskDescription(`<pre><code>${text}</code></pre>`, "python");
+
+		expect(container.querySelectorAll("pre")).toHaveLength(1);
+		expect(container.querySelector("pre code")?.textContent).toBe(text);
+	});
+
 	it("renders one code block and does not show source line breaks between task paragraphs", () => {
 		const container = document.createElement("div");
 		container.innerHTML = processTaskDescription(

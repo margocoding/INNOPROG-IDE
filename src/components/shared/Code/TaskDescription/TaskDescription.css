@@ -45,6 +45,10 @@
   white-space: pre-wrap;
 }
 
+.task-description-content a {
+  overflow-wrap: anywhere;
+}
+
 .task-description-content br {
   line-height: 1.6;
 }

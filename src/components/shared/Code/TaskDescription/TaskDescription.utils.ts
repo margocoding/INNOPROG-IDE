@@ -374,14 +374,17 @@ const inferCodeLanguage = (code: string): string => {
 	return "text";
 };
 
-const renderCodeBlock = (tokens: DescriptionToken[], defaultLanguage: string): string => {
-	const code = decodeCodeEntities(trimOuterCodeBlockLines(getTokensContent(tokens)));
-	const inferredLanguage = inferCodeLanguage(code);
-	const language = inferredLanguage === "text" ? defaultLanguage : inferredLanguage;
+const renderCodeBlock = (code: string, language: string): string => {
 	const highlightedCode = highlightDescriptionCode(code, language).join("\n");
 	const languageClass = /^[a-z0-9+#-]+$/i.test(language) ? `language-${language}` : "";
 
 	return `<pre class="task-description-code-block description-syntax ${languageClass}"><code class="${languageClass}">${highlightedCode}</code></pre>`;
+};
+
+const renderLegacyCodeBlock = (tokens: DescriptionToken[], defaultLanguage: string): string => {
+	const code = decodeCodeEntities(trimOuterCodeBlockLines(getTokensContent(tokens)));
+	const inferredLanguage = inferCodeLanguage(code);
+	return renderCodeBlock(code, inferredLanguage === "text" ? defaultLanguage : inferredLanguage);
 };
 
 const renderTag = (token: DescriptionTagToken): string => {
@@ -442,10 +445,24 @@ export function removeDuplicateTaskHeading(html: string, title: string): string 
 export const processTaskDescription = (description: string, language = "text"): string => {
 	if (!description) return "";
 
-	let processed = stripInlineIdeFormattingHint(decodeHtmlEntities(description));
+	const source = description.replace(/\r\n?/g, "\n");
+	const codeBlocks = new Map<string, { code: string; language: string }>();
+	const decodedSource = decodeHtmlEntities(source);
+	let placeholder = "InnoprogTaskFence";
+	while (decodedSource.includes(placeholder)) placeholder += "_";
 
-	processed = processed.replace(/\r\n/g, "\n");
-	processed = processed.replace(/\r/g, "\n");
+	// Keep the surrounding HTML balanced while treating fenced code as literal text.
+	const fencedSource = source.replace(
+		/<!--[\s\S]*?-->|<(pre|code)\b[^>]*>[\s\S]*?<\/\1\s*>|^ {0,3}((`|~)\3{2,})(?!\3)([^\n]*)\n([\s\S]*?)^ {0,3}\2\3*[ \t]*(?=\n|$)/gim,
+		(match, protectedTag, fence, _fenceCharacter, info, code) => {
+			if (protectedTag || !fence) return match;
+			const key = `${placeholder}${codeBlocks.size}`;
+			const declaredLanguage = info.trimStart().match(/^[\w+.-]+/)?.[0].toLowerCase();
+			codeBlocks.set(key, { code: code.replace(/\n$/, ""), language: declaredLanguage || language });
+			return `<pre><code>${key}</code></pre>`;
+		},
+	);
+	const processed = stripInlineIdeFormattingHint(decodeHtmlEntities(fencedSource));
 
 	const tokens = tokenizeDescription(processed);
 	markBalancedTags(tokens);
@@ -471,7 +488,11 @@ export const processTaskDescription = (description: string, language = "text"): 
 				&& !code.isClosing && code.shouldRender && typeof code.matchingTagIndex === "number"
 				&& code.matchingTagIndex < end
 				&& tokens.slice(code.matchingTagIndex + 1, end).every(isLayoutWhitespace)) {
-				renderedParts.push(renderCodeBlock(tokens.slice(codeIndex + 1, code.matchingTagIndex), language));
+				const codeTokens = tokens.slice(codeIndex + 1, code.matchingTagIndex);
+				const fenced = codeBlocks.get(getTokensContent(codeTokens));
+				renderedParts.push(fenced
+					? renderCodeBlock(fenced.code, fenced.language)
+					: renderLegacyCodeBlock(codeTokens, language));
 				index = end;
 				continue;
 			}
@@ -488,7 +509,7 @@ export const processTaskDescription = (description: string, language = "text"): 
 			const codeContent = trimOuterCodeBlockLines(getTokensContent(codeTokens));
 
 			if (codeContent.includes("\n")) {
-				renderedParts.push(renderCodeBlock(codeTokens, language));
+				renderedParts.push(renderLegacyCodeBlock(codeTokens, language));
 				index = token.matchingTagIndex;
 				continue;
 			}
