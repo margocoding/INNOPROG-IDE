@@ -106,6 +106,8 @@ const Footer: React.FC<FooterProps> = ({
           onPress={handleButtonClick}
           disabled={busy || Boolean(blockedReason)}
           aria-busy={busy}
+          aria-keyshortcuts={onPrimaryAction ? "Control+Enter Meta+Enter" : undefined}
+          title={onPrimaryAction ? "Ctrl+Enter / ⌘+Enter" : undefined}
           color={isSubmitAction ? "secondary" : "success"}
           className={`ide-footer-primary w-full ${isSubmitAction ? "ide-footer-submit" : "text-white"} ${
             desktopTaskMode ? "md:w-auto" : "lg:w-auto"

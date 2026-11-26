@@ -30,6 +30,7 @@
 @media(max-width:767px){.console-mobile-tabs{align-items:center}.console-mobile-tabs button{height:32px;box-sizing:border-box;padding-block:0;line-height:16px}.console-mobile-tabs button>span{display:block;line-height:16px}.console-mobile-tabs svg{display:block;width:16px;height:16px;align-self:center}}
 
 @media (min-width: 768px) {
+  .console-section:not(.console-section--stacked) { padding-left: 0; }
   .console-section--stacked { display: none; }
   .console-section--stacked.console-section--visible {
     display: block;

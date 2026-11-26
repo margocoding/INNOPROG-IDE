@@ -475,9 +475,14 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     }
   }, [handleRunCode, onOpen, shared.enabled, shared.openBatchForm, task?.answers?.length, taskId]);
 
+  const isRoomLoading = Boolean(
+    roomId && !hasJoinedOnce && showBlockingLoader &&
+    (!webSocketData?.isConnected || !webSocketData?.isJoinedRoom)
+  );
+
   const runPrimaryAction = useCallback(async () => {
     if (
-      primaryActionPendingRef.current ||
+      isRoomLoading || primaryActionPendingRef.current ||
       isRunning || consoleExecution.isRunning || shared.isRunning ||
       (isOpen && !showEmbeddedRejection) || batchForm || shared.showIntro ||
       (lesson?.revision && webSocketData?.codeSyncState !== "synchronized") ||
@@ -528,6 +533,7 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     isOpen,
     batchForm,
     isRunning,
+    isRoomLoading,
     onModalRunCode,
     handleRunCode,
     standaloneEditor,
@@ -543,22 +549,25 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
   useEffect(() => {
     const handleRunShortcut = (event: KeyboardEvent) => {
       const isRunShortcut =
-        (event.ctrlKey || event.metaKey) && event.key === "Enter";
+        event.key === "Enter" && (event.ctrlKey || event.metaKey) &&
+        !event.altKey && !event.shiftKey;
 
-      if (!isRunShortcut || event.repeat || event.defaultPrevented) {
+      if (!isRunShortcut || event.isComposing || event.defaultPrevented ||
+          (isOpen && !showEmbeddedRejection) || batchForm || shared.showIntro) {
         return;
       }
 
       event.preventDefault();
-      void runPrimaryAction();
+      if (!event.repeat) void runPrimaryAction();
     };
 
-    window.addEventListener("keydown", handleRunShortcut);
+    // Handle the shortcut before CodeMirror uses it to insert a blank line.
+    window.addEventListener("keydown", handleRunShortcut, true);
 
     return () => {
-      window.removeEventListener("keydown", handleRunShortcut);
+      window.removeEventListener("keydown", handleRunShortcut, true);
     };
-  }, [runPrimaryAction]);
+  }, [batchForm, isOpen, runPrimaryAction, shared.showIntro, showEmbeddedRejection]);
 
   useEffect(() => {
     if (webSocketData?.language) {
@@ -1069,11 +1078,6 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     <button type="button" aria-label="Код" title="Код" aria-pressed={activeTab === 'editor'} onClick={() => setActiveTab('editor')}><CodeIcon/><span>Код</span></button>
     <button type="button" aria-label={displayConsole.isRunning ? "Консоль, программа выполняется" : "Консоль"} title="Консоль" aria-pressed={activeTab === 'output'} onClick={() => setActiveTab('output')}><TerminalIcon/><span>{displayConsole.isRunning ? 'Выполняется…' : 'Консоль'}</span></button>
   </nav> : undefined;
-
-  const isRoomLoading = Boolean(
-    roomId && !hasJoinedOnce && showBlockingLoader &&
-    (!webSocketData?.isConnected || !webSocketData?.isJoinedRoom)
-  );
 
   return (
     <div
