@@ -136,7 +136,8 @@ const IDE: React.FC<IDEProps> = React.memo(({ webSocketData, telegramId }) => {
     } catch {
       // Use the embedding page's preference when iframe storage is blocked.
     }
-    return "dark";
+    const fromCabinet = searchParams.get("platform") === "app" || searchParams.get("platforma") === "app";
+    return fromCabinet && searchParams.has("task_id") && !searchParams.has("roomId") ? "light" : "dark";
   });
   const lesson = webSocketData?.lesson;
   const lessonTask = lesson?.task;

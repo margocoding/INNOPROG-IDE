@@ -18,7 +18,11 @@
         } catch {
           // Fall back to the theme provided by the task page.
         }
-        document.documentElement.classList.toggle("ide-loading-light", theme === "light");
+        const fromCabinet = params.get("platform") === "app" || params.get("platforma") === "app";
+        const defaultToLight = fromCabinet && params.has("task_id") && !params.has("roomId");
+        document.documentElement.classList.toggle(
+          "ide-loading-light", theme === "light" || (theme !== "dark" && defaultToLight)
+        );
       })();
     </script>
     <meta name="referrer" content="no-referrer" />
