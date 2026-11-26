@@ -3,7 +3,7 @@ import React, { useMemo, useRef, useState } from "react";
 import { isDesktop } from "../../../../utils/platform";
 import { Task } from "../../../../types/task";
 import { formatTaskTitle, getTaskType } from "../../../../utils/taskType";
-import { isLegacyLessonTitle, processTaskDescription } from "./TaskDescription.utils";
+import { isLegacyLessonTitle, processTaskDescription, removeDuplicateTaskHeading } from "./TaskDescription.utils";
 import "./TaskDescription.css";
 import { LazyLessonMarkdown } from "./LazyLessonMarkdown";
 import { type TaskScrollSync, useTaskScrollSync } from "./useTaskScrollSync";
@@ -37,9 +37,13 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 	const description = task?.description;
 	const descriptionLanguage = lesson?.language || task?.editor_language || language;
 	const renderLegacyDescription = Boolean(task && (!lesson || lesson.platformId));
+	const lessonTitle = lesson?.platformId && isLegacyLessonTitle(lesson.title, lesson.description)
+		? lesson.topic?.trim()
+		: lesson?.title;
+	const headline = formatTaskTitle(lesson && !lesson.platformId ? lessonTitle : task?.title || lessonTitle);
 	const legacyHtml = useMemo(() => renderLegacyDescription
-		? { __html: processTaskDescription(description ?? "", descriptionLanguage) }
-		: undefined, [renderLegacyDescription, description, descriptionLanguage]);
+		? { __html: removeDuplicateTaskHeading(processTaskDescription(description ?? "", descriptionLanguage), headline) }
+		: undefined, [renderLegacyDescription, description, descriptionLanguage, headline]);
 	const resizeBounds = () => ({ min: 64, max: Math.max(64, window.innerHeight - 200) });
 	const resizeTo = (nextHeight: number) => {
 		const { min, max } = resizeBounds();
@@ -62,10 +66,6 @@ const TaskDescription: React.FC<TaskDescriptionProps> = ({
 
 	if (!task) return null;
 
-	const lessonTitle = lesson?.platformId && isLegacyLessonTitle(lesson.title, lesson.description)
-		? lesson.topic?.trim()
-		: lesson?.title;
-	const headline = formatTaskTitle(lesson && !lesson.platformId ? lessonTitle : task.title || lessonTitle);
 	const isPasteTask = getTaskType(task) === "paste";
 	const taskAnswer = task.answers?.[0];
 	const teacherTests = showTeacherTests ? task.teacher_tests : undefined;

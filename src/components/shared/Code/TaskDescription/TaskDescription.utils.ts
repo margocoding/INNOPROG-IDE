@@ -424,6 +424,21 @@ const isBlockTag = (token?: DescriptionToken): boolean =>
 const isLayoutWhitespace = (token: DescriptionToken): boolean =>
 	token.type === "text" && /^\s*$/.test(token.content);
 
+export function removeDuplicateTaskHeading(html: string, title: string): string {
+	if (!title || !/^\s*<h[1-6]\b/i.test(html)) return html;
+
+	const template = document.createElement("template");
+	template.innerHTML = html;
+	const heading = template.content.firstElementChild;
+	if (!heading?.matches("h1, h2, h3, h4, h5, h6")) return html;
+
+	const normalize = (text: string) => text.replace(/\s+/g, " ").trim().replace(/\.$/, "");
+	if (normalize(heading.textContent ?? "") !== normalize(title)) return html;
+
+	heading.remove();
+	return template.innerHTML;
+}
+
 export const processTaskDescription = (description: string, language = "text"): string => {
 	if (!description) return "";
 

@@ -215,6 +215,31 @@ describe("TaskDescription component", () => {
 		expect(screen.getByText("Выведите итоговую стоимость.")).toBeInTheDocument();
 	});
 
+	it("shows a title only once when an older condition starts with the same heading", () => {
+		render(<TaskDescription task={{
+			id: 810013,
+			title: "Найдите сумму",
+			description: "<h3>Найдите <strong>сумму</strong>.</h3><p>Сложите два числа.</p><h3>Формат ответа</h3>",
+			answers: [],
+		}} />);
+
+		expect(screen.getAllByRole("heading", { name: /Найдите сумму/ })).toHaveLength(1);
+		expect(screen.getByText("Сложите два числа.")).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: "Формат ответа" })).toBeInTheDocument();
+	});
+
+	it("keeps a different opening heading and headings inside the condition", () => {
+		render(<TaskDescription task={{
+			id: 810014,
+			title: "Проверьте вывод",
+			description: "<h3>Исходные данные</h3><p>Даны две строки.</p><h3>Проверьте вывод</h3>",
+			answers: [],
+		}} />);
+
+		expect(screen.getByRole("heading", { name: "Исходные данные" })).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: "Проверьте вывод", level: 3 })).toBeInTheDocument();
+	});
+
 	it("renders the single public sample input/output and safely resizes", () => {
 		const { container } = render(
 			<TaskDescription
