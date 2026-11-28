@@ -6,6 +6,7 @@ import Cursor from "./components/shared/Room/Cursor/Cursor";
 import IDE from "./components/shared/Code/IDE/IDE";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { postPlatformActivityToParent } from "./utils/parentMessaging";
+import { recordStandaloneIdeVisit } from "./services/api";
 import {
   readRoomSessionBootstrap,
   RoomSessionBootstrap,
@@ -55,8 +56,27 @@ const App = React.memo(() => {
 
   useEffect(() => {
     const events = ["pointerdown", "keydown", "touchstart", "scroll"];
-    events.forEach((name) => window.addEventListener(name, postPlatformActivityToParent, { passive: true }));
-    return () => events.forEach((name) => window.removeEventListener(name, postPlatformActivityToParent));
+    let lastSentAt = 0;
+    const reportActivity = () => {
+      if (document.visibilityState !== "visible") return;
+      if (window.parent !== window) {
+        postPlatformActivityToParent();
+        return;
+      }
+      const now = Date.now();
+      if (now - lastSentAt < 30_000) return;
+      lastSentAt = now;
+      void recordStandaloneIdeVisit().catch(() => {});
+    };
+    events.forEach((name) => window.addEventListener(name, reportActivity, { passive: true }));
+    if (window.parent === window) {
+      document.addEventListener("visibilitychange", reportActivity);
+      reportActivity();
+    }
+    return () => {
+      events.forEach((name) => window.removeEventListener(name, reportActivity));
+      document.removeEventListener("visibilitychange", reportActivity);
+    };
   }, []);
 
   const webSocketParams = useMemo(

@@ -164,6 +164,17 @@ async function restorePlatformSession(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_M
 	return platformSessionPromise;
 }
 
+export async function recordStandaloneIdeVisit(): Promise<void> {
+    const headers = await protectedTaskHeaders(2000);
+    if (!headers.Authorization && !headers["X-Telegram-Init-Data"]) return;
+    const response = await fetchWithTimeout(`${PLATFORM_API_URL}/platform/activity/visit`, {
+        method: "POST", headers, keepalive: true,
+    }, 2000);
+    if (response.status === 401 && headers.Authorization === `Bearer ${platformAccessToken}`) {
+        platformAccessToken = "";
+    }
+}
+
 async function protectedTaskHeaders(bootstrapTimeoutMs = API_REQUEST_TIMEOUT_MS): Promise<Record<string, string>> {
 	if (LOCAL_PREVIEW) return {};
 	const headers: Record<string, string> = {};
